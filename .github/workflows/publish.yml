@@ -32,11 +32,11 @@ jobs:
       - name: Publish stratum-mcp
         env:
           TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_MCP }}
         run: twine upload stratum-mcp/dist/* --skip-existing
 
       - name: Publish stratum-py
         env:
           TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_PY }}
         run: twine upload dist/* --skip-existing

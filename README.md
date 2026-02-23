@@ -232,7 +232,9 @@ cd stratum
 git config core.hooksPath .githooks
 ```
 
-PyPI publishing runs automatically via CI when `pyproject.toml` changes on `main`. Add a `PYPI_API_TOKEN` secret (account-scoped) to the GitHub repo settings once.
+PyPI publishing runs automatically via CI when `pyproject.toml` changes on `main`. Add two project-scoped secrets to the GitHub repo settings:
+- `PYPI_TOKEN_MCP` — token scoped to `stratum-mcp` on PyPI
+- `PYPI_TOKEN_PY` — token scoped to `stratum-py` on PyPI
 
 ---
 
