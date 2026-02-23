@@ -35,6 +35,9 @@ The design rationale — why `@infer` and `@compute` share a type, how structure
 **[Stratum as a Claude Code Execution Runtime](blog/stratum-in-claude-code.md)**
 Claude Code is a capable agent improvising in a loop. This post is about giving it a formal execution model — typed plans, budget enforcement, auditable traces.
 
+**[Building Software with Claude Code + Stratum: A Tutorial](blog/claude-code-tutorial.md)**
+Step-by-step: understanding a codebase, parallel code review, adding features with typed plans, debugging with confirmed/ruled-out diagnosis, refactoring without an intermediate broken state.
+
 **[Stratum as a Codex Execution Runtime](blog/stratum-in-codex.md)**
 Same problem, different surface. Codex operating on a codebase without a formal execution model produces results you can't reason about. Stratum changes that.
 
@@ -124,7 +127,6 @@ async def process_ticket(text: str) -> Resolution:
 | `quorum` | Run N times, require majority agreement |
 | `stratum.debate` | Adversarial multi-agent synthesis with convergence detection |
 | Full observability | Structured trace record on every call, OTLP export built-in |
-| Prompt cache | Anthropic models get `cache_control` injected automatically — system, tool schema, and stable prompt prefix |
 | Two dependencies | `litellm` + `pydantic`. No OTel SDK. |
 
 ---
