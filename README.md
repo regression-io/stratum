@@ -1,5 +1,9 @@
 # Stratum
 
+[![Specification](https://img.shields.io/badge/Specification-SPEC.md-blue)](https://github.com/regression-io/stratum-spec/blob/main/SPEC.md)
+
+The language specification is at **[regression-io/stratum-spec → SPEC.md](https://github.com/regression-io/stratum-spec/blob/main/SPEC.md)**.
+
 A hybrid language where formal structure and LLM inference are co-equal first-class citizens.
 
 ## Core Premise
