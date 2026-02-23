@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stratum"
+version = "0.1.0"
+description = "LLM calls that behave like the rest of your code"
+requires-python = ">=3.11"
+dependencies = ["litellm>=1.0"]
+
+[project.optional-dependencies]
+pydantic = ["pydantic>=2.0"]
+all = ["stratum[pydantic]"]
+
+[project.urls]
+Specification = "https://github.com/regression-io/stratum-spec/blob/main/SPEC.md"
+Repository = "https://github.com/regression-io/stratum"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stratum"]
