@@ -88,6 +88,61 @@ def compile_prompt(
     return "\n".join(parts)
 
 
+def compile_prompt_stable(
+    intent: str,
+    context: list[str],
+    opaque_fields: set[str],
+) -> str:
+    """
+    Return the stable, cacheable prefix of the compiled prompt: intent + context.
+
+    Runs the opaque-field inline-reference check (spec §4.2).
+    Used by the executor to build Anthropic prompt-cache content blocks.
+    """
+    if opaque_fields:
+        from .exceptions import StratumCompileError
+        for text in [intent, *context]:
+            for field_name in opaque_fields:
+                if f"{{{field_name}}}" in text:
+                    raise StratumCompileError(
+                        f"opaque field '{field_name}' must not appear in inline "
+                        "string interpolation (intent or context). "
+                        "Opaque fields are passed as structured attachments only."
+                    )
+    parts = [intent]
+    for ctx in context:
+        if ctx:
+            parts.append(ctx)
+    return "\n".join(parts)
+
+
+def compile_prompt_variable(
+    inputs: dict[str, Any],
+    opaque_fields: set[str],
+    retry_reasons: list[str],
+) -> str:
+    """
+    Return the variable suffix of the compiled prompt: inputs + retry + opaque reference.
+
+    Used by the executor to build the uncached portion of Anthropic content blocks.
+    """
+    parts: list[str] = []
+    non_opaque = {k: v for k, v in inputs.items() if k not in opaque_fields}
+    if non_opaque:
+        parts.append("Inputs:")
+        for key, value in non_opaque.items():
+            parts.append(f"  {key}: {_format_value(value)}")
+    if retry_reasons:
+        parts.append("Previous attempt failed:")
+        for reason in retry_reasons:
+            parts.append(f"  - {reason}")
+        parts.append("Fix these issues specifically.")
+    if opaque_fields:
+        names = ", ".join(sorted(opaque_fields))
+        parts.append(f"See attached data for: {names}")
+    return "\n".join(parts)
+
+
 def prompt_hash(prompt: str) -> str:
     """Return the first 12 hex characters of the SHA-256 of the prompt string."""
     return hashlib.sha256(prompt.encode()).hexdigest()[:12]

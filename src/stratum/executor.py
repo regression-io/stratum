@@ -12,7 +12,13 @@ import litellm
 
 from ._config import get_config
 from .budget import Budget
-from .compiler import build_opaque_attachment, compile_prompt, prompt_hash
+from .compiler import (
+    build_opaque_attachment,
+    compile_prompt,
+    compile_prompt_stable,
+    compile_prompt_variable,
+    prompt_hash,
+)
 from .contracts import (
     get_hash,
     get_opaque_fields,
@@ -272,17 +278,36 @@ async def execute_infer(
             "You are executing a typed function. "
             "Your output must conform to the specified contract."
         )
-        user_content = prompt
 
-        # Attach opaque data
+        # Opaque attachment (variable — depends on inputs)
         attachment = build_opaque_attachment(inputs, opaque_params)
-        if attachment is not None:
-            user_content = user_content + f"\n\nData:\n{json.dumps(attachment)}"
+        opaque_data = f"\n\nData:\n{json.dumps(attachment)}" if attachment is not None else ""
 
-        messages = [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_content},
-        ]
+        if _is_anthropic(model):
+            # Inject prompt cache breakpoints:
+            #   system message  — stable, cached
+            #   tool schema     — stable per function, cached
+            #   user stable     — intent + context, cached
+            #   user variable   — inputs + retry + opaque ref, not cached
+            stable = compile_prompt_stable(spec.intent, spec.context, opaque_params)
+            variable = compile_prompt_variable(inputs, opaque_params, retry_reasons)
+            user_blocks: list[dict] = [
+                {"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}},
+            ]
+            var_text = variable + opaque_data
+            if var_text:
+                user_blocks.append({"type": "text", "text": var_text})
+            messages = [
+                {"role": "system", "content": [
+                    {"type": "text", "text": system_msg, "cache_control": {"type": "ephemeral"}},
+                ]},
+                {"role": "user", "content": user_blocks},
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": prompt + opaque_data},
+            ]
 
         # c. Build tool definition for structured output
         tool = {
@@ -293,6 +318,8 @@ async def execute_infer(
                 "parameters": tool_schema,
             },
         }
+        if _is_anthropic(model):
+            tool["cache_control"] = {"type": "ephemeral"}
 
         # d. LLM call
         timeout_secs = budget.remaining_seconds() if budget is not None else None
@@ -506,6 +533,10 @@ def _write_trace(
         review_id=None,
     )
     record(trace)
+
+
+def _is_anthropic(model: str) -> bool:
+    return _derive_gen_ai_system(model) == "anthropic"
 
 
 def _derive_gen_ai_system(model: str) -> str:

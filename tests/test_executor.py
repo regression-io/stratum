@@ -237,8 +237,10 @@ class TestEnsureViolationRetry:
 
         # Second call should have retry context in user message
         assert len(captured_messages) == 2
-        second_user_msg = next(
-            m["content"] for m in captured_messages[1] if m["role"] == "user"
+        raw = next(m["content"] for m in captured_messages[1] if m["role"] == "user")
+        second_user_msg = (
+            " ".join(b.get("text", "") for b in raw if isinstance(b, dict))
+            if isinstance(raw, list) else raw
         )
         assert "Previous attempt failed" in second_user_msg or "failed" in second_user_msg.lower()
 
@@ -580,3 +582,67 @@ class TestInferDecorator:
                 result = await label_fn(text="good day")
 
         assert result == "positive"
+
+
+# ---------------------------------------------------------------------------
+# Prompt cache injection
+# ---------------------------------------------------------------------------
+
+@contract
+class _CacheOut(BaseModel):
+    value: str
+
+
+class TestPromptCache:
+    @pytest.mark.asyncio
+    async def test_anthropic_model_injects_cache_control(self):
+        """Claude models should get cache_control on system, tool, and user stable block."""
+        clear_traces()
+        captured = {}
+
+        @infer(intent="Test intent", context="some context", model="claude-sonnet-4-6")
+        def fn_claude(text: str) -> _CacheOut: ...
+
+        async def capture(**kwargs):
+            captured["messages"] = kwargs["messages"]
+            captured["tools"] = kwargs["tools"]
+            return _make_response({"value": "ok"})
+
+        with patch("litellm.acompletion", new=capture):
+            with patch("litellm.completion_cost", return_value=0.0):
+                await fn_claude(text="hi")
+
+        # System message should be a content list with cache_control
+        sys_content = captured["messages"][0]["content"]
+        assert isinstance(sys_content, list)
+        assert sys_content[0].get("cache_control") == {"type": "ephemeral"}
+
+        # User message should be a list with at least the stable block cached
+        user_content = captured["messages"][1]["content"]
+        assert isinstance(user_content, list)
+        assert user_content[0].get("cache_control") == {"type": "ephemeral"}
+
+        # Tool should have cache_control at the top level
+        assert captured["tools"][0].get("cache_control") == {"type": "ephemeral"}
+
+    @pytest.mark.asyncio
+    async def test_non_anthropic_model_no_cache_control(self):
+        """Non-Anthropic models should use plain string content — no cache_control."""
+        clear_traces()
+        captured = {}
+
+        @infer(intent="Test", model="gpt-4o")
+        def fn_openai(text: str) -> _CacheOut: ...
+
+        async def capture(**kwargs):
+            captured["messages"] = kwargs["messages"]
+            captured["tools"] = kwargs["tools"]
+            return _make_response({"value": "ok"})
+
+        with patch("litellm.acompletion", new=capture):
+            with patch("litellm.completion_cost", return_value=0.0):
+                await fn_openai(text="hi")
+
+        assert isinstance(captured["messages"][0]["content"], str)
+        assert isinstance(captured["messages"][1]["content"], str)
+        assert "cache_control" not in captured["tools"][0]
