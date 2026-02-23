@@ -251,7 +251,7 @@ This is an alignment model, not a security model. It works because Stratum-align
 The Stratum MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library.
 
 ```bash
-pip install stratum-mcp
+pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
 stratum-mcp setup
 ```
 

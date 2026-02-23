@@ -9,7 +9,7 @@ This tutorial shows what changes when Stratum is running behind it. Every exampl
 ## Setup
 
 ```bash
-pip install stratum-mcp
+pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
 stratum-mcp setup
 ```
 
