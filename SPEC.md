@@ -1,23 +1,80 @@
 # Stratum v1 — Language and Runtime Specification
 
-## Status and Scope
+**Version:** 1.0.0-draft
+**Date:** 2026-02-23
+**Status:** Draft — reference implementation available
+**Repository:** https://github.com/regression-io/stratum
 
-This is the normative specification for Stratum v1. It covers the Python decorator API, type system, execution semantics, concurrency primitives, HITL, budget enforcement, observability, and static analysis rules.
+---
 
-Conformance language follows RFC 2119: MUST, MUST NOT, SHALL, SHOULD, MAY.
+## Table of Contents
 
-**Requires:** Python 3.11+ (`asyncio.TaskGroup`, `asyncio.timeout`)
-**Hard dependency:** `litellm>=1.0`
-**Optional dependency:** `pydantic>=2.0` (enhanced `@contract` validation)
+1. [Type System](#1-type-system)
+   - 1.1 [Primitive Types](#11-primitive-types)
+   - 1.2 [Contract Types](#12-contract-types)
+   - 1.3 [Schema Compilation](#13-schema-compilation)
+   - 1.4 [Content Hash](#14-content-hash)
+   - 1.5 [`opaque[T]`](#15-opaquet)
+   - 1.6 [`Probabilistic[T]`](#16-probabilistict)
+   - 1.7 [`HumanDecision[T]`](#17-humandecisiont)
+   - 1.8 [`HumanReviewContext`](#18-humanreviewcontext)
+2. [Decorators](#2-decorators)
+   - 2.1 [`@contract`](#21-contract)
+   - 2.2 [`@compute`](#22-compute)
+   - 2.3 [`@infer`](#23-infer)
+   - 2.4 [`@refine`](#24-refine)
+   - 2.5 [`@flow`](#25-flow)
+3. [Execution Semantics](#3-execution-semantics)
+   - 3.1 [`@infer` Execution Loop](#31-infer-execution-loop)
+   - 3.2 [Retry Context Injection](#32-retry-context-injection)
+   - 3.3 [`@refine` Execution Loop](#33-refine-execution-loop)
+   - 3.4 [`@flow` Execution](#34-flow-execution)
+4. [Prompt Compiler](#4-prompt-compiler)
+   - 4.1 [Assembly Order](#41-assembly-order)
+   - 4.2 [`opaque[T]` Handling](#42-opaquet-handling)
+   - 4.3 [Compiled Prompt Hash](#43-compiled-prompt-hash)
+5. [Concurrency Primitives](#5-concurrency-primitives)
+   - 5.1 [`stratum.parallel`](#51-stratumparallel)
+   - 5.2 [`quorum` on `@infer`](#52-quorum-on-infer)
+   - 5.3 [`stratum.debate`](#53-stratumdebate)
+   - 5.4 [`stratum.race`](#54-stratumrace)
+6. [HITL](#6-hitl)
+   - 6.1 [`await_human`](#61-await_human)
+   - 6.2 [`ReviewSink` Protocol](#62-reviewsink-protocol)
+   - 6.3 [`ConsoleReviewSink`](#63-consolereviewsink-v1-default)
+7. [Budget](#7-budget)
+   - 7.1 [`Budget`](#71-budget)
+   - 7.2 [Per-Call Enforcement](#72-per-call-enforcement)
+   - 7.3 [Per-Flow Enforcement](#73-per-flow-enforcement)
+   - 7.4 [Inheritance](#74-inheritance)
+8. [Trace Records](#8-trace-records)
+   - 8.1 [Schema](#81-schema)
+   - 8.2 [OTel Export](#82-otel-export)
+   - 8.3 [Caching](#83-caching)
+9. [Static Analysis](#9-static-analysis)
+10. [Error Types](#10-error-types)
+11. [Configuration](#11-configuration)
+12. [Module Structure](#12-module-structure)
+13. [Minimal Complete Example](#13-minimal-complete-example)
+
+---
+
+## Conformance
+
+Conformance language follows [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119): MUST, MUST NOT, SHALL, SHOULD, MAY.
+
+**Runtime requirements:**
+- Python 3.11+ (`asyncio.TaskGroup`, `asyncio.timeout`)
+- `litellm>=1.0` (hard dependency — LLM client substrate)
+- `pydantic>=2.0` (optional — enhanced `@contract` validation and error messages)
 
 **Out of scope for v1:**
 - `.stratum.yaml` IR format (Phase 2)
-- MCP server (Phase 2)
+- MCP server integration (Phase 2)
 - TypeScript library (Phase 2)
-- `@agent`, `spawn`, `supervise`, `delegate`, `stream<T>` (Phase 2)
+- `@agent`, `spawn`, `supervise`, `delegate`, `stream[T]` (Phase 2)
 - `orchestrate`, `adapt`, `reflect` (Phase 3)
-- DSPy prompt optimization, Ray distribution (Phase 3)
-- `@adaptive` with `infer` dispatch predicate (v2 — see open-problems.md)
+- DSPy prompt optimization, Ray distribution substrate (Phase 3)
 
 ---
 
@@ -39,12 +96,12 @@ Conformance language follows RFC 2119: MUST, MUST NOT, SHALL, SHOULD, MAY.
 Constrained primitives via `Annotated`:
 
 ```python
-Annotated[float, Field(ge=0.0, le=1.0)]           # float in [0.0, 1.0] inclusive
-Annotated[int, Field(ge=1, le=100)]                # int in [1, 100]
+Annotated[float, Field(ge=0.0, le=1.0)]            # float in [0.0, 1.0] inclusive
+Annotated[int, Field(ge=1, le=100)]                 # int in [1, 100]
 Annotated[str, Field(min_length=1, max_length=500)] # string of length 1–500
 ```
 
-Constraints are enforced by the runtime validator at output parse time and by the static analyzer against `ensure` expressions.
+Constraints are enforced by the runtime validator at output parse time and checked by the static analyzer against `ensure` expressions.
 
 ### 1.2 Contract Types
 
@@ -58,7 +115,7 @@ class SentimentResult:
     reasoning: str
 ```
 
-**Registration:** `@contract` registers the class in the global contract registry at decoration time. The registry is keyed by class identity.
+**Registration:** `@contract` registers the class in the global contract registry at decoration time, keyed by class identity. Schema and content hash are computed once at registration.
 
 **Pydantic interop:** If the decorated class inherits from `pydantic.BaseModel`, Stratum uses Pydantic's schema generation. Otherwise, Stratum generates JSON Schema from `typing.get_type_hints()` directly. Pydantic is not required.
 
@@ -73,12 +130,12 @@ class Address:
 @contract
 class UserProfile:
     name: str
-    address: Address        # nested — Address must be registered
+    address: Address        # nested — Address must already be registered
     tags: list[str]
     nickname: str | None    # optional
 ```
 
-**Literal unions** compile to `{"enum": [...]}`. The LLM is constrained to one of the declared values via the structured outputs API.
+**Literal unions** compile to `{"enum": [...]}`. The LLM is constrained to the declared values via the structured outputs API.
 
 ### 1.3 Schema Compilation
 
@@ -123,16 +180,31 @@ The hash is:
 ```python
 @contract
 class AgentOutput:
-    summary: str              # interpolated inline into next prompt
+    summary: str              # interpolated inline into the next prompt
     reasoning: opaque[str]   # Annotated[str, _OpaqueMarker()] at runtime
     entities: list[str]
 ```
 
-**Semantics:** Fields annotated `opaque[T]` MUST be passed to the LLM as a structured JSON attachment in the user turn. They MUST NOT appear in prompt instruction text.
+**Semantics:** Fields annotated `opaque[T]` MUST be passed to the LLM as a structured JSON attachment in the user turn. They MUST NOT appear inline in prompt instruction text.
 
-**Enforcement:** The prompt compiler MUST raise `StratumCompileError` if an `opaque[T]` field is detected in an inline string interpolation. This is structural enforcement — not a warning.
+The parameterized query pattern applied to prompt construction: the LLM still receives the data, but its instructions cannot be overwritten by adversarial content in `opaque` fields.
+
+**Enforcement:** The prompt compiler MUST raise `StratumCompileError` if an `opaque[T]` field is detected in an inline string interpolation. This is structural enforcement, not a warning.
 
 **Type transparency:** `opaque[str]` is assignable to `str`. It serializes normally. `_OpaqueMarker` has no effect outside the prompt compiler.
+
+**Python annotation syntax:**
+
+```python
+class opaque:
+    def __class_getitem__(cls, item):
+        return Annotated[item, _OpaqueMarker()]
+
+class _OpaqueMarker:
+    pass
+```
+
+Type checkers treat `opaque[str]` as `str`. The prompt compiler detects `_OpaqueMarker` in annotation metadata.
 
 ### 1.6 `Probabilistic[T]`
 
@@ -141,10 +213,12 @@ Return type for `@infer` functions declared with `stable=False`.
 ```python
 class Probabilistic(Generic[T]):
     def most_likely(self) -> T:
-        """Modal value across samples. In production (single sample), returns that sample. Never raises."""
+        """Modal value across samples. In production (single sample), returns that
+        sample. Never raises."""
 
     def sample(self) -> T:
-        """Random draw from collected samples. In production, returns the single sample."""
+        """Random draw from collected samples. In production, returns the single
+        sample."""
 
     def assert_stable(self, threshold: float = 0.9) -> T:
         """Raises StabilityAssertionError if sample agreement is below threshold.
@@ -154,7 +228,7 @@ class Probabilistic(Generic[T]):
 
 In production, `_samples = [single_output]`. All three methods behave correctly with no sampling overhead.
 
-In test/CI mode (`stratum.configure(test_mode=True)`), the runtime samples `sample_n` times (default 5) and populates `_samples`.
+In test/CI mode (`stratum.configure(test_mode=True)`), the runtime samples `sample_n` times (default: 5) and populates `_samples`.
 
 ### 1.7 `HumanDecision[T]`
 
@@ -184,7 +258,7 @@ class HumanReviewContext:
     artifacts: dict[str, Any] = field(default_factory=dict)
 ```
 
-`artifacts` is untyped in v1. Pass anything the reviewer needs (debate history, retry trace, raw LLM outputs). Typed artifact contracts are v2.
+`artifacts` is untyped in v1 — pass anything the reviewer needs (debate history, retry trace, raw outputs). Typed artifact contracts are v2.
 
 ---
 
@@ -192,24 +266,24 @@ class HumanReviewContext:
 
 ### 2.1 `@contract`
 
-No arguments. Registers a class as a Stratum contract, computes and caches the JSON Schema and content hash at decoration time.
+No arguments. Registers a class as a Stratum contract and computes its JSON Schema and content hash at decoration time.
 
 **Rules:**
 - The decorated class MUST have at least one annotated field
-- Field types MUST be from the supported type set (§1.1–1.2)
+- Field types MUST be from the supported type set (§1.1–§1.2)
 - Circular contract references are a `StratumCompileError`
 
 ### 2.2 `@compute`
 
-No arguments. Marks a function as deterministic. The runtime never routes it to an LLM, may parallelize it safely, and treats it as pure for budget tracking purposes.
+No arguments. Marks a function as deterministic. The runtime never routes it to an LLM, may parallelize it safely, and excludes it from cost tracking.
 
-`@compute` functions with external side effects (DB writes, file I/O) are the developer's responsibility. Purity is not enforced.
+`@compute` functions with external side effects (database writes, file I/O) are the developer's responsibility. Purity is not enforced.
 
 ### 2.3 `@infer`
 
 ```python
 @infer(
-    intent: str,                                    # required
+    intent: str,                                      # required
     context: str | list[str] = [],
     ensure: Callable[[T], bool]
           | list[Callable[[T], bool]] = [],
@@ -217,10 +291,10 @@ No arguments. Marks a function as deterministic. The runtime never routes it to 
          | list[Callable[..., bool]] = [],
     model: str = configured_default,
     temperature: float | None = None,
-    budget: Budget | None = None,                   # inherits flow budget if None
+    budget: Budget | None = None,                     # inherits flow budget if None
     retries: int = 3,
     cache: Literal["none", "session", "global"] = "none",
-    stable: bool = True,                            # False → return Probabilistic[T]
+    stable: bool = True,                              # False → return Probabilistic[T]
     quorum: int | None = None,
     agree_on: str | None = None,
     threshold: int | None = None,
@@ -231,21 +305,21 @@ The decorated function body MUST be `...`. It is never executed.
 
 The return type annotation MUST be a registered `@contract` class or a primitive. Do not annotate `Probabilistic[T]` manually — it is inferred from `stable=False`.
 
-`quorum` requires both `agree_on` and `threshold`. Specifying one without the others is a `StratumCompileError`.
+`quorum` requires both `agree_on` and `threshold`. Specifying `quorum` without either is a `StratumCompileError`.
 
 ### 2.4 `@refine`
 
-Stacked on `@infer`. Adds an outer convergence loop.
+Stacked on `@infer`. Adds an outer convergence loop driven by deterministic expressions.
 
 ```python
 @refine(
     until: Callable[[T], bool],     # convergence signal — MUST be deterministic
-    feedback: Callable[[T], Any],   # failure context injected into next prompt
+    feedback: Callable[[T], Any],   # failure context injected into the next prompt
     max_iterations: int = 5,
 )
 ```
 
-`until` and `feedback` MUST NOT call `@infer` functions. If they do, it is a `StratumCompileError`.
+`until` and `feedback` MUST NOT call `@infer` functions. Doing so is a `StratumCompileError`.
 
 ```python
 @refine(
@@ -269,38 +343,7 @@ def generate_code(spec: Spec) -> Code: ...
 
 Marks an `async def` function as a Stratum flow. The body is normal Python — calls to `@infer`, `@compute`, `stratum.parallel`, `await_human`, etc.
 
-`@flow` functions MUST be `async def`. The runtime tracks cumulative cost and time against the `budget` envelope.
-
-### 2.6 `@adaptive`
-
-```python
-@adaptive(
-    dispatch: Callable[..., bool] | None = None,
-)
-```
-
-Registers a function with two implementations: a `compute` path and an `infer` path. At call time, the runtime evaluates `dispatch(**inputs)` to select which path to execute.
-
-**Dispatch resolution:**
-- If `dispatch` returns `True` → `compute` path runs
-- If `dispatch` returns `False` → `infer` path runs
-- If `dispatch` is `None` → `compute` path runs first; on `Unhandled`, falls through to `infer`
-
-`dispatch` MUST be a deterministic callable (plain function or lambda). `infer` as a dispatch predicate is a `StratumCompileError` in v1.
-
-**`ensure` semantics:** Any `ensure` conditions on the `@infer` path are evaluated against the output regardless of which path ran. Both paths share the same return contract.
-
-**Return type:** Same as both inner implementations. Both MUST declare identical return type annotations or it is a `StratumCompileError`.
-
-**Trace additions:**
-```python
-# Added to TraceRecord when invoked via @adaptive
-dispatch_type: Literal["lambda", "compute"]
-dispatch_result: bool
-path_taken: Literal["compute", "infer"]
-```
-
-**`Unhandled`:** A sentinel exception raised by the `compute` path to signal it cannot handle the input and fall through to `infer`. Only valid when `dispatch=None`. Raising `Unhandled` from the `compute` path when `dispatch` is provided is a runtime error.
+`@flow` functions MUST be `async def`. The runtime tracks cumulative cost and time against the `budget` envelope across all `@infer` calls within the flow.
 
 ---
 
@@ -343,7 +386,7 @@ call infer_function(**inputs)
 
 ### 3.2 Retry Context Injection
 
-On each failed attempt, only the specific violations are injected — not the full prompt:
+On each failed attempt, only the specific violations are injected — not a replay of the full prompt:
 
 ```
 Previous attempt failed:
@@ -369,22 +412,22 @@ loop (iteration in range(1, max_iterations + 1)):
   │
   └─ inject into next iteration prompt:
          "Previous output had the following issues: [feedback(result)]
-          Fix these issues and regenerate."
+          Fix these and regenerate."
 
 max_iterations exceeded → raise ConvergenceFailure(history)
 ```
 
-`until` and `feedback` are called in the host process. They are never sent to the LLM.
+`until` and `feedback` execute in the host process and are never sent to the LLM.
 
 ### 3.4 `@flow` Execution
 
-A `@flow` function is a normal async Python function. Each `@infer` call within it invokes the full `@infer` execution loop. The flow tracks cumulative cost and time against its `budget` envelope. When the envelope is exhausted, the next `@infer` call raises `BudgetExceeded` before the LLM is invoked.
+A `@flow` function is a normal async Python function. Each `@infer` call within it invokes the full `@infer` execution loop. The flow tracks cumulative cost and time against its `budget` envelope. When exhausted, the next `@infer` call raises `BudgetExceeded` before the LLM is invoked.
 
 ---
 
 ## 4. Prompt Compiler
 
-The prompt compiler assembles the string sent to the LLM for each `@infer` invocation. Output is deterministic — the same inputs produce the same prompt.
+The prompt compiler assembles the string sent to the LLM for each `@infer` invocation. Assembly is deterministic — identical inputs produce identical prompts.
 
 ### 4.1 Assembly Order
 
@@ -404,23 +447,23 @@ The prompt compiler assembles the string sent to the LLM for each `@infer` invoc
       - {violation_message}
     Fix these issues specifically."
 
-[5. opaque data reference — only when opaque fields are present]
+[5. opaque data reference — only when opaque[T] fields are present]
     Instruction text: "See attached data for: {comma-separated field names}"
     Structured JSON attachment (separate from instruction text):
       {"field_name": value, ...}
 ```
 
-The output schema is NOT included in the prompt text. It is enforced via the structured outputs API (or constrained decoding backend for self-hosted models). The LLM does not need schema instructions — generation is constrained at the token level.
+The output schema is NOT included in the prompt text. It is enforced via the structured outputs API (or a constrained decoding backend for self-hosted models). The LLM does not need schema instructions — generation is constrained at the token level.
 
 ### 4.2 `opaque[T]` Handling
 
-Fields with `_OpaqueMarker` in their `Annotated` metadata MUST be excluded from section 3 above and placed in the structured JSON attachment of section 5.
+Fields with `_OpaqueMarker` in their `Annotated` metadata MUST be excluded from section 3 of the assembly and placed in the structured JSON attachment of section 5.
 
 The prompt compiler MUST raise `StratumCompileError` if an `opaque[T]` field appears in an inline string interpolation anywhere in the compilation pipeline.
 
 ### 4.3 Compiled Prompt Hash
 
-After assembly, the compiler computes a SHA-256 hash (12 hex chars) of the assembled prompt string. Embedded in the trace record as `compiled_prompt_hash`. Distinct from the contract hash — captures the full compiled text including intent and context.
+After assembly, the compiler computes SHA-256 of the assembled prompt string (12 hex chars). This is embedded in the trace record as `compiled_prompt_hash`. It is distinct from the contract hash — it captures the full compiled text including intent and context.
 
 ---
 
@@ -447,7 +490,7 @@ All coroutines are submitted to `asyncio.TaskGroup` concurrently.
 
 `validate` — if provided, called with collected results after `require` is satisfied. Returns `False` → raises `ParallelValidationFailed`.
 
-**Isolation:** Variables defined before the `parallel` call are readable by all branches. Mutation inside a branch is the developer's responsibility in v1. Compiler enforcement is v2.
+**Isolation:** Variables defined before the `stratum.parallel` call are readable by all branches. Mutation inside a branch is the developer's responsibility in v1. Compiler enforcement is v2.
 
 ### 5.2 `quorum` on `@infer`
 
@@ -475,7 +518,7 @@ result = await stratum.debate(
 
 1. All `agents` are invoked concurrently with `topic`. Each returns a typed `Argument`.
 2. For `rounds - 1` additional rounds: each agent is invoked with `topic` and all other agents' previous arguments (rebuttal round).
-3. After all rounds, the runtime computes `converged: bool` from round-over-round semantic similarity (field-level hash comparison on the `agree_on` field if declared, otherwise full output comparison).
+3. After all rounds, the runtime computes `converged: bool` from round-over-round semantic similarity (field-level hash comparison on the `agree_on` field if declared, otherwise full output hash comparison).
 4. `synthesize` is called with `(topic, full_argument_history, converged)` and returns the final typed result.
 
 The synthesizer's return contract SHOULD include `resolution_type: Literal["consensus", "disagreement", "partial"]`. When `converged=False` and `resolution_type="disagreement"`, the caller SHOULD route to `await_human`.
@@ -511,10 +554,11 @@ decision = await await_human(
 3. `await sink.emit(review)` — emits to the configured `ReviewSink`
 4. Park the calling coroutine on `asyncio.Future`
 5. If `timeout` is set, schedule cancellation via `asyncio.timeout(timeout.total_seconds())`
-6. When `sink.resolve(decision)` is called externally, validate `decision.value` against `decision_type`, resolve the `Future`
+6. When `sink.resolve(decision)` is called, validate `decision.value` against `decision_type`, resolve the `Future`
 7. Return `HumanDecision[T]`
 
 **Timeout semantics:**
+
 - `on_timeout="raise"` → raises `HITLTimeoutError(review_id=review_id)`
 - `on_timeout=fallback_value` → returns `HumanDecision(value=fallback_value, reviewer="auto", rationale="timeout", decided_at=now, review_id=review_id)`
 
@@ -562,7 +606,7 @@ class ConsoleReviewSink:
     def _parse(self, raw: str, review: PendingReview) -> Any:
         if review.options:
             return review.options[int(raw.strip())]  # index selection
-        return raw.strip()  # freeform string; cast to decision_type at resolve
+        return raw.strip()                            # freeform; cast at resolve
 ```
 
 `input()` is wrapped in `run_in_executor` to avoid blocking the event loop.
@@ -628,7 +672,7 @@ Optional. Configure via:
 stratum.configure(tracer=stratum.exporters.otel(endpoint="http://localhost:4317"))
 ```
 
-Span attributes conform to OpenTelemetry Semantic Conventions for AI:
+Span attributes conform to [OpenTelemetry Semantic Conventions for AI](https://opentelemetry.io/docs/specs/semconv/gen-ai/):
 
 ```python
 {
@@ -648,7 +692,7 @@ Span attributes conform to OpenTelemetry Semantic Conventions for AI:
 
 Each retry is a span event with structured failure reason. `@flow` is the root span. Each `@infer` is a child span. `stratum.parallel` branches are concurrent child spans.
 
-The built-in emitter (`stratum/exporters/otlp.py`) POSTs HTTP/JSON to any OTLP endpoint. No `opentelemetry-sdk` dependency.
+The built-in emitter (`stratum/exporters/otlp.py`) POSTs HTTP/JSON to any OTLP endpoint. No `opentelemetry-sdk` dependency required.
 
 ### 8.3 Caching
 
@@ -660,7 +704,7 @@ cache: Literal["none", "session", "global"] = "none"
 |---|---|---|
 | `"none"` | — | No caching |
 | `"session"` | `hash(inputs)` | Single `@flow` execution |
-| `"global"` | `hash(inputs) + contract_hash` | Persistent (in-memory; external store is v2) |
+| `"global"` | `hash(inputs) + contract_hash` | Persistent (in-memory in v1; external store is v2) |
 
 Cached results still pass through `ensure` validation. Cache is invalidated automatically when `contract_hash` changes.
 
@@ -676,12 +720,12 @@ The following are `StratumCompileError` (raised at decoration time, or at first 
 - `opaque[T]` field detected in an inline string interpolation
 - `@refine.until` or `@refine.feedback` call an `@infer` function
 - `@contract` class contains a circular reference
-- `quorum` specified without `agree_on` or without `threshold`
+- `quorum` specified without `agree_on` or `threshold`
 
 The following are `StratumWarning`:
 
 - `stable=True` on an `@infer` function that has not been sampled in test mode
-- `cache="global"` without a configured persistent store (in-memory fallback is used)
+- `cache="global"` without a configured persistent store (in-memory fallback used)
 
 ---
 
@@ -711,7 +755,7 @@ stratum.configure(
     tracer: OTLPEmitter | None = None,        # None = no export
     default_model: str = "claude-sonnet-4-6",
     test_mode: bool = False,                  # enables sampling for Probabilistic[T]
-    sample_n: int = 5,                        # samples per infer call in test mode
+    sample_n: int = 5,                        # samples per @infer call in test mode
 )
 ```
 
@@ -733,17 +777,17 @@ result = stratum.run(classify_sentiment(text))
 ```
 stratum/
 ├── __init__.py          # public API: contract, infer, compute, flow, refine,
-│                        #   adaptive, Unhandled, Budget, opaque, Probabilistic,
-│                        #   HumanDecision, HumanReviewContext, await_human,
-│                        #   parallel, debate, race, configure, run
-├── decorators.py        # @infer, @compute, @flow, @contract, @refine, @adaptive
-├── executor.py          # infer execution loop
+│                        #   Budget, opaque, Probabilistic, HumanDecision,
+│                        #   HumanReviewContext, await_human, parallel, debate,
+│                        #   race, configure, run
+├── decorators.py        # @infer, @compute, @flow, @contract, @refine
+├── executor.py          # @infer execution loop
 ├── compiler.py          # prompt compiler: assembly, opaque handling, hash
 ├── contracts.py         # contract registry, JSON Schema compilation, content hash,
-│                        #   opaque[T] class
+│                        #   opaque[T] class and _OpaqueMarker
 ├── budget.py            # Budget dataclass, enforcement
 ├── hitl.py              # await_human, HumanDecision, HumanReviewContext,
-│                        #   ReviewSink, ConsoleReviewSink, PendingReview
+│                        #   ReviewSink protocol, ConsoleReviewSink, PendingReview
 ├── concurrency.py       # stratum.parallel, stratum.debate, stratum.race
 ├── trace.py             # TraceRecord, in-memory store
 └── exporters/

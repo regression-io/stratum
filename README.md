@@ -1,202 +1,141 @@
 # Stratum
 
-[![Specification](https://img.shields.io/badge/Specification-SPEC.md-blue)](https://github.com/regression-io/stratum-spec/blob/main/SPEC.md)
+[![Specification](https://img.shields.io/badge/Specification-SPEC.md-blue)](SPEC.md)
+[![PyPI](https://img.shields.io/badge/PyPI-stratum-orange)](https://pypi.org/project/stratum/)
 
-The language specification is at **[regression-io/stratum-spec → SPEC.md](https://github.com/regression-io/stratum-spec/blob/main/SPEC.md)**.
+**Stop babysitting your LLM calls.**
 
-A hybrid language where formal structure and LLM inference are co-equal first-class citizens.
-
-## Core Premise
-
-The optimal combination of structured programming and LLM is not a split language — it's a single language where **formal contracts bound the space within which LLM inference operates**. The formal layer doesn't replace LLM reasoning. It constrains, validates, and retries it.
-
-The primary value is **correctness and determinism**: typed inter-step contracts, machine-checked postconditions, structured retry on failure, and orchestration flows whose shape is known before any LLM call runs. Token efficiency is a real benefit that compounds at scale — it's a v2 optimization layer, not the adoption driver.
-
-```
-┌─────────────────────────────────────────┐
-│            Formal Contract Layer        │  ← types, schemas, invariants, I/O
-│  ┌─────────────────────────────────┐    │
-│  │        Intent Layer             │    │  ← natural language goals
-│  │  ┌───────────────────────┐      │    │
-│  │  │   LLM Inference Zone  │      │    │  ← generation within the envelope
-│  │  └───────────────────────┘      │    │
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
-```
-
-## What This Is Not
-
-- Not a prompt templating system (Jinja, Handlebars)
-- Not a framework for calling LLMs from code (LangChain, LlamaIndex)
-- Not a constrained generation system (Guidance, LMQL)
-- Not a purely formal language with LLM bolted on
-
-## What This Is
-
-A language where:
-
-- `compute` blocks execute deterministically (compiled/interpreted as normal code)
-- `infer` blocks execute via LLM inference, but produce **typed, contract-validated results**
-- Both compose identically — callers are type-safe regardless of implementation mode
-- Orchestration (`flow`) is always deterministic even when individual steps use LLM
-- Pre/postconditions are executable and drive structured retry on failure
-- Non-determinism is explicit in the type system: `stable=True` returns `T`; `stable=False` returns `Probabilistic[T]` and forces callers to handle variance
-- Every contract carries a content hash in trace records — behavioral drift across deployments is detectable, not silent
-
-## Authoring Surfaces
-
-Developers don't write Stratum syntax directly. There are three ways in:
-
-**1. Python library** — the primary authoring surface for professional developers:
+Stratum is a Python library where `@infer` (LLM calls) and `@compute` (normal functions) compose identically. Typed contracts flow between steps. The runtime handles retry, budget enforcement, and observability — so you don't have to wire them up yourself.
 
 ```python
 @contract
 class SentimentResult(BaseModel):
     label: Literal["positive", "negative", "neutral"]
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float
     reasoning: str
 
 @infer(
     intent="Classify the emotional tone of customer feedback",
-    context="Sarcasm → negative. Ambiguous → neutral.",
     ensure=lambda r: r.confidence > 0.7,
     budget=Budget(ms=500, usd=0.001),
-    retries=3
+    retries=3,
 )
 def classify_sentiment(text: str) -> SentimentResult: ...
-
-@flow
-def process_ticket(ticket: SupportTicket) -> Resolution:
-    sentiment = classify_sentiment(ticket.body)
-    response  = draft_response(ticket, sentiment)
-    return response if rule_check(response) else escalate(ticket)
 ```
 
-All `@infer` wrappers are async regardless of how the original function is declared — the body is a stub and never called. `@compute` is returned unchanged.
+If the LLM returns low confidence, it gets told exactly what failed and retries with that context — not a blank replay. If it hits the budget, it stops. Every call produces a structured trace record you can query.
 
-| Decorator | What you write | What you get back |
-|---|---|---|
-| `@infer` | `def` or `async def` | always `async def` |
-| `@compute` | `def` | `def` (unchanged) |
-| `@compute` | `async def` | `async def` (unchanged) |
-| `@flow()` | `async def` | `async def` |
-| `@refine` | stacked on `@infer` | `async def` |
+---
 
-**2. Claude Code + MCP** — the surface for vibe coders:
+## Blog
 
-The vibe coder never sees contracts, step types, or YAML. They see:
+**[Introducing Stratum: LLM Calls That Behave Like the Rest of Your Code](blog/introducing-stratum.md)**
+The design rationale — why `@infer` and `@compute` share a type, how structured retry works, and what contracts actually buy you.
 
-```
-Claude: "I'll analyze the sentiment of each review, draft a response for
-         negative ones, and flag anything below 70% confidence for your
-         review. Estimated cost: ~$0.02. Proceed?"
+**[Stratum as a Claude Code Execution Runtime](blog/stratum-in-claude-code.md)**
+Claude Code is a capable agent improvising in a loop. This post is about giving it a formal execution model — typed plans, budget enforcement, auditable traces.
 
-User:   "yes"
+**[Stratum as a Codex Execution Runtime](blog/stratum-in-codex.md)**
+Same problem, different surface. Codex operating on a codebase without a formal execution model produces results you can't reason about. Stratum changes that.
 
-Claude: "Done. 847 reviews processed, 134 flagged, $0.019, 2 retries
-         (resolved automatically)."
-```
+---
 
-The `.stratum` IR is generated, validated, and executed entirely behind the scenes. When the output is persistent code, Claude generates `@infer`-annotated Python using the stratum library — the vibe coder gets professionally structured LLM code without knowing what `@infer` means.
+## Why
 
-**The flywheel**: vibe coder gets better output → their codebase contains `@infer`-annotated code → professional developer inherits or reviews it → encounters the library → adopts it directly.
+LLM calls in production share a few recurring failure modes:
 
-**3. TypeScript library** — same design. Zod for contracts, Anthropic TypeScript SDK for LLM calls. Vercel AI SDK is an integration target for Next.js users, not the substrate.
+- **Retry is brute force.** Most frameworks replay the full prompt on failure. Stratum injects only the specific postcondition that failed.
+- **Budget is an afterthought.** Soft hints don't stop a runaway `refine` loop. Stratum enforces hard limits — `BudgetExceeded` is an exception, not a bill.
+- **Flows are opaque.** When a multi-step pipeline fails, you want to know which step, with what input, after how many retries, at what cost. Stratum traces every call structurally.
+- **LLM steps and regular functions don't compose.** Stratum makes `@infer` and `@compute` indistinguishable by type — swap one for the other and nothing downstream changes.
+- **Agent outputs can hijack downstream agents.** `opaque[T]` fields are passed as structured data, never inlined into instruction text.
+- **Human-in-the-loop is a custom build every time.** `await_human` genuinely suspends execution and returns a typed `HumanDecision[T]`.
 
-## The IR
+---
 
-The `.stratum.yaml` format is what the libraries and Claude emit — not what developers write. It's the interchange format between authoring surfaces and the runtime, the same way LLVM IR sits between source languages and machine code.
+## Core Concepts
 
-```yaml
-# generated — not hand-authored
-functions:
-  classifySentiment:
-    mode: infer
-    intent: "Classify the emotional tone of customer feedback"
-    input: { text: string }
-    output: SentimentResult
-    ensure: ["result.confidence > 0.7"]
-    budget: { ms: 500, usd: 0.001 }
-    retries: 3
+### `@infer` and `@compute` are the same type
+
+```python
+# Phase 1: LLM classifies tickets
+@infer(intent="Route this support ticket", model="groq/llama-3.3-70b-versatile")
+def route_ticket(text: str) -> TicketRoute: ...
+
+# Phase 2: patterns emerged — swap to rules, zero other changes
+@compute
+async def route_ticket(text: str) -> TicketRoute:
+    return TicketRoute(team=keyword_match(text), ...)
 ```
 
-## Conceptual Model
+These have identical signatures. The `@flow` that calls `route_ticket` doesn't change. This means:
 
-The semantic distinction that the IR captures — and that authoring surfaces make explicit:
+- **Testing:** Replace `@infer` calls with `@compute` stubs for deterministic tests.
+- **Migration:** Start with LLM, replace with rules as patterns emerge. No downstream changes.
+- **Cost control:** Swap expensive inference for fast lookup when coverage allows.
 
-```stratum
-contract SentimentResult {
-  label: "positive" | "negative" | "neutral"
-  confidence: float[0.0..1.0]
-  reasoning: string
-}
+### Contracts are typed boundaries
 
-infer classifySentiment(text: string) -> SentimentResult {
-  ensure: result.confidence > 0.7
-  context: "Sarcasm → negative. Ambiguous → neutral."
-}
-
-flow processDocuments(docs: Document[]) -> Report {
-  parallel require: any, validate: compute sufficientCoverage(results) {
-    let analyses = docs.map(doc => spawn Analyst.review(doc))
-  }
-  debate {
-    agents: [infer ArgueFor(analyses), infer ArgueAgainst(analyses)]
-    rounds: 2
-    synthesize: infer synthesize(analyses, arguments, converged) -> Report
-  }
-}
+```python
+@contract
+class SentimentResult(BaseModel):
+    label: Literal["positive", "negative", "neutral"]
+    confidence: Annotated[float, Field(ge=0.0, le=1.0)]
+    reasoning: str
 ```
 
-When `converged: false` and the debate doesn't resolve, the flow escalates to a human rather than synthesizing a forced middle ground.
+A `@contract` class compiles to JSON Schema injected into the structured outputs API. The LLM's output is validated against it before your code sees it. Every contract carries a content hash — a hash change means the compiled prompt changed and LLM behavior may have drifted.
 
-This notation describes the semantics. The Python and TypeScript libraries are how those semantics are authored in practice.
+### Retry is structured
 
-## Two Deployment Contexts
+On failure the LLM receives:
 
-Stratum has two distinct deployment contexts with different users, constraints, and docs.
+```
+Previous attempt failed:
+  - ensure condition 1 failed
+Fix these issues specifically.
+```
 
-**Track 1 — Python library** (`pip install stratum`): a professional developer uses `@infer`, `@contract`, `@flow` directly in their code. No enforcement gap. No MCP. No Claude Code. The library always goes through the Stratum runtime because the developer opted in by using it.
+Not a full prompt replay. The specific violation, nothing else.
 
-**Track 2 — Claude Code integration**: an operator configures Claude Code to use Stratum as its execution runtime via an MCP server. Two distinct audiences:
+### Flows are deterministic
 
-- **Professional developers** — review typed execution plans, understand the step graph, tune contracts. The MCP enforces what the library would have enforced if they'd written the code themselves.
-- **Vibe coders** — prompt Claude Code to build things. The IR is invisible. They see plain-language plans, approve them, and get reliable results (and, when the output is code, `@infer`-annotated Python they can keep).
+```python
+@flow(budget=Budget(ms=5000, usd=0.01))
+async def process_ticket(text: str) -> Resolution:
+    sentiment = await classify_sentiment(text=text)
+    response  = await draft_response(text=text, sentiment=sentiment)
+    return response if rule_check(response) else escalate(text)
+```
 
-The enforcement gap is real in Track 2 — Claude Code is an AI agent that can route around constraints. Different machinery required.
+`@flow` is normal Python control flow. You can read it, test it, and trace it. The orchestration shape is known before any LLM call runs.
 
-## Integrations
+---
 
-### Python v1 — one required dependency
+## Features
 
-| Dependency | Role |
+| Feature | Description |
 |---|---|
-| `litellm` | LLM client — multi-model routing, fallback, cost tracking |
-| Python 3.11+ stdlib | Concurrency — `asyncio.TaskGroup`, `asyncio.timeout` |
-
-Required: `pydantic>=2.0` (`@contract` requires `BaseModel`).
-
-Trace export to any OTLP-compatible backend (Jaeger, Honeycomb, Datadog, Langfuse) via a built-in OTLP emitter — no OTel SDK dependency. Configure an endpoint and Stratum POSTs spans over HTTP/JSON.
-
-### TypeScript v1
-
-| Dependency | Role |
-|---|---|
-| `zod` | `@contract` schemas + TypeScript type inference |
-| `@anthropic-ai/sdk` | LLM calls — direct, minimal, stable |
-
-Multi-provider path: LiteLLM's OpenAI-compatible endpoint + `openai` TypeScript SDK.
+| Structured retry | `ensure` postconditions drive retry with targeted failure feedback |
+| Hard budget limits | Per-call and per-flow — `BudgetExceeded`, not a soft hint |
+| `opaque[T]` | Field-level prompt injection protection |
+| `await_human` | HITL as a first-class typed primitive — genuine suspension |
+| `stratum.parallel` | Concurrent execution with `require: all/any/N/0` semantics |
+| `quorum` | Run N times, require majority agreement |
+| `stratum.debate` | Adversarial multi-agent synthesis with convergence detection |
+| Full observability | Structured trace record on every call, OTLP export built-in |
+| Two dependencies | `litellm` + `pydantic`. No OTel SDK. |
 
 ---
 
 ## Examples
 
-Working examples are in [`examples/`](examples/):
+Working examples in [`examples/`](examples/):
 
 | File | What it shows |
 |---|---|
 | [`01_sentiment.py`](examples/01_sentiment.py) | `@infer` + `@contract` + `@flow` + `@compute` end-to-end |
-| [`02_migrate.py`](examples/02_migrate.py) | Migrating an `@infer` step to `@compute` without changing callers |
+| [`02_migrate.py`](examples/02_migrate.py) | Migrating `@infer` → `@compute` without changing callers |
 | [`03_parallel.py`](examples/03_parallel.py) | Three concurrent `@infer` calls with `parallel(require="all")` |
 | [`04_refine.py`](examples/04_refine.py) | `@refine` convergence loop — iterates until quality passes |
 | [`05_debate.py`](examples/05_debate.py) | `debate()` — two agents argue, synthesizer resolves |
@@ -204,6 +143,30 @@ Working examples are in [`examples/`](examples/):
 
 ---
 
+## Install
+
+```bash
+pip install stratum
+```
+
+Requires Python 3.11+. Set the `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any other key LiteLLM supports, then specify it in `model=`.
+
+---
+
+## Specification
+
+[`SPEC.md`](SPEC.md) is the normative specification covering the full type system, decorator signatures, execution loop, prompt compiler, concurrency semantics, HITL protocol, budget rules, trace record schema, and error types.
+
+---
+
 ## Status
 
-Track 1 (Python library) is implemented and tested. Docs reflect the implemented design.
+Track 1 (Python library) is implemented and tested. [`SPEC.md`](SPEC.md) reflects the implemented design.
+
+Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions)
+
+---
+
+## License
+
+[Apache 2.0](LICENSE)
