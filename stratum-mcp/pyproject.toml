@@ -12,7 +12,7 @@ dependencies = [
 stratum-mcp = "stratum_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
-include = ["src/stratum_mcp"]
+packages = ["src/stratum_mcp"]
 
 [build-system]
 requires = ["hatchling"]
