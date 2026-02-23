@@ -72,6 +72,16 @@ def process_ticket(ticket: SupportTicket) -> Resolution:
     return response if rule_check(response) else escalate(ticket)
 ```
 
+All `@infer` wrappers are async regardless of how the original function is declared — the body is a stub and never called. `@compute` is returned unchanged.
+
+| Decorator | What you write | What you get back |
+|---|---|---|
+| `@infer` | `def` or `async def` | always `async def` |
+| `@compute` | `def` | `def` (unchanged) |
+| `@compute` | `async def` | `async def` (unchanged) |
+| `@flow()` | `async def` | `async def` |
+| `@refine` | stacked on `@infer` | `async def` |
+
 **2. Claude Code + MCP** — the surface for vibe coders:
 
 The vibe coder never sees contracts, step types, or YAML. They see:
