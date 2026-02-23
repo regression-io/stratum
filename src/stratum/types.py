@@ -10,6 +10,18 @@ from typing import Any, Generic, TypeVar
 T = TypeVar("T")
 
 
+@dataclass
+class Success(Generic[T]):
+    """Wraps a successful result from parallel(require=0)."""
+    value: T
+
+
+@dataclass
+class Failure:
+    """Wraps a failed result from parallel(require=0)."""
+    exception: Exception
+
+
 class Probabilistic(Generic[T]):
     """
     Return type for @infer functions declared with stable=False.

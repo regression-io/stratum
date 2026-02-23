@@ -8,6 +8,7 @@ Configure via: stratum.configure(tracer=stratum.exporters.otel(endpoint="..."))
 from __future__ import annotations
 
 import json
+import secrets
 import time
 import threading
 from typing import Any
@@ -66,7 +67,7 @@ def otel(
 def _build_otlp_body(
     span_attrs: dict[str, Any],
     service_name: str,
-    start_time_unix_nano: int,
+    now_ns: int,
 ) -> dict:
     """
     Build a minimal OTLP HTTP/JSON trace body with a single span.
@@ -83,6 +84,21 @@ def _build_otlp_body(
     # Derive span name from stratum.function if present
     span_name = span_attrs.get("stratum.function", "stratum.infer")
 
+    # Derive start time from duration_ms so spans have correct duration
+    duration_ms = span_attrs.get("stratum.duration_ms")
+    if duration_ms is not None:
+        start_time_unix_nano = now_ns - int(duration_ms * 1_000_000)
+    else:
+        start_time_unix_nano = now_ns
+    end_time_unix_nano = now_ns
+
+    # Use flow_id as traceId so all @infer spans within a @flow share the same
+    # trace and appear together in OTLP backends. flow_id is a UUID4 — strip
+    # hyphens to get the 32-hex-char format OTLP requires. Fall back to a
+    # fresh random ID for @infer calls made outside a @flow.
+    flow_id: str | None = span_attrs.get("stratum.flow_id")
+    trace_id = flow_id.replace("-", "") if flow_id else secrets.token_hex(16)
+
     body = {
         "resourceSpans": [
             {
@@ -97,12 +113,12 @@ def _build_otlp_body(
                         },
                         "spans": [
                             {
-                                "traceId": _zero_id(32),
-                                "spanId": _zero_id(16),
+                                "traceId": trace_id,
+                                "spanId": secrets.token_hex(8),     # 64-bit random, unique per span
                                 "name": span_name,
                                 "kind": 3,  # CLIENT
                                 "startTimeUnixNano": str(start_time_unix_nano),
-                                "endTimeUnixNano": str(start_time_unix_nano),
+                                "endTimeUnixNano": str(end_time_unix_nano),
                                 "attributes": kv_attrs,
                                 "status": {"code": 1},  # OK
                             }
@@ -131,8 +147,3 @@ def _attrs_to_kv(attrs: dict[str, Any]) -> list[dict]:
             kv = {"key": key, "value": {"stringValue": str(value)}}
         result.append(kv)
     return result
-
-
-def _zero_id(hex_chars: int) -> str:
-    """Return a zero-padded hex string of the given character length."""
-    return "0" * hex_chars

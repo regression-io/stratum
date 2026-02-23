@@ -40,7 +40,22 @@ def compile_prompt(
 
     The output schema is NOT included — it is enforced via the structured
     outputs API (tool_choice).
+
+    Spec §4.2: raises StratumCompileError if an opaque field name appears as
+    an inline {field} reference in intent or context strings.
     """
+    # Spec §4.2: raise StratumCompileError if an opaque field is referenced
+    # inline in intent or context strings.
+    if opaque_fields:
+        from .exceptions import StratumCompileError
+        for text in [intent, *context]:
+            for field_name in opaque_fields:
+                if f"{{{field_name}}}" in text:
+                    raise StratumCompileError(
+                        f"opaque field '{field_name}' must not appear in inline "
+                        "string interpolation (intent or context). "
+                        "Opaque fields are passed as structured attachments only."
+                    )
     parts: list[str] = []
 
     # 1. Intent

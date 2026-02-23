@@ -18,6 +18,7 @@ from stratum.budget import Budget
 from stratum.decorators import infer
 from stratum.exceptions import (
     BudgetExceeded,
+    ParseFailure,
     PostconditionFailed,
     PreconditionFailed,
 )
@@ -323,8 +324,8 @@ class TestPostconditionFailed:
         err = exc_info.value
         assert err.function_name == "always_low_fn"
         assert len(err.violations) > 0
-        # retry_history should have entries for each failed attempt
-        assert len(err.retry_history) > 0
+        # retries=2 → 3 total attempts, each producing a violation entry
+        assert len(err.retry_history) == 3
 
     @pytest.mark.asyncio
     async def test_postcondition_failed_includes_all_violation_history(self):
@@ -353,7 +354,125 @@ class TestPostconditionFailed:
 
 
 # ---------------------------------------------------------------------------
-# 5. PreconditionFailed raised immediately on given failure
+# 5. ParseFailure raised when all retries fail at parse stage
+# ---------------------------------------------------------------------------
+
+class TestParseFailure:
+    @pytest.mark.asyncio
+    async def test_parse_failure_raised_when_llm_returns_no_tool_call(self):
+        clear_traces()
+
+        async def parse_fn(text: str) -> Sentiment: ...
+
+        spec = _make_spec(parse_fn, retries=2)
+
+        # Response with no tool calls at all
+        bad_response = MagicMock()
+        message = MagicMock()
+        message.tool_calls = []
+        choice = MagicMock()
+        choice.message = message
+        bad_response.choices = [choice]
+        bad_response.usage = MagicMock(prompt_tokens=10, completion_tokens=0)
+
+        with patch("litellm.acompletion", new=AsyncMock(return_value=bad_response)):
+            with patch("litellm.completion_cost", return_value=0.0):
+                with pytest.raises(ParseFailure) as exc_info:
+                    await execute_infer(spec, {"text": "test"})
+
+        assert exc_info.value.function_name == "parse_fn"
+
+    @pytest.mark.asyncio
+    async def test_postcondition_raised_when_final_failure_is_ensure_violation(self):
+        """Ensure PostconditionFailed (not ParseFailure) when last attempt fails ensure."""
+        clear_traces()
+
+        async def mixed_fn(text: str) -> Sentiment: ...
+
+        spec = _make_spec(
+            mixed_fn,
+            ensure=[lambda r: r.confidence > 0.9],
+            retries=1,
+        )
+
+        # Always returns low confidence — ensure violation on both attempts
+        low_response = _make_response(
+            {"label": "positive", "confidence": 0.1, "reasoning": "low"}
+        )
+
+        with patch("litellm.acompletion", new=AsyncMock(return_value=low_response)):
+            with patch("litellm.completion_cost", return_value=0.0):
+                with pytest.raises(PostconditionFailed):
+                    await execute_infer(spec, {"text": "test"})
+
+
+# ---------------------------------------------------------------------------
+# 6. Session cache scoped to @flow
+# ---------------------------------------------------------------------------
+
+class TestSessionCacheScoping:
+    @pytest.mark.asyncio
+    async def test_session_cache_isolated_between_flows(self):
+        """Two separate @flow executions must not share session cache."""
+        from stratum.decorators import flow, infer as infer_decorator
+        from stratum.trace import clear as clear_traces
+
+        clear_traces()
+        call_count = 0
+
+        @contract
+        class CountResult:
+            count: int
+
+        good_data = {"count": 1}
+        mock_response = _make_response(good_data)
+
+        async def count_fn(x: int) -> CountResult: ...
+
+        spec = InferSpec(
+            fn=count_fn,
+            intent="count",
+            context=[],
+            ensure=[],
+            given=[],
+            model="claude-sonnet-4-6",
+            temperature=None,
+            budget=None,
+            retries=0,
+            cache="session",
+            stable=True,
+            quorum=None,
+            agree_on=None,
+            threshold=None,
+            return_type=CountResult,
+            parameters={},
+        )
+
+        @flow()
+        async def flow_with_two_calls():
+            # Same inputs called twice within one flow execution — 2nd should be a cache hit
+            r1 = await execute_infer(spec, {"x": 1})
+            r2 = await execute_infer(spec, {"x": 1})
+            return r1, r2
+
+        @flow()
+        async def flow_separate():
+            # Separate flow execution — must not inherit cache from above
+            return await execute_infer(spec, {"x": 1})
+
+        with patch("litellm.acompletion", new=AsyncMock(return_value=mock_response)) as mock_llm:
+            with patch("litellm.completion_cost", return_value=0.0):
+                # 1st flow: 2 calls but same inputs → 1 LLM hit + 1 cache hit
+                await flow_with_two_calls()
+                # 2nd flow: separate context → must call LLM again (no shared cache)
+                await flow_separate()
+
+        # Exactly 2 LLM calls: one per flow execution (second call in first flow is cached)
+        assert mock_llm.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 7. PreconditionFailed raised immediately on given failure
 # ---------------------------------------------------------------------------
 
 class TestPreconditionFailed:

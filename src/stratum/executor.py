@@ -61,10 +61,20 @@ class InferSpec:
 # Cache stores
 # ---------------------------------------------------------------------------
 
-# session cache: keyed by (fn_qualname, inputs_hash) — lives for the process
-_session_cache: dict[str, Any] = {}
+# session cache: scoped to the current @flow execution via _FlowContext.session_cache.
+# Falls back to a process-level dict for @infer calls made outside a @flow.
+_process_session_cache: dict[str, Any] = {}
 # global cache: keyed by (fn_qualname, inputs_hash, contract_hash)
 _global_cache: dict[str, Any] = {}
+
+
+def _get_session_cache() -> dict[str, Any]:
+    """Return the session cache scoped to the current @flow, or a process-level fallback."""
+    from .decorators import _flow_ctx  # lazy import avoids circular dependency
+    ctx = _flow_ctx.get()
+    if ctx is not None:
+        return ctx.session_cache
+    return _process_session_cache
 
 
 def _inputs_hash(inputs: dict[str, Any]) -> str:
@@ -148,9 +158,12 @@ async def execute_infer(
             raise PreconditionFailed(fn_name, cond_name)
 
     # ------------------------------------------------------------------
-    # Effective budget: per-call overrides flow budget
+    # Effective budget: per-call overrides flow budget.
+    # Clone spec.budget so each invocation gets a fresh clock and cost counter —
+    # Budget._start_ms is set at Budget() creation time (decoration time), so
+    # without cloning the time window shrinks across calls.
     # ------------------------------------------------------------------
-    budget: Budget | None = spec.budget if spec.budget is not None else flow_budget
+    budget: Budget | None = spec.budget.clone() if spec.budget is not None else flow_budget
 
     # ------------------------------------------------------------------
     # Resolve return schema and hash
@@ -182,8 +195,10 @@ async def execute_infer(
     ih = _inputs_hash(inputs)
     if spec.cache == "session":
         cache_key = f"{fn_qualname}:{ih}"
-        if cache_key in _session_cache:
-            cached = _session_cache[cache_key]
+        if cache_key in _get_session_cache():
+            cached = _get_session_cache()[cache_key]
+            # Spec §8.3: cached results still pass through ensure validation.
+            _run_ensure(spec.ensure, cached, fn_name)
             _write_trace(
                 fn_qualname=fn_qualname,
                 model=spec.model or get_config()["default_model"],
@@ -203,6 +218,8 @@ async def execute_infer(
         cache_key = f"{fn_qualname}:{ih}:{c_hash}"
         if cache_key in _global_cache:
             cached = _global_cache[cache_key]
+            # Spec §8.3: cached results still pass through ensure validation.
+            _run_ensure(spec.ensure, cached, fn_name)
             _write_trace(
                 fn_qualname=fn_qualname,
                 model=spec.model or get_config()["default_model"],
@@ -229,11 +246,16 @@ async def execute_infer(
     total_cost: float = 0.0
     model = spec.model or get_config()["default_model"]
     last_prompt = ""
+    last_failure_was_parse = True  # updated each attempt; True → parse/extract, False → ensure
 
     for attempt in range(spec.retries + 1):
-        # a. Check cost budget before each attempt
+        # a. Check budgets before each attempt
         if budget is not None and budget.is_cost_exceeded():
             raise BudgetExceeded(fn_name, budget)
+        if budget is not None:
+            remaining = budget.remaining_seconds()
+            if remaining is not None and remaining <= 0:
+                raise BudgetExceeded(fn_name, budget)
 
         # b. Compile prompt
         prompt = compile_prompt(
@@ -309,11 +331,12 @@ async def execute_infer(
             if not tool_calls:
                 raise ValueError("No tool call in response")
             raw_args = tool_calls[0].function.arguments
-        except (AttributeError, IndexError, TypeError) as exc:
+        except (AttributeError, IndexError, TypeError, ValueError) as exc:
             parse_reason = f"Failed to extract tool call: {exc}"
             retry_reasons = [parse_reason]
             all_retry_reasons.append(parse_reason)
             retry_history.append([parse_reason])
+            last_failure_was_parse = True
             continue
 
         # g. Parse JSON
@@ -324,6 +347,7 @@ async def execute_infer(
             retry_reasons = [parse_reason]
             all_retry_reasons.append(parse_reason)
             retry_history.append([parse_reason])
+            last_failure_was_parse = True
             continue
 
         # h. Unwrap primitive wrapper if needed
@@ -340,6 +364,7 @@ async def execute_infer(
                 retry_reasons = [parse_reason]
                 all_retry_reasons.append(parse_reason)
                 retry_history.append([parse_reason])
+                last_failure_was_parse = True
                 continue
         else:
             parsed = parsed_dict
@@ -381,7 +406,7 @@ async def execute_infer(
 
             # Store in cache if requested
             if spec.cache == "session":
-                _session_cache[f"{fn_qualname}:{ih}"] = parsed
+                _get_session_cache()[f"{fn_qualname}:{ih}"] = parsed
             elif spec.cache == "global":
                 _global_cache[f"{fn_qualname}:{ih}:{c_hash}"] = parsed
 
@@ -394,12 +419,14 @@ async def execute_infer(
                 cost_usd=cost_usd,
                 cache_hit=False,
                 flow_id=flow_id,
+                duration_ms=duration_ms,
                 response=response,
             )
 
             return parsed
 
         # Violations found — accumulate and retry
+        last_failure_was_parse = False
         retry_history.append(list(violations))
         all_retry_reasons.extend(violations)
         retry_reasons = violations
@@ -407,12 +434,35 @@ async def execute_infer(
     # ------------------------------------------------------------------
     # Retries exhausted
     # ------------------------------------------------------------------
+    # Raise based on the *final* attempt's failure type, not a cumulative flag.
+    # last_failure_was_parse tracks the most recent failure path.
+    if last_failure_was_parse and retry_reasons:
+        raise ParseFailure(fn_name, "", "; ".join(retry_reasons))
     raise PostconditionFailed(fn_name, retry_reasons, retry_history)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _run_ensure(ensure_fns: list[Callable], value: Any, fn_name: str) -> None:
+    """Evaluate ensure conditions against value; raise PostconditionFailed on first violation."""
+    violations: list[str] = []
+    for i, ensure_fn in enumerate(ensure_fns):
+        try:
+            ok = ensure_fn(value)
+        except Exception as exc:
+            violations.append(f"ensure condition {i + 1} raised: {exc}")
+            continue
+        if not ok:
+            fn_repr = getattr(ensure_fn, "__name__", None)
+            if fn_repr and fn_repr != "<lambda>":
+                violations.append(f"ensure: {fn_repr}(result) was False")
+            else:
+                violations.append(f"ensure condition {i + 1} failed")
+    if violations:
+        raise PostconditionFailed(fn_name, violations, [violations])
+
 
 def _write_trace(
     fn_qualname: str,
@@ -447,6 +497,19 @@ def _write_trace(
     record(trace)
 
 
+def _derive_gen_ai_system(model: str) -> str:
+    m = model.lower()
+    if "claude" in m:
+        return "anthropic"
+    if "gemini" in m:
+        return "google"
+    # Strip provider prefix (e.g. "openai/gpt-4") before matching OpenAI model names
+    bare = m.split("/")[-1]
+    if bare.startswith(("gpt-", "o1", "o3", "o4")):
+        return "openai"
+    return m.split("/")[0] if "/" in m else "unknown"
+
+
 def _export_trace_if_configured(
     fn_qualname: str,
     model: str,
@@ -455,6 +518,7 @@ def _export_trace_if_configured(
     cost_usd: float | None,
     cache_hit: bool,
     flow_id: str | None,
+    duration_ms: int,
     response: Any,
 ) -> None:
     """Emit to OTel tracer if one is configured."""
@@ -469,6 +533,7 @@ def _export_trace_if_configured(
         output_tokens = getattr(usage, "completion_tokens", None)
 
         span_attrs = {
+            "gen_ai.system": _derive_gen_ai_system(model),
             "gen_ai.request.model": model,
             "stratum.function": fn_qualname,
             "stratum.contract_hash": c_hash,
@@ -476,6 +541,7 @@ def _export_trace_if_configured(
             "stratum.cost_usd": cost_usd,
             "stratum.cache_hit": cache_hit,
             "stratum.flow_id": flow_id,
+            "stratum.duration_ms": duration_ms,
         }
         if input_tokens is not None:
             span_attrs["gen_ai.usage.input_tokens"] = input_tokens

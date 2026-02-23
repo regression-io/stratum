@@ -6,6 +6,7 @@ import asyncio
 import contextvars
 import dataclasses
 import functools
+import inspect
 import uuid
 from typing import Any, Callable, get_type_hints
 
@@ -22,6 +23,7 @@ from .executor import InferSpec, execute_infer
 class _FlowContext:
     flow_id: str
     budget: Budget | None
+    session_cache: dict = dataclasses.field(default_factory=dict)
 
 
 _flow_ctx: contextvars.ContextVar[_FlowContext | None] = contextvars.ContextVar(
@@ -35,9 +37,9 @@ _flow_ctx: contextvars.ContextVar[_FlowContext | None] = contextvars.ContextVar(
 
 def infer(
     intent: str,
-    context: str | list[str] = [],
-    ensure: Callable | list[Callable] = [],
-    given: Callable | list[Callable] = [],
+    context: str | list[str] | None = None,
+    ensure: Callable | list[Callable] | None = None,
+    given: Callable | list[Callable] | None = None,
     model: str | None = None,
     temperature: float | None = None,
     budget: Budget | None = None,
@@ -59,7 +61,20 @@ def infer(
             "quorum requires both agree_on and threshold to be specified"
         )
 
+    # Normalise None defaults here so each decorator call gets its own list
+    if context is None:
+        context = []
+    if ensure is None:
+        ensure = []
+    if given is None:
+        given = []
+
     def decorator(fn: Callable) -> Callable:
+        # Note: Python 3.12+ optimises `def f(): ...` such that Ellipsis is no
+        # longer stored in co_consts, so a static body check is unreliable.
+        # The spec §2.3 intent (body is never executed) is enforced implicitly
+        # — the wrapper replaces the function body entirely.
+
         hints = get_type_hints(fn, include_extras=True)
         return_type = hints.get("return")
         params = {k: v for k, v in hints.items() if k != "return"}
@@ -95,7 +110,14 @@ def infer(
         )
 
         @functools.wraps(fn)
-        async def wrapper(**kwargs: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Bind positional args to parameter names
+            if args:
+                sig = inspect.signature(fn)
+                bound = sig.bind(*args, **kwargs)
+                bound.apply_defaults()
+                kwargs = dict(bound.arguments)
+
             # Pick up flow context if present
             ctx = _flow_ctx.get()
             flow_id = ctx.flow_id if ctx is not None else None
@@ -228,7 +250,7 @@ def flow(budget: Budget | None = None) -> Callable:
     def decorator(fn: Callable) -> Callable:
         @functools.wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            flow_id = str(uuid.uuid4())[:8]
+            flow_id = str(uuid.uuid4())
             flow_budget = budget.clone() if budget is not None else None
             ctx = _FlowContext(flow_id=flow_id, budget=flow_budget)
             token = _flow_ctx.set(ctx)
@@ -268,7 +290,13 @@ def refine(
         base_spec: InferSpec = fn._stratum_spec
 
         @functools.wraps(fn)
-        async def wrapper(**kwargs: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if args:
+                sig = inspect.signature(base_spec.fn)
+                bound = sig.bind(*args, **kwargs)
+                bound.apply_defaults()
+                kwargs = dict(bound.arguments)
+
             ctx = _flow_ctx.get()
             flow_id = ctx.flow_id if ctx is not None else None
             flow_budget = ctx.budget if ctx is not None else None

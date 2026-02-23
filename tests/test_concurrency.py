@@ -108,21 +108,26 @@ class TestParallelN:
 class TestParallelZero:
     @pytest.mark.asyncio
     async def test_collects_all_including_failures(self):
+        from stratum.types import Success, Failure
         async def ok(): return "ok"
         async def bad(): raise ValueError("fail")
         results = await parallel(ok(), bad(), require=0)
         assert len(results) == 2
-        successes = [r for r in results if not isinstance(r, Exception)]
-        failures = [r for r in results if isinstance(r, Exception)]
+        successes = [r for r in results if isinstance(r, Success)]
+        failures = [r for r in results if isinstance(r, Failure)]
         assert len(successes) == 1
         assert len(failures) == 1
+        assert successes[0].value == "ok"
+        assert isinstance(failures[0].exception, ValueError)
 
     @pytest.mark.asyncio
-    async def test_all_succeed_no_exceptions_in_list(self):
+    async def test_all_succeed_no_failures_in_list(self):
+        from stratum.types import Success, Failure
         async def a(): return 1
         async def b(): return 2
         results = await parallel(a(), b(), require=0)
-        assert not any(isinstance(r, Exception) for r in results)
+        assert not any(isinstance(r, Failure) for r in results)
+        assert all(isinstance(r, Success) for r in results)
 
 
 # ---------------------------------------------------------------------------
@@ -156,17 +161,22 @@ class TestRace:
 # debate
 # ---------------------------------------------------------------------------
 
+async def _passthrough_synth(topic, arguments, converged):
+    """Simple synthesize that returns the history dict directly."""
+    return {"arguments": arguments, "converged": converged}
+
+
 class TestDebate:
     @pytest.mark.asyncio
     async def test_raises_on_empty_agents(self):
         with pytest.raises(ValueError, match="empty"):
-            await debate(agents=[], topic="test")
+            await debate(agents=[], topic="test", synthesize=_passthrough_synth)
 
     @pytest.mark.asyncio
-    async def test_single_round_returns_history_dict(self):
+    async def test_single_round_returns_history_via_synthesize(self):
         async def agent_a(topic, previous_arguments=None): return f"A: {topic}"
         async def agent_b(topic, previous_arguments=None): return f"B: {topic}"
-        result = await debate(agents=[agent_a, agent_b], topic="foo", rounds=1)
+        result = await debate(agents=[agent_a, agent_b], topic="foo", rounds=1, synthesize=_passthrough_synth)
         assert "arguments" in result
         assert "converged" in result
         assert len(result["arguments"]) == 1
@@ -174,7 +184,7 @@ class TestDebate:
     @pytest.mark.asyncio
     async def test_detects_convergence_when_identical(self):
         async def agent(topic, previous_arguments=None): return "same answer"
-        result = await debate(agents=[agent, agent], topic="q", rounds=2)
+        result = await debate(agents=[agent, agent], topic="q", rounds=2, synthesize=_passthrough_synth)
         assert result["converged"] is True
 
     @pytest.mark.asyncio
@@ -188,7 +198,7 @@ class TestDebate:
         async def agent_b(topic, previous_arguments=None):
             return "B-always"
 
-        result = await debate(agents=[agent_a, agent_b], topic="q", rounds=2)
+        result = await debate(agents=[agent_a, agent_b], topic="q", rounds=2, synthesize=_passthrough_synth)
         assert result["converged"] is False
 
     @pytest.mark.asyncio
@@ -217,14 +227,13 @@ class TestDebate:
         async def agent_b(topic, previous_arguments=None):
             return "B"
 
-        await debate(agents=[agent_a, agent_b], topic="q", rounds=2)
-        # In round 2, agent_a should have received agent_b's round-1 output
+        await debate(agents=[agent_a, agent_b], topic="q", rounds=2, synthesize=_passthrough_synth)
         assert "B" in received_previous
 
     @pytest.mark.asyncio
     async def test_multiple_rounds_accumulate_history(self):
         async def agent(topic, previous_arguments=None): return "arg"
-        result = await debate(agents=[agent, agent], topic="t", rounds=3)
+        result = await debate(agents=[agent, agent], topic="t", rounds=3, synthesize=_passthrough_synth)
         assert len(result["arguments"]) == 3
 
 

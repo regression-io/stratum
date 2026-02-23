@@ -102,6 +102,20 @@ class TestBuildOtlpBody:
         scope = body["resourceSpans"][0]["scopeSpans"][0]["scope"]
         assert scope["name"] == "stratum"
 
+    def test_trace_id_uses_flow_id_when_present(self):
+        """traceId must be derived from flow_id so all @infer spans in a @flow share a trace."""
+        flow_id = "550e8400-e29b-41d4-a716-446655440000"
+        body = _build_otlp_body({"stratum.flow_id": flow_id}, "s", 0)
+        span = body["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        assert span["traceId"] == flow_id.replace("-", "")
+
+    def test_trace_id_is_random_when_no_flow_id(self):
+        """Without a flow_id (standalone @infer), traceId should be a 32-hex random value."""
+        body = _build_otlp_body({}, "s", 0)
+        span = body["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        assert len(span["traceId"]) == 32
+        assert all(c in "0123456789abcdef" for c in span["traceId"])
+
     def test_body_is_json_serializable(self):
         body = _build_otlp_body(
             {"stratum.function": "fn", "stratum.cost_usd": 0.001, "stratum.attempts": 1},

@@ -35,7 +35,7 @@ from .exceptions import (
 from .decorators import infer, compute, flow, refine
 from .trace import TraceRecord, all_records, clear as clear_traces
 from ._config import configure
-from .types import Probabilistic, HumanDecision, HumanReviewContext
+from .types import Probabilistic, HumanDecision, HumanReviewContext, Success, Failure
 from .hitl import await_human, ReviewSink, ConsoleReviewSink, PendingReview
 from .concurrency import parallel, debate, race
 from . import exporters
@@ -78,6 +78,8 @@ __all__ = [
     "Budget",
     "opaque",
     "Probabilistic",
+    "Success",
+    "Failure",
     "HumanDecision",
     "HumanReviewContext",
     # HITL

@@ -6,6 +6,7 @@ import asyncio
 from typing import Any, Callable
 
 from .exceptions import ConsensusFailure, ParallelValidationFailed
+from .types import Failure, Success
 
 
 async def parallel(
@@ -20,7 +21,7 @@ async def parallel(
                      Returns a tuple matching input order.
     require="any"  → first success wins, rest cancelled. Returns single result.
     require=N: int → at least N must succeed. Returns list of N results.
-    require=0      → collect all regardless of failure. Returns list of Result objects.
+    require=0      → collect all regardless of failure. Returns list[Success|Failure].
 
     validate       → optional callable on collected results; False → ParallelValidationFailed.
     """
@@ -35,39 +36,54 @@ async def parallel(
         return tuple(results)
 
     if require == "any":
+        if not coros:
+            raise ValueError("parallel(require='any'): requires at least one coroutine")
         tasks = [asyncio.create_task(c) for c in coros]
-        try:
-            done, pending = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED
-            )
-            for p in pending:
-                p.cancel()
-                try:
-                    await p
-                except (asyncio.CancelledError, Exception):
-                    pass
+        pending: set = set(tasks)
+        last_exc: Exception | None = None
 
-            # Find first non-exception result
+        while pending:
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED
+            )
+            winner = None
             for d in done:
                 if d.exception() is None:
-                    result = d.result()
-                    if validate is not None and not validate([result]):
-                        raise ParallelValidationFailed()
-                    return result
+                    winner = d
+                    break
+                last_exc = d.exception()
 
-            # All failed — raise the first exception
-            for d in done:
-                raise d.exception()  # type: ignore[misc]
-        except Exception:
-            for t in tasks:
-                if not t.done():
-                    t.cancel()
-            raise
+            if winner is not None:
+                # Cancel remaining pending tasks
+                for p in pending:
+                    p.cancel()
+                    try:
+                        await p
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                # Drain other done tasks so their exceptions are retrieved
+                for d in done:
+                    if d is not winner:
+                        try:
+                            d.exception()
+                        except (asyncio.CancelledError, Exception):
+                            pass
+                result = winner.result()
+                if validate is not None and not validate([result]):
+                    raise ParallelValidationFailed()
+                return result
+
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("parallel: all coroutines failed with no exception recorded")
 
     if isinstance(require, int) and require == 0:
-        # Collect all regardless of failure
+        # Collect all regardless of failure — wrap in Success/Failure
         raw = await asyncio.gather(*coros, return_exceptions=True)
-        results = list(raw)
+        results = [
+            Success(r) if not isinstance(r, Exception) else Failure(r)
+            for r in raw
+        ]
         if validate is not None and not validate(results):
             raise ParallelValidationFailed()
         return results
@@ -98,50 +114,38 @@ async def race(*coros: Any) -> Any:
     Submit all coroutines concurrently. First to complete without raising wins.
     Remaining coroutines are cancelled. If all raise, re-raises the last error.
     """
+    if not coros:
+        raise ValueError("race: requires at least one coroutine")
     tasks = [asyncio.create_task(c) for c in coros]
+    pending: set = set(tasks)
     last_exc: Exception | None = None
 
-    try:
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-
-        # Check if the first done succeeded
+    while pending:
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+        winner = None
         for d in done:
             exc = d.exception()
             if exc is None:
-                # Winner — cancel the rest
-                for p in pending:
-                    p.cancel()
-                    try:
-                        await p
-                    except (asyncio.CancelledError, Exception):
-                        pass
-                return d.result()
+                winner = d
+                break
             last_exc = exc
 
-        # First done raised — wait for others
-        if pending:
-            done2, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-            for d in done2:
-                exc = d.exception()
-                if exc is None:
-                    # Cancel remaining
-                    remaining = [t for t in tasks if not t.done()]
-                    for r in remaining:
-                        r.cancel()
-                    return d.result()
-                last_exc = exc
-
-    except Exception as exc:
-        last_exc = exc
-
-    # All failed — cancel anything still running and re-raise
-    for t in tasks:
-        if not t.done():
-            t.cancel()
-            try:
-                await t
-            except (asyncio.CancelledError, Exception):
-                pass
+        if winner is not None:
+            # Cancel the rest
+            for p in pending:
+                p.cancel()
+                try:
+                    await p
+                except (asyncio.CancelledError, Exception):
+                    pass
+            # Drain other done tasks so their exceptions are retrieved
+            for d in done:
+                if d is not winner:
+                    try:
+                        d.exception()
+                    except (asyncio.CancelledError, Exception):
+                        pass
+            return winner.result()
 
     if last_exc is not None:
         raise last_exc
@@ -152,40 +156,60 @@ async def debate(
     agents: list[Callable],
     topic: Any,
     rounds: int = 2,
-    synthesize: Callable | None = None,
+    *,
+    synthesize: Callable,
 ) -> Any:
     """
     Multi-agent debate protocol.
 
     Round 1: all agents invoked concurrently with topic.
-    Rounds 2..N: each agent invoked with topic + other agents' previous arguments.
+    Rounds 2..N: each agent invoked concurrently with topic + other agents' previous arguments.
     After all rounds, convergence is computed and synthesize is called.
+
+    synthesize is required.
     """
     if not agents:
         raise ValueError("debate: agents list must not be empty")
 
-    # Round 1 — initial arguments
+    # Round 1 — initial arguments (concurrent)
     initial_results = await asyncio.gather(*[agent(topic=topic) for agent in agents])
     arguments: list[Any] = list(initial_results)
     history: list[list[Any]] = [arguments]
 
-    # Rebuttal rounds
+    # Rebuttal rounds — each round all agents run concurrently
     for _round in range(1, rounds):
-        new_args: list[Any] = []
-        for i, agent in enumerate(agents):
-            others = [arguments[j] for j in range(len(arguments)) if j != i]
-            new_arg = await agent(topic=topic, previous_arguments=others)
-            new_args.append(new_arg)
+        rebuttal_coros = [
+            agents[i](
+                topic=topic,
+                previous_arguments=[arguments[j] for j in range(len(arguments)) if j != i],
+            )
+            for i in range(len(agents))
+        ]
+        new_args = list(await asyncio.gather(*rebuttal_coros))
         arguments = new_args
         history.append(list(arguments))
 
-    # Compute convergence: check if last round outputs are all identical by repr
+    # Compute convergence — use agree_on field from agents if declared
     last_round = history[-1]
-    converged = len({str(a) for a in last_round}) == 1
+    agree_on_field: str | None = None
+    for agent in agents:
+        spec = getattr(agent, "_stratum_spec", None)
+        if spec is not None and getattr(spec, "agree_on", None):
+            agree_on_field = spec.agree_on
+            break
 
-    if synthesize is not None:
-        return await synthesize(
-            topic=topic, arguments=history, converged=converged
-        )
+    def _get_field(obj: Any, name: str) -> Any:
+        if hasattr(obj, name):
+            return getattr(obj, name)
+        if isinstance(obj, dict):
+            return obj.get(name)
+        return obj
 
-    return {"arguments": history, "converged": converged}
+    if agree_on_field is not None:
+        comparison_values = {str(_get_field(a, agree_on_field)) for a in last_round}
+    else:
+        comparison_values = {str(a) for a in last_round}
+
+    converged = len(comparison_values) == 1
+
+    return await synthesize(topic=topic, arguments=history, converged=converged)

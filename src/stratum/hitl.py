@@ -29,10 +29,16 @@ class PendingReview:
     context: HumanReviewContext
     options: list[Any] | None
     expires_at: datetime | None
-    _future: asyncio.Future = field(default=None, init=False, repr=False)  # type: ignore[assignment]
+    decision_type: type = field(default=object)
+    _future: asyncio.Future = field(default=None, repr=False)  # type: ignore[assignment]
 
     async def resolve(self, decision: HumanDecision) -> None:
-        """Fulfil the pending future with the human decision."""
+        """Validate decision type then fulfil the pending future."""
+        if not isinstance(decision.value, self.decision_type):
+            raise TypeError(
+                f"Expected decision.value of type {self.decision_type.__name__!r}, "
+                f"got {type(decision.value).__name__!r}"
+            )
         if self._future is not None and not self._future.done():
             self._future.set_result(decision)
 
@@ -53,8 +59,8 @@ class ReviewSink(Protocol):
 class ConsoleReviewSink:
     """
     Default ReviewSink. Prints the question and options to stdout, reads a
-    decision from stdin (wrapped in run_in_executor so it doesn't block the
-    event loop).
+    decision from stdin in a background task so it doesn't block the event loop
+    and the await_human timeout can race it correctly.
     """
 
     async def emit(self, review: PendingReview) -> None:
@@ -63,18 +69,27 @@ class ConsoleReviewSink:
             for i, opt in enumerate(review.options):
                 print(f"  [{i}] {opt}")
 
-        loop = asyncio.get_event_loop()
-        raw = await loop.run_in_executor(None, input, "Decision: ")
-        value = self._parse(raw, review)
+        # Fire-and-forget: schedule stdin collection as a background task so
+        # emit() returns immediately and await_human's timeout can race it.
+        asyncio.create_task(self._collect_input(review))
 
-        decision = HumanDecision(
-            value=value,
-            reviewer=None,
-            rationale=None,
-            decided_at=datetime.utcnow(),
-            review_id=review.review_id,
-        )
-        await review.resolve(decision)
+    async def _collect_input(self, review: PendingReview) -> None:
+        loop = asyncio.get_running_loop()
+        while review._future is None or not review._future.done():
+            raw = await loop.run_in_executor(None, input, "Decision: ")
+            value = self._parse(raw, review)
+            decision = HumanDecision(
+                value=value,
+                reviewer=None,
+                rationale=None,
+                decided_at=datetime.utcnow(),
+                review_id=review.review_id,
+            )
+            try:
+                await review.resolve(decision)
+                return
+            except TypeError as exc:
+                print(f"[HITL] Invalid input: {exc}. Please try again.")
 
     def _parse(self, raw: str, review: PendingReview) -> Any:
         if review.options:
@@ -114,7 +129,7 @@ async def await_human(
     from ._config import get_config
 
     review_id = str(uuid.uuid4())
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     future: asyncio.Future = loop.create_future()
 
     expires_at: datetime | None = None
@@ -126,13 +141,15 @@ async def await_human(
         context=context,
         options=options,
         expires_at=expires_at,
+        decision_type=decision_type,
+        _future=future,
     )
-    review._future = future
 
     sink = get_config().get("review_sink")
     if sink is None:
         sink = ConsoleReviewSink()
 
+    # emit() returns immediately (fire-and-forget background task for console sink)
     await sink.emit(review)
 
     try:
