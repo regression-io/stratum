@@ -224,6 +224,6 @@ This isn't a security model. It's an alignment model. And it works — not becau
 
 The MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library — it's an independent state manager and contract enforcer that works entirely within your Claude Code session.
 
-The spec for exactly what the runtime enforces is at [SPEC.md](../SPEC.md). The detailed walkthrough of the library design is at [introducing-stratum.md](introducing-stratum.md).
+The spec for exactly what the runtime enforces is at [SPEC.md](https://github.com/regression-io/stratum/blob/main/SPEC.md). The detailed walkthrough of the library design is at [introducing-stratum.md](https://github.com/regression-io/stratum/blob/main/blog/introducing-stratum.md).
 
 If you're using Claude Code and want to track where this goes: [watch the repo](https://github.com/regression-io/stratum) and drop questions in [Discussions](https://github.com/regression-io/stratum/discussions). The spec is a draft — it gets better from people who've actually hit these problems.

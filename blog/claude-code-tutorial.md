@@ -288,4 +288,4 @@ ensure:
 
 ---
 
-The full specification is at [SPEC.md](../SPEC.md). The library design walkthrough is at [introducing-stratum.md](introducing-stratum.md). Questions in [Discussions](https://github.com/regression-io/stratum/discussions).
+The full specification is at [SPEC.md](https://github.com/regression-io/stratum/blob/main/SPEC.md). The library design walkthrough is at [introducing-stratum.md](https://github.com/regression-io/stratum/blob/main/blog/introducing-stratum.md). Questions in [Discussions](https://github.com/regression-io/stratum/discussions).

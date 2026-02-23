@@ -250,6 +250,6 @@ This is an alignment model, not a security model. It works because Stratum-align
 
 The Stratum MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library.
 
-The complete normative specification is at [SPEC.md](../SPEC.md). The library design walkthrough is at [introducing-stratum.md](introducing-stratum.md). For the Claude Code equivalent of this post, see [stratum-in-claude-code.md](stratum-in-claude-code.md).
+The complete normative specification is at [SPEC.md](https://github.com/regression-io/stratum/blob/main/SPEC.md). The library design walkthrough is at [introducing-stratum.md](https://github.com/regression-io/stratum/blob/main/blog/introducing-stratum.md). For the Claude Code equivalent of this post, see [stratum-in-claude-code.md](https://github.com/regression-io/stratum/blob/main/blog/stratum-in-claude-code.md).
 
 Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions).
