@@ -229,7 +229,7 @@ pip install stratum-mcp
 stratum-mcp setup
 ```
 
-`setup` writes the MCP config, adds the execution model block to `CLAUDE.md`, and installs seven skills to `~/.claude/skills/`. Restart Claude Code to activate.
+`setup` writes the MCP config, adds the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code to activate.
 
 Six task skills (`/stratum-review`, `/stratum-feature`, `/stratum-debug`, `/stratum-refactor`, `/stratum-migrate`, `/stratum-test`) read project-specific patterns from `MEMORY.md` before writing their spec and write new patterns after each session. A seventh skill, `/stratum-learn`, reviews recent session transcripts and extracts conclusions that improve future specs.
 

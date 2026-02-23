@@ -42,14 +42,16 @@ pip install stratum-mcp
 stratum-mcp setup
 ```
 
-`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs seven skills to `~/.claude/skills/`. Restart Claude Code and it's active.
+`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code and it's active.
 
-**Seven skills installed automatically:**
+**Nine skills installed automatically:**
 
 | Skill | What it structures |
 |---|---|
-| `/stratum-review` | Three-pass code review: security → logic → performance → consolidate |
+| `/stratum-onboard` | Read a new codebase cold and write project-specific `MEMORY.md` — run once after setup |
+| `/stratum-plan` | Design a feature and present it for review — no implementation until approved |
 | `/stratum-feature` | Feature build: read existing patterns → design → implement → tests pass |
+| `/stratum-review` | Three-pass code review: security → logic → performance → consolidate |
 | `/stratum-debug` | Debug: read test → read code → check env → form hypotheses → confirm/rule out → fix |
 | `/stratum-refactor` | File split: analyze → design modules → plan extraction order → extract one at a time |
 | `/stratum-migrate` | Find bare LLM calls and rewrite as `@infer` + `@contract` with typed contracts and postconditions |

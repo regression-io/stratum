@@ -262,8 +262,10 @@ Claude Code is doing the same thing it always does: reading files, writing code,
 
 | Skill | Invoke when |
 |---|---|
-| `/stratum-review` | Reviewing a PR or diff |
+| `/stratum-onboard` | First run on a new project — writes `MEMORY.md` from scratch |
+| `/stratum-plan` | Designing a feature before coding starts — presents plan for review |
 | `/stratum-feature` | Adding a feature |
+| `/stratum-review` | Reviewing a PR or diff |
 | `/stratum-debug` | Debugging a test failure or CI discrepancy |
 | `/stratum-refactor` | Splitting a large file |
 | `/stratum-migrate` | Rewriting bare LLM calls as `@infer` + `@contract` |
