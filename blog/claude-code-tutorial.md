@@ -266,6 +266,8 @@ Claude Code is doing the same thing it always does: reading files, writing code,
 | `/stratum-feature` | Adding a feature |
 | `/stratum-debug` | Debugging a test failure or CI discrepancy |
 | `/stratum-refactor` | Splitting a large file |
+| `/stratum-migrate` | Rewriting bare LLM calls as `@infer` + `@contract` |
+| `/stratum-test` | Writing a test suite for existing untested code |
 | `/stratum-learn` | After 3–5 sessions — extract patterns into memory |
 
 **Memory:** Each skill reads `MEMORY.md` (`.claude/memory/MEMORY.md`) before writing its spec and appends project-specific patterns after `stratum_audit`. Tagged entries like `[stratum-debug]` or `[stratum-refactor]` are picked up by the matching skill. `/stratum-learn` populates this file automatically from session transcripts.

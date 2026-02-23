@@ -42,9 +42,9 @@ pip install "git+https://github.com/regression-io/stratum.git#subdirectory=strat
 stratum-mcp setup
 ```
 
-`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs five skills to `~/.claude/skills/`. Restart Claude Code and it's active.
+`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs seven skills to `~/.claude/skills/`. Restart Claude Code and it's active.
 
-**Five skills installed automatically:**
+**Seven skills installed automatically:**
 
 | Skill | What it structures |
 |---|---|
@@ -52,6 +52,8 @@ stratum-mcp setup
 | `/stratum-feature` | Feature build: read existing patterns → design → implement → tests pass |
 | `/stratum-debug` | Debug: read test → read code → check env → form hypotheses → confirm/rule out → fix |
 | `/stratum-refactor` | File split: analyze → design modules → plan extraction order → extract one at a time |
+| `/stratum-migrate` | Find bare LLM calls and rewrite as `@infer` + `@contract` with typed contracts and postconditions |
+| `/stratum-test` | Write a test suite for existing untested code — golden flows, error-path harness, passing on first report |
 | `/stratum-learn` | Review recent session transcripts — extract retry patterns, write project-specific conclusions to `MEMORY.md` |
 
 Claude writes the `.stratum.yaml` spec internally — you never see it. You see plain English narration and the result. The MCP server enforces postconditions on every step; if a step's output fails a check, Claude fixes it and retries before reporting success.
@@ -79,9 +81,6 @@ Claude Code is a capable agent improvising in a loop. This post is about giving 
 
 **[Building Software with Claude Code + Stratum: A Tutorial](https://github.com/regression-io/stratum/blob/main/blog/claude-code-tutorial.md)**
 Real session transcripts: understanding a codebase, reviewing code, adding features, debugging CI failures, refactoring large files. Claude narrates in plain English throughout.
-
-**[Stratum as a Codex Execution Runtime](https://github.com/regression-io/stratum/blob/main/blog/stratum-in-codex.md)**
-Same problem, different surface. Codex operating without a formal execution model produces results you can't reason about. Stratum changes that.
 
 ---
 
@@ -192,7 +191,7 @@ Working examples in [`examples/`](https://github.com/regression-io/stratum/tree/
 
 **Track 1 — Python library:**
 ```bash
-pip install git+https://github.com/regression-io/stratum.git
+pip install git+https://github.com/regression-io/stratum.git#egg=stratum-py
 ```
 Requires Python 3.11+. Set `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any key LiteLLM supports, then specify it in `model=`.
 
@@ -215,7 +214,7 @@ Requires Claude Code. `setup` configures everything — restart Claude Code to a
 
 **Track 1** (Python library): implemented and tested.
 
-**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with five bundled skills and a memory system for project-specific pattern capture. 66 tests passing.
+**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with seven bundled skills and a memory system for project-specific pattern capture. 66 tests passing.
 
 Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions)
 

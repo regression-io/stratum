@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "stratum"
+name = "stratum-py"
 version = "0.1.0"
 description = "LLM calls that behave like the rest of your code"
 requires-python = ">=3.11"

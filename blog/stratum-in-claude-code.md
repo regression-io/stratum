@@ -229,9 +229,9 @@ pip install "git+https://github.com/regression-io/stratum.git#subdirectory=strat
 stratum-mcp setup
 ```
 
-`setup` writes the MCP config, adds the execution model block to `CLAUDE.md`, and installs five skills to `~/.claude/skills/`. Restart Claude Code to activate.
+`setup` writes the MCP config, adds the execution model block to `CLAUDE.md`, and installs seven skills to `~/.claude/skills/`. Restart Claude Code to activate.
 
-The four task skills (`/stratum-review`, `/stratum-feature`, `/stratum-debug`, `/stratum-refactor`) read project-specific patterns from `MEMORY.md` before writing their spec and write new patterns after each session — retry reasons, confirmed root causes, extraction constraints. A fifth skill, `/stratum-learn`, reviews recent session transcripts and extracts conclusions that improve future specs.
+Six task skills (`/stratum-review`, `/stratum-feature`, `/stratum-debug`, `/stratum-refactor`, `/stratum-migrate`, `/stratum-test`) read project-specific patterns from `MEMORY.md` before writing their spec and write new patterns after each session. A seventh skill, `/stratum-learn`, reviews recent session transcripts and extracts conclusions that improve future specs.
 
 The spec for exactly what the runtime enforces is at [SPEC.md](https://github.com/regression-io/stratum/blob/main/SPEC.md). The detailed walkthrough of the library design is at [introducing-stratum.md](https://github.com/regression-io/stratum/blob/main/blog/introducing-stratum.md).
 
