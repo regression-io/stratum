@@ -187,24 +187,6 @@ Trace export to any OTLP-compatible backend (Jaeger, Honeycomb, Datadog, Langfus
 
 Multi-provider path: LiteLLM's OpenAI-compatible endpoint + `openai` TypeScript SDK.
 
-### Phase 3 — enterprise integrations (build from observed pain)
-
-| Integration | Trigger |
-|---|---|
-| **Temporal** | Flows longer than minutes, or partial execution is expensive |
-| **Ray** | In-process asyncio concurrency hits real limits (100+ parallel branches) |
-| **Outlines** | Teams moving to self-hosted inference (vLLM + Outlines via LiteLLM) |
-| **DSPy** | Teams with labeled data who want learned prompts inside Stratum's contract envelope |
-
-### Not substrates
-
-| Tool | Relationship |
-|---|---|
-| instructor | Prior art — natural predecessor to `@infer`. Migration audience. |
-| Vercel AI SDK | Integration target for Next.js users. Not the TypeScript substrate. |
-| n8n | Migration path and acquisition channel. Different audience. |
-| LangChain / LlamaIndex | What developers are trying to escape. Not a comparison point. |
-
 ---
 
 ## Examples
