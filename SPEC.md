@@ -73,6 +73,10 @@ Conformance language follows [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119):
 - MCP server integration (Phase 2)
 - TypeScript library (Phase 2)
 - `@agent`, `spawn`, `supervise`, `delegate`, `stream[T]` (Phase 2)
+- Decoration-time static analysis via bytecode/AST introspection (Phase 2.5):
+  - `ensure`/`given` field validation — `LOAD_ATTR` bytecode checked against contract schema at `@infer` decoration time
+  - Sequential independence warning — `@flow` AST walk detects independent `await` chains that could be `parallel()`
+  - Budget sufficiency warning — sum of visible per-`@infer` budgets compared to `@flow` envelope
 - `orchestrate`, `adapt`, `reflect` (Phase 3)
 - DSPy prompt optimization, Ray distribution substrate (Phase 3)
 

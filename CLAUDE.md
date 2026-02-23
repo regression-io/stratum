@@ -59,6 +59,16 @@ all      = ["stratum[pydantic]"]
 
 jsonschema and pyyaml are MCP-server-only (Phase 2) — not library dependencies.
 
+## Phase 2.5 — Decoration-time Static Analysis (not v1)
+
+Introspection-based checks that run when decorators are applied, requiring no new syntax.
+
+- **`ensure`/`given` field validation**: inspect `LOAD_ATTR` bytecode of lambda/callable against the contract's JSON schema fields. Raise `StratumCompileError` at decoration time if an accessed attribute doesn't exist on the return type.
+- **Sequential independence warning**: walk the `@flow` function's AST at decoration time, identify `await` calls whose arguments have no data dependency on each other, and emit `StratumWarning` suggesting `parallel()`. Optionally auto-rewrite to `parallel()`.
+- **Budget sufficiency warning**: sum `budget.ms` across `@infer` calls visible in the `@flow` AST; warn if the sum exceeds the flow's `budget` envelope.
+
+Implementation note: all three have access to everything they need at decoration time — the decorator already holds the function object, its bytecode, its AST (via `inspect.getsource` + `ast.parse`), and the resolved contract schema.
+
 ## Phase 3 Integrations (not v1)
 
 Build from observed pain, not schedule: Temporal (durable execution), Ray (distributed agents), Outlines (self-hosted constrained decoding via LiteLLM → vLLM → Outlines), DSPy (prompt optimization).
