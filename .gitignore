@@ -9,4 +9,3 @@ build/
 venv/
 .env
 docs/
-!docs/features/**
