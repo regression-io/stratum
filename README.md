@@ -191,7 +191,7 @@ The enforcement gap is real in Track 2 — Claude Code is an AI agent that can r
 | `litellm` | LLM client — multi-model routing, fallback, cost tracking |
 | Python 3.11+ stdlib | Concurrency — `asyncio.TaskGroup`, `asyncio.timeout` |
 
-Optional extras: `pydantic` (enhanced `@contract` validation).
+Required: `pydantic>=2.0` (`@contract` requires `BaseModel`).
 
 Trace export to any OTLP-compatible backend (Jaeger, Honeycomb, Datadog, Langfuse) via a built-in OTLP emitter — no OTel SDK dependency. Configure an endpoint and Stratum POSTs spans over HTTP/JSON.
 
@@ -224,6 +224,21 @@ Multi-provider path: LiteLLM's OpenAI-compatible endpoint + `openai` TypeScript 
 
 ---
 
+## Examples
+
+Working examples are in [`examples/`](examples/):
+
+| File | What it shows |
+|---|---|
+| [`01_sentiment.py`](examples/01_sentiment.py) | `@infer` + `@contract` + `@flow` + `@compute` end-to-end |
+| [`02_migrate.py`](examples/02_migrate.py) | Migrating an `@infer` step to `@compute` without changing callers |
+| [`03_parallel.py`](examples/03_parallel.py) | Three concurrent `@infer` calls with `parallel(require="all")` |
+| [`04_refine.py`](examples/04_refine.py) | `@refine` convergence loop — iterates until quality passes |
+| [`05_debate.py`](examples/05_debate.py) | `debate()` — two agents argue, synthesizer resolves |
+| [`06_hitl.py`](examples/06_hitl.py) | `await_human` — human-in-the-loop approval gate |
+
+---
+
 ## Status
 
-Early design. Nothing is implemented. All docs are design notes.
+Track 1 (Python library) is implemented and tested. Docs reflect the implemented design.

@@ -129,6 +129,12 @@ def infer(
             if not stable:
                 return await _execute_stable_false(spec, kwargs, flow_budget, flow_id)
 
+            # stable=True: in test_mode, sample N times and assert stability
+            from ._config import get_config
+            cfg = get_config()
+            if cfg["test_mode"]:
+                return await _execute_stable_true_test(spec, kwargs, flow_budget, flow_id)
+
             return await execute_infer(spec, kwargs, flow_budget, flow_id)
 
         wrapper._stratum_spec = spec  # type: ignore[attr-defined]
@@ -192,6 +198,30 @@ async def _execute_quorum(
     if hasattr(best, "confidence"):
         best = max(agreers, key=lambda o: getattr(o, "confidence", 0))
     return best
+
+
+# ---------------------------------------------------------------------------
+# stable=True test-mode execution
+# ---------------------------------------------------------------------------
+
+async def _execute_stable_true_test(
+    spec: InferSpec,
+    inputs: dict[str, Any],
+    flow_budget: Budget | None,
+    flow_id: str | None,
+) -> Any:
+    """In test_mode, sample N times and assert unanimous stability before returning."""
+    from ._config import get_config
+    from .types import Probabilistic
+
+    cfg = get_config()
+    n = cfg["sample_n"]
+    tasks = [
+        asyncio.create_task(execute_infer(spec, inputs, flow_budget, flow_id))
+        for _ in range(n)
+    ]
+    results = await asyncio.gather(*tasks)
+    return Probabilistic(list(results)).assert_stable()
 
 
 # ---------------------------------------------------------------------------
