@@ -124,6 +124,7 @@ async def process_ticket(text: str) -> Resolution:
 | `quorum` | Run N times, require majority agreement |
 | `stratum.debate` | Adversarial multi-agent synthesis with convergence detection |
 | Full observability | Structured trace record on every call, OTLP export built-in |
+| Prompt cache | Anthropic models get `cache_control` injected automatically — system, tool schema, and stable prompt prefix |
 | Two dependencies | `litellm` + `pydantic`. No OTel SDK. |
 
 ---
