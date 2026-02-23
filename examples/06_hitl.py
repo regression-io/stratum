@@ -90,9 +90,12 @@ class DemoReviewSink:
     async def _prompt_human(self, review: PendingReview) -> None:
         loop = asyncio.get_running_loop()
         while not review._future.done():
-            raw = await loop.run_in_executor(
-                None, input, "  [a]pprove / [r]eject / [e]dit → "
-            )
+            try:
+                raw = await loop.run_in_executor(
+                    None, input, "  [a]pprove / [r]eject / [e]dit → "
+                )
+            except EOFError:
+                return  # stdin closed (non-interactive) — timeout will handle it
             choice = raw.strip().lower()
             value = {"a": "approve", "e": "edit", "r": "reject"}.get(choice, choice)
             try:
