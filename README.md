@@ -42,9 +42,9 @@ pip install stratum-mcp
 stratum-mcp setup
 ```
 
-`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs four skills to `~/.claude/skills/`. Restart Claude Code and it's active.
+`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs five skills to `~/.claude/skills/`. Restart Claude Code and it's active.
 
-**Four skills installed automatically:**
+**Five skills installed automatically:**
 
 | Skill | What it structures |
 |---|---|
@@ -52,8 +52,11 @@ stratum-mcp setup
 | `/stratum-feature` | Feature build: read existing patterns → design → implement → tests pass |
 | `/stratum-debug` | Debug: read test → read code → check env → form hypotheses → confirm/rule out → fix |
 | `/stratum-refactor` | File split: analyze → design modules → plan extraction order → extract one at a time |
+| `/stratum-learn` | Review recent session transcripts — extract retry patterns, write project-specific conclusions to `MEMORY.md` |
 
 Claude writes the `.stratum.yaml` spec internally — you never see it. You see plain English narration and the result. The MCP server enforces postconditions on every step; if a step's output fails a check, Claude fixes it and retries before reporting success.
+
+Each skill reads project-specific patterns from `MEMORY.md` before writing its spec, and writes new patterns after `stratum_audit` — retry reasons, confirmed root causes, extraction order constraints. Run `/stratum-learn` periodically to extract conclusions from recent session transcripts and feed them back into future specs.
 
 **MCP tools exposed:**
 
@@ -212,7 +215,7 @@ Requires Claude Code. `setup` configures everything — restart Claude Code to a
 
 **Track 1** (Python library): implemented and tested.
 
-**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with four bundled skills. 66 tests passing.
+**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with five bundled skills and a memory system for project-specific pattern capture. 66 tests passing.
 
 Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions)
 

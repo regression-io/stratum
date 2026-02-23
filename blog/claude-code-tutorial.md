@@ -205,6 +205,34 @@ That's it. `setup` finds your project root, writes the MCP config, and adds the 
 
 ---
 
+## Workflow 7: Learning From Past Sessions
+
+After a few sessions, patterns accumulate: which `ensure` expressions fire every time, which steps consistently need retries, which tasks ran without Stratum and visibly struggled.
+
+**You:**
+> review the last few sessions and update the memory
+
+**Claude:**
+
+> Reviewing 4 recent sessions...
+>
+> Found 9 Stratum flows across 4 sessions.
+> 12 steps needed retries — 3 reveal project-specific patterns.
+> 2 tasks ran without Stratum and showed signs of going in circles.
+>
+> Writing 5 new memory entries.
+>
+> Most actionable findings:
+> - Budget clone is shallow-copied in three separate flows that hit race conditions. Adding this as a pattern to check at design time.
+> - The `test_status == "passing"` ensure fires on every refactor extraction that touches `executor.py` — something about that file's imports triggers test failures on first attempt. Worth noting for extraction order planning.
+> - One debug session spent four tool calls re-reading files it had already read, spiraling without a hypothesis. Future debug tasks should route through `/stratum-debug`.
+
+---
+
+*What's happening internally: Claude reads `.jsonl` transcripts from `~/.claude/projects/<project-hash>/`, parses `stratum_plan` and `stratum_step_done` calls to find retry patterns, identifies non-Stratum tasks that showed signs of struggling, and appends tagged one-liners to `MEMORY.md`. The next time `/stratum-feature` or `/stratum-debug` runs, it reads those tags and incorporates them into its spec.*
+
+---
+
 ## What's Consistent Across All of These
 
 Claude Code is doing the same thing it always does: reading files, writing code, running tests. What's different:
@@ -229,6 +257,18 @@ Claude Code is doing the same thing it always does: reading files, writing code,
 | `stratum_plan` | Validate + create execution state + return first step. |
 | `stratum_step_done` | Report a completed step. Checks postconditions. Returns next step, retry request, or completion. |
 | `stratum_audit` | Return the execution trace for a flow by `flow_id`. |
+
+**Skills:**
+
+| Skill | Invoke when |
+|---|---|
+| `/stratum-review` | Reviewing a PR or diff |
+| `/stratum-feature` | Adding a feature |
+| `/stratum-debug` | Debugging a test failure or CI discrepancy |
+| `/stratum-refactor` | Splitting a large file |
+| `/stratum-learn` | After 3–5 sessions — extract patterns into memory |
+
+**Memory:** Each skill reads `MEMORY.md` (`.claude/memory/MEMORY.md`) before writing its spec and appends project-specific patterns after `stratum_audit`. Tagged entries like `[stratum-debug]` or `[stratum-refactor]` are picked up by the matching skill. `/stratum-learn` populates this file automatically from session transcripts.
 
 **CLI:**
 

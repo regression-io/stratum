@@ -150,3 +150,17 @@ Extracting [module 2]... tests passing.
 
 Done. [N] modules created. Original file re-exports everything — no callers need to change.
 ```
+
+## Memory
+
+**Before writing the spec:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). Find any lines tagged `[stratum-refactor]`. These encode known dependency constraints, module patterns, or import conventions that previous refactor sessions discovered.
+
+**After each extraction:** If a step needed retries because of an unexpected dependency or import constraint, append to `MEMORY.md`:
+
+```
+[stratum-refactor] executor imports from decorators at module level — extract decorators before executor
+[stratum-refactor] all internal modules import from stratum.__init__ not direct paths — update __init__ first
+[stratum-refactor] circular import between flow_scope and decorators — flow_scope must not import decorators
+```
+
+These entries directly improve future extraction order planning — the `plan_extraction_order` step can use them to avoid the same sequencing mistakes.

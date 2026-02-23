@@ -146,3 +146,17 @@ Running performance pass...
 ```
 
 After completion, call `stratum_audit` and note any steps that required retries.
+
+## Memory
+
+**Before writing the spec:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). Find any lines tagged `[stratum-review]`. Incorporate them into the relevant `intent` fields — they encode project-specific patterns discovered in previous review sessions.
+
+**After `stratum_audit`:** For each step with `attempts > 1`, ask: does the retry reason reveal something specific about this codebase (a recurring pattern, a module with known fragility, a class of issue this project tends to have)? If yes, append a one-liner to `MEMORY.md`:
+
+```
+[stratum-review] <pattern> — e.g. "auth middleware bypasses rate limiting for /internal routes"
+[stratum-review] security: f-string SQL construction in db/queries.py — always check for injection
+[stratum-review] logic: budget clone is not deep-copied — concurrent flows can race on token counter
+```
+
+Only write entries that would change how you write the spec next time. Skip generic observations like "output was vague" — those aren't project-specific.

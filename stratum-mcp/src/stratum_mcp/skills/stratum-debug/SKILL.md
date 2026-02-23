@@ -190,3 +190,17 @@ Fixing...
 Root cause: [plain English]
 Fix: [what changed]
 ```
+
+## Memory
+
+**Before writing the spec:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). Find any lines tagged `[stratum-debug]`. These encode known fragile areas, environment quirks, or hypothesis patterns that were confirmed in previous debug sessions — incorporate them into the `form_hypotheses` step's context.
+
+**After the fix:** Append to `MEMORY.md`:
+
+```
+[stratum-debug] root cause: asyncio.sleep mock doesn't advance event loop clock — use asyncio.timeout mock instead
+[stratum-debug] CI uses Ubuntu + Python 3.11; macOS timing is looser — timing-sensitive tests need explicit clock control
+[stratum-debug] budget.token_counter is shared across retries — deepcopy required at flow entry
+```
+
+Every confirmed root cause is worth writing down — the same bug class often reappears in the same codebase. The `ruled_out` list from the diagnosis step is also valuable: append one line for each hypothesis that looked plausible but wasn't the cause, so future sessions don't re-investigate the same dead ends.

@@ -151,3 +151,19 @@ Done. [brief summary of what was built and what tests cover]
 ```
 
 After completion, call `stratum_audit` and include the trace in the commit description.
+
+## Memory
+
+**Before writing the spec:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). Find any lines tagged `[stratum-feature]`. Incorporate them into the `intent` fields — they encode patterns like test conventions, module boundaries, or constraints that prior sessions discovered.
+
+**After `stratum_audit`:** For each step with `attempts > 1`, ask: does the retry reveal a project-specific constraint (a non-obvious coupling, a test convention, an invariant that must be preserved)? If yes, append a one-liner to `MEMORY.md`:
+
+```
+[stratum-feature] tests use factory_boy fixtures, not pytest fixtures — match this pattern
+[stratum-feature] budget.clone() must use copy.deepcopy — shallow copy races in parallel flows
+[stratum-feature] all new modules must re-export from __init__.py — existing callers expect flat imports
+```
+
+Also write patterns from the **design step** that prevented problems — design decisions that led to a clean first-attempt implementation are worth capturing.
+
+Only write entries that would change how you write the spec or implement next time.

@@ -18,6 +18,8 @@
 - `stratum-mcp setup` — one-command project configuration: writes `.claude/mcp.json` (MCP server registration), appends execution model block to `CLAUDE.md`, and installs four Claude Code skills to `~/.claude/skills/`; idempotent, finds project root via `.git` or `CLAUDE.md`
 - Four Claude Code skills installed by `setup`: `stratum-review` (three-pass code review), `stratum-feature` (read → design → implement → test), `stratum-debug` (hypothesis formation and elimination), `stratum-refactor` (extraction order planning, no broken intermediate states)
 - Each skill contains a spec template Claude adapts internally — YAML never shown to the user; Claude narrates in plain English
+- All four skills include a `## Memory` section: read project `MEMORY.md` before writing spec (incorporate `[stratum-<skill>]` tagged patterns); write new patterns after `stratum_audit` (retry reasons, confirmed root causes, ruled-out hypotheses, extraction order constraints)
+- `stratum-learn` skill — reviews recent Claude Code session transcripts (`.jsonl` files), extracts Stratum flow outcomes and non-Stratum tasks that struggled, writes tagged conclusions to `MEMORY.md`
 - CLI triple-mode: `stratum-mcp setup`, `stratum-mcp validate <file>`, stdio MCP transport
 - 66 passing tests across contracts, invariants, and integration suites
 
