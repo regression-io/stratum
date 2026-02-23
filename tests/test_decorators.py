@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from pydantic import BaseModel
 from stratum.contracts import contract
 from stratum.budget import Budget
 from stratum.decorators import compute, flow, infer, refine
@@ -22,7 +23,7 @@ from stratum.types import Probabilistic
 
 
 @contract
-class Category:
+class Category(BaseModel):
     label: Literal["a", "b", "c"]
     confidence: float
 

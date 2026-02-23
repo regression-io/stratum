@@ -314,6 +314,17 @@ async def execute_infer(
                 response = await litellm.acompletion(**call_kwargs)
         except asyncio.TimeoutError:
             raise BudgetExceeded(fn_name, budget)
+        except Exception as exc:
+            # Tool-validation errors (e.g. Groq tool_use_failed when the model
+            # produces a string for a bool field) should trigger a retry, not
+            # surface immediately. Hard errors that aren't retryable will keep
+            # failing and exhaust retries, then raise ParseFailure.
+            parse_reason = f"LLM API error ({exc.__class__.__name__}): {str(exc)[:300]}"
+            retry_reasons = [parse_reason]
+            all_retry_reasons.append(parse_reason)
+            retry_history.append([parse_reason])
+            last_failure_was_parse = True
+            continue
 
         # e. Track cost
         try:

@@ -1,8 +1,7 @@
-"""Contract registry, JSON Schema compilation, content hash, and opaque[T]."""
+"""Contract registry, JSON Schema, content hash, and opaque[T]."""
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 import typing
@@ -60,44 +59,39 @@ def contract_hash(json_schema: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# JSON Schema compilation
+# JSON Schema compilation — for primitive / inline return types only.
+# @contract classes use Pydantic's model_json_schema() instead.
 # ---------------------------------------------------------------------------
 
-def _annotation_to_schema(annotation: Any, _seen: set[type] | None = None) -> dict:
+def _annotation_to_schema(annotation: Any) -> dict:
     """
-    Recursively convert a Python type annotation to JSON Schema draft 2020-12.
-    """
-    if _seen is None:
-        _seen = set()
+    Convert a Python type annotation to JSON Schema.
 
-    # Unwrap Annotated to check for Field constraints and opaque marker
+    Used for non-@contract return types (primitives, Literal, list, etc.).
+    @contract classes are handled via get_schema() / model_json_schema().
+    """
+    # Unwrap Annotated — apply field constraints if present
     if get_origin(annotation) is Annotated:
         args = get_args(annotation)
         base = args[0]
         metadata = args[1:]
-
-        # opaque[T] — the marker is a prompt-compiler concern only; generate schema for T
-        schema = _annotation_to_schema(base, _seen)
-
-        # Apply constraint metadata from FieldInfo-like objects
+        schema = _annotation_to_schema(base)
         for meta in metadata:
             if isinstance(meta, _OpaqueMarker):
                 continue
-            # Support pydantic FieldInfo and any object with constraint attributes
             _apply_field_constraints(schema, meta)
-
         return schema
 
-    # Union types: T | None  and  Optional[T]  (get_origin == types.UnionType or Union)
     origin = get_origin(annotation)
+
+    # Union / Optional
     if origin is typing.Union:
         args = get_args(annotation)
         non_none = [a for a in args if a is not type(None)]
         has_none = type(None) in args
         if has_none and len(non_none) == 1:
-            return {"anyOf": [_annotation_to_schema(non_none[0], _seen), {"type": "null"}]}
-        # General union — not explicitly in spec but handle gracefully
-        return {"anyOf": [_annotation_to_schema(a, _seen) for a in args]}
+            return {"anyOf": [_annotation_to_schema(non_none[0]), {"type": "null"}]}
+        return {"anyOf": [_annotation_to_schema(a) for a in args]}
 
     # Python 3.10+ union syntax: X | Y
     try:
@@ -107,29 +101,20 @@ def _annotation_to_schema(annotation: Any, _seen: set[type] | None = None) -> di
             non_none = [a for a in args if a is not type(None)]
             has_none = type(None) in args
             if has_none and len(non_none) == 1:
-                return {"anyOf": [_annotation_to_schema(non_none[0], _seen), {"type": "null"}]}
-            return {"anyOf": [_annotation_to_schema(a, _seen) for a in args]}
+                return {"anyOf": [_annotation_to_schema(non_none[0]), {"type": "null"}]}
+            return {"anyOf": [_annotation_to_schema(a) for a in args]}
     except AttributeError:
         pass
 
     # list[T]
     if origin is list:
         args = get_args(annotation)
-        items_schema = _annotation_to_schema(args[0], _seen) if args else {}
+        items_schema = _annotation_to_schema(args[0]) if args else {}
         return {"type": "array", "items": items_schema}
 
     # Literal[...]
     if origin is typing.Literal:
         return {"enum": list(get_args(annotation))}
-
-    # Registered @contract class — inline the full object schema
-    if isinstance(annotation, type) and annotation in _registry:
-        if annotation in _seen:
-            raise StratumCompileError(
-                f"Circular contract reference detected for '{annotation.__name__}'"
-            )
-        seen2 = _seen | {annotation}
-        return _compile_class_schema(annotation, seen2)
 
     # Primitives
     if annotation is str:
@@ -145,7 +130,6 @@ def _annotation_to_schema(annotation: Any, _seen: set[type] | None = None) -> di
     if annotation is type(None):
         return {"type": "null"}
 
-    # datetime.date and datetime.datetime
     try:
         import datetime
         if annotation is datetime.date:
@@ -155,21 +139,14 @@ def _annotation_to_schema(annotation: Any, _seen: set[type] | None = None) -> di
     except ImportError:
         pass
 
-    # Fallback — emit a permissive schema rather than crashing
+    # Fallback — permissive schema rather than crashing
     return {}
 
 
 def _apply_field_constraints(schema: dict, meta: Any) -> None:
-    """Apply ge/le/gt/lt/min_length/max_length constraints from a metadata object.
-
-    Handles both:
-    - Pydantic v2 FieldInfo (constraints stored in .metadata as annotated_types objects)
-    - Direct annotated_types objects (Ge, Le, Gt, Lt, MinLen, MaxLen)
-    - Any object with ge/le/gt/lt/min_length/max_length attributes directly
-    """
-    # If this is a Pydantic v2 FieldInfo, recurse into its .metadata list
+    """Apply ge/le/gt/lt/min_length/max_length constraints from a metadata object."""
     try:
-        from pydantic.fields import FieldInfo  # type: ignore[import-untyped]
+        from pydantic.fields import FieldInfo
         if isinstance(meta, FieldInfo):
             for sub in getattr(meta, "metadata", []):
                 _apply_field_constraints(schema, sub)
@@ -177,8 +154,6 @@ def _apply_field_constraints(schema: dict, meta: Any) -> None:
     except ImportError:
         pass
 
-    # Direct attribute mapping — works for annotated_types.Ge/Le/Gt/Lt/MinLen/MaxLen
-    # and any user-supplied object with these attributes
     mapping = {
         "ge": "minimum",
         "le": "maximum",
@@ -191,59 +166,6 @@ def _apply_field_constraints(schema: dict, meta: Any) -> None:
         val = getattr(meta, attr, None)
         if val is not None:
             schema[json_key] = val
-
-
-def _compile_class_schema(cls: type, _seen: set[type] | None = None) -> dict:
-    """
-    Generate {"type": "object", "properties": {...}, "required": [...]}
-    from typing.get_type_hints(cls, include_extras=True).
-    """
-    if _seen is None:
-        _seen = set()
-
-    try:
-        hints = get_type_hints(cls, include_extras=True)
-    except Exception:
-        hints = {}
-
-    properties: dict[str, dict] = {}
-    required: list[str] = []
-
-    for field_name, annotation in hints.items():
-        if field_name.startswith("_"):
-            continue
-
-        prop_schema = _annotation_to_schema(annotation, _seen)
-        properties[field_name] = prop_schema
-
-        # A field is required if None is not in its type
-        if not _is_optional(annotation):
-            required.append(field_name)
-
-    schema: dict[str, Any] = {
-        "type": "object",
-        "properties": properties,
-    }
-    if required:
-        schema["required"] = required
-
-    return schema
-
-
-def _is_optional(annotation: Any) -> bool:
-    """Return True if type(None) appears anywhere in the top-level union."""
-    origin = get_origin(annotation)
-    if origin is typing.Union:
-        return type(None) in get_args(annotation)
-    try:
-        import types as _types
-        if isinstance(annotation, _types.UnionType):
-            return type(None) in get_args(annotation)
-    except AttributeError:
-        pass
-    if origin is Annotated:
-        return _is_optional(get_args(annotation)[0])
-    return False
 
 
 # ---------------------------------------------------------------------------
@@ -260,26 +182,21 @@ _hashes: dict[type, str] = {}      # cls -> content_hash
 
 def contract(cls: type) -> type:
     """
-    Register a class as a Stratum contract.
+    Register a pydantic.BaseModel subclass as a Stratum contract.
 
-    Computes JSON Schema and content hash at decoration time. If the class
-    inherits from pydantic.BaseModel, uses Pydantic's schema generation.
-    Otherwise generates from typing.get_type_hints().
+    Uses Pydantic's model_json_schema() for accurate JSON Schema generation
+    including field constraints, validators, and nested model $defs.
+    Raises StratumCompileError if cls is not a pydantic.BaseModel subclass.
     """
-    # Attempt pydantic schema first
-    schema: dict | None = None
-    try:
-        from pydantic import BaseModel  # type: ignore[import-untyped]
-        if issubclass(cls, BaseModel):
-            raw = cls.model_json_schema()
-            # Pydantic may produce $defs — keep as-is
-            schema = raw
-    except ImportError:
-        pass
+    from pydantic import BaseModel
+    if not (isinstance(cls, type) and issubclass(cls, BaseModel)):
+        raise StratumCompileError(
+            f"@contract requires a pydantic.BaseModel subclass. "
+            f"'{cls.__name__}' is not a BaseModel. "
+            f"Declare it as: class {cls.__name__}(BaseModel): ..."
+        )
 
-    if schema is None:
-        schema = _compile_class_schema(cls)
-
+    schema = cls.model_json_schema()
     h = contract_hash(schema)
     _registry[cls] = schema
     _hashes[cls] = h
@@ -311,24 +228,5 @@ def get_opaque_fields(cls: type) -> list[str]:
 
 
 def instantiate(cls: type, data: dict) -> Any:
-    """
-    Create an instance of cls from a dict.
-
-    Priority:
-    1. Pydantic BaseModel — cls(**data)
-    2. dataclass — cls(**data)
-    3. Plain class — object.__new__ + __dict__.update
-    """
-    try:
-        from pydantic import BaseModel  # type: ignore[import-untyped]
-        if issubclass(cls, BaseModel):
-            return cls(**data)
-    except ImportError:
-        pass
-
-    if dataclasses.is_dataclass(cls):
-        return cls(**data)
-
-    obj = object.__new__(cls)
-    obj.__dict__.update(data)
-    return obj
+    """Create a validated pydantic instance of cls from a dict."""
+    return cls(**data)

@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from pydantic import BaseModel
 from stratum.contracts import contract, get_schema, get_hash
 from stratum.budget import Budget
 from stratum.decorators import infer
@@ -31,7 +32,7 @@ from stratum.trace import clear as clear_traces, all_records
 # ---------------------------------------------------------------------------
 
 @contract
-class Sentiment:
+class Sentiment(BaseModel):
     label: Literal["positive", "negative", "neutral"]
     confidence: float
     reasoning: str
@@ -421,7 +422,7 @@ class TestSessionCacheScoping:
         call_count = 0
 
         @contract
-        class CountResult:
+        class CountResult(BaseModel):
             count: int
 
         good_data = {"count": 1}

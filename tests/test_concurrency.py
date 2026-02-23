@@ -14,6 +14,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from stratum.concurrency import debate, parallel, race
+from pydantic import BaseModel
 from stratum.contracts import contract
 from stratum.decorators import infer
 from stratum.exceptions import ConsensusFailure, ParallelValidationFailed
@@ -21,7 +22,7 @@ from stratum.trace import clear as clear_traces
 
 
 @contract
-class Vote:
+class Vote(BaseModel):
     label: Literal["yes", "no"]
     confidence: float
 

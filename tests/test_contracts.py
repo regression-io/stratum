@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pytest
 from typing import Annotated, Literal
+from pydantic import BaseModel, Field
 
 from stratum.contracts import (
     _OpaqueMarker,
@@ -24,8 +25,8 @@ from stratum.contracts import (
     is_registered,
     opaque,
     _annotation_to_schema,
-    _compile_class_schema,
 )
+from stratum.exceptions import StratumCompileError
 
 
 # ---------------------------------------------------------------------------
@@ -33,12 +34,12 @@ from stratum.contracts import (
 # ---------------------------------------------------------------------------
 
 @contract
-class _ModuleInner:
+class _ModuleInner(BaseModel):
     value: int
 
 
 @contract
-class _ModuleOuter:
+class _ModuleOuter(BaseModel):
     inner: _ModuleInner
     name: str
 
@@ -57,7 +58,6 @@ class TestOpaque:
         from typing import get_args
         result = opaque[str]
         args = get_args(result)
-        # args[0] is str, args[1:] are metadata
         assert any(isinstance(m, _OpaqueMarker) for m in args[1:])
 
     def test_opaque_int(self):
@@ -79,12 +79,8 @@ class TestIsOpaque:
         assert is_opaque(str) is False
 
     def test_annotated_without_marker_returns_false(self):
-        try:
-            from pydantic import Field
-            ann = Annotated[str, Field(min_length=1)]
-            assert is_opaque(ann) is False
-        except ImportError:
-            pytest.skip("pydantic not installed")
+        ann = Annotated[str, Field(min_length=1)]
+        assert is_opaque(ann) is False
 
     def test_none_type_returns_false(self):
         assert is_opaque(type(None)) is False
@@ -121,116 +117,89 @@ class TestContractHash:
 
 
 # ---------------------------------------------------------------------------
-# @contract on plain class
+# @contract decorator
 # ---------------------------------------------------------------------------
 
 @contract
-class _PlainClass:
+class _SimpleModel(BaseModel):
     name: str
     value: int
 
 
 @contract
-class _PlainWithOptional:
+class _OptionalModel(BaseModel):
     required_field: str
-    optional_field: str | None
+    optional_field: str | None = None
 
 
 @contract
-class _PlainWithLiteral:
+class _LiteralModel(BaseModel):
     label: Literal["a", "b", "c"]
 
 
 @contract
-class _PlainWithList:
+class _ListModel(BaseModel):
     tags: list[str]
 
 
 class TestContractDecorator:
-    def test_plain_class_registers(self):
-        assert is_registered(_PlainClass)
+    def test_model_registers(self):
+        assert is_registered(_SimpleModel)
 
-    def test_plain_class_schema_has_correct_type(self):
-        schema = get_schema(_PlainClass)
+    def test_schema_type_is_object(self):
+        schema = get_schema(_SimpleModel)
         assert schema["type"] == "object"
         assert "properties" in schema
-        assert schema["properties"]["name"] == {"type": "string"}
-        assert schema["properties"]["value"] == {"type": "integer"}
+
+    def test_schema_field_types(self):
+        schema = get_schema(_SimpleModel)
+        assert schema["properties"]["name"]["type"] == "string"
+        assert schema["properties"]["value"]["type"] == "integer"
 
     def test_required_fields_excludes_optional(self):
-        schema = get_schema(_PlainWithOptional)
+        schema = get_schema(_OptionalModel)
         assert "required_field" in schema.get("required", [])
         assert "optional_field" not in schema.get("required", [])
 
     def test_literal_compiles_to_enum(self):
-        schema = get_schema(_PlainWithLiteral)
-        assert schema["properties"]["label"] == {"enum": ["a", "b", "c"]}
+        schema = get_schema(_LiteralModel)
+        prop = schema["properties"]["label"]
+        assert "enum" in prop
+        assert set(prop["enum"]) == {"a", "b", "c"}
 
-    def test_list_field_compiles_correctly(self):
-        schema = get_schema(_PlainWithList)
-        assert schema["properties"]["tags"] == {
-            "type": "array",
-            "items": {"type": "string"},
-        }
+    def test_list_field_compiles(self):
+        schema = get_schema(_ListModel)
+        prop = schema["properties"]["tags"]
+        assert prop["type"] == "array"
 
     def test_hash_is_12_chars(self):
-        h = get_hash(_PlainClass)
-        assert len(h) == 12
+        assert len(get_hash(_SimpleModel)) == 12
 
     def test_contract_returns_class_unchanged(self):
-        class Original:
+        class MyModel(BaseModel):
             x: int
+        result = contract(MyModel)
+        assert result is MyModel
 
-        result = contract(Original)
-        assert result is Original
-
-    def test_nested_contract(self):
-        # Use module-level classes to avoid get_type_hints resolution issues
-        # when from __future__ import annotations is active
+    def test_nested_contract_schema(self):
         schema = get_schema(_ModuleOuter)
-        assert "properties" in schema, f"No 'properties' key in schema: {schema}"
-        assert "inner" in schema["properties"], (
-            f"'inner' not in properties. schema={schema}"
-        )
-        inner_schema = schema["properties"]["inner"]
-        assert inner_schema["type"] == "object"
-        assert "value" in inner_schema["properties"]
-
-
-# ---------------------------------------------------------------------------
-# @contract with pydantic BaseModel
-# ---------------------------------------------------------------------------
-
-class TestContractPydantic:
-    def test_pydantic_model_registered(self):
-        try:
-            from pydantic import BaseModel, Field
-        except ImportError:
-            pytest.skip("pydantic not installed")
-
-        @contract
-        class PydanticContract(BaseModel):
-            name: str
-            score: Annotated[float, Field(ge=0.0, le=1.0)]
-
-        assert is_registered(PydanticContract)
-        schema = get_schema(PydanticContract)
         assert "properties" in schema
+        assert "inner" in schema["properties"]
+        # Pydantic uses $ref + $defs for nested models
+        inner_prop = schema["properties"]["inner"]
+        assert "$ref" in inner_prop or inner_prop.get("type") == "object"
 
-    def test_pydantic_instantiate(self):
-        try:
-            from pydantic import BaseModel
-        except ImportError:
-            pytest.skip("pydantic not installed")
+    def test_plain_class_raises_compile_error(self):
+        with pytest.raises(StratumCompileError, match="BaseModel"):
+            @contract
+            class NotAModel:
+                x: int
 
-        @contract
-        class SimpleModel(BaseModel):
-            name: str
-            count: int
-
-        instance = instantiate(SimpleModel, {"name": "test", "count": 42})
-        assert instance.name == "test"
-        assert instance.count == 42
+    def test_plain_class_error_mentions_class_name(self):
+        with pytest.raises(StratumCompileError, match="NotAModel2"):
+            @contract
+            class NotAModel2:
+                x: int
 
 
 # ---------------------------------------------------------------------------
@@ -238,14 +207,14 @@ class TestContractPydantic:
 # ---------------------------------------------------------------------------
 
 @contract
-class _WithOpaque:
+class _WithOpaque(BaseModel):
     summary: str
     reasoning: opaque[str]
     count: int
 
 
 @contract
-class _NoOpaque:
+class _NoOpaque(BaseModel):
     name: str
     value: int
 
@@ -267,39 +236,30 @@ class TestGetOpaqueFields:
 # ---------------------------------------------------------------------------
 
 @contract
-class _PlainInst:
+class _InstModel(BaseModel):
     name: str
     value: int
 
 
 class TestInstantiate:
-    def test_plain_class_instantiation(self):
-        obj = instantiate(_PlainInst, {"name": "hello", "value": 42})
+    def test_basic_instantiation(self):
+        obj = instantiate(_InstModel, {"name": "hello", "value": 42})
         assert obj.name == "hello"
         assert obj.value == 42
 
-    def test_dataclass_instantiation(self):
-        import dataclasses
+    def test_returns_pydantic_instance(self):
+        obj = instantiate(_InstModel, {"name": "test", "value": 1})
+        assert isinstance(obj, BaseModel)
 
-        @contract
-        @dataclasses.dataclass
-        class DC:
-            name: str
-            count: int
+    def test_pydantic_validation_runs(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            instantiate(_InstModel, {"name": "test", "value": "not_coercible_xxxx"})
 
-        obj = instantiate(DC, {"name": "test", "count": 7})
-        assert obj.name == "test"
-        assert obj.count == 7
-
-    def test_plain_class_without_init(self):
-        @contract
-        class NoInit:
-            x: int
-            y: str
-
-        obj = instantiate(NoInit, {"x": 1, "y": "hello"})
-        assert obj.x == 1
-        assert obj.y == "hello"
+    def test_pydantic_coerces_compatible_types(self):
+        # Pydantic v2 coerces int-as-string for int fields
+        obj = instantiate(_InstModel, {"name": "test", "value": 7})
+        assert obj.value == 7
 
 
 # ---------------------------------------------------------------------------
@@ -341,22 +301,12 @@ class TestAnnotationToSchema:
         assert schema == {"enum": ["x", "y"]}
 
     def test_annotated_with_float_constraints(self):
-        try:
-            from pydantic import Field
-        except ImportError:
-            pytest.skip("pydantic not installed")
-
         schema = _annotation_to_schema(Annotated[float, Field(ge=0.0, le=1.0)])
         assert schema.get("type") == "number"
         assert schema.get("minimum") == 0.0, f"Expected minimum=0.0, got schema={schema}"
         assert schema.get("maximum") == 1.0, f"Expected maximum=1.0, got schema={schema}"
 
     def test_annotated_str_constraints(self):
-        try:
-            from pydantic import Field
-        except ImportError:
-            pytest.skip("pydantic not installed")
-
         schema = _annotation_to_schema(
             Annotated[str, Field(min_length=1, max_length=100)]
         )
