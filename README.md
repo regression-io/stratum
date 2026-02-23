@@ -222,6 +222,20 @@ Questions and feedback: [GitHub Discussions](https://github.com/regression-io/st
 
 ---
 
+## Development
+
+Clone and activate the git hooks (auto-bumps version on push to main):
+
+```bash
+git clone https://github.com/regression-io/stratum
+cd stratum
+git config core.hooksPath .githooks
+```
+
+PyPI publishing runs automatically via CI when `pyproject.toml` changes on `main`. Add a `PYPI_API_TOKEN` secret (account-scoped) to the GitHub repo settings once.
+
+---
+
 ## License
 
 [Apache 2.0](https://github.com/regression-io/stratum/blob/main/LICENSE)

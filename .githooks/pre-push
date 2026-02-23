@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Pre-push hook: auto-bump patch version in both packages when pushing to main."""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+MCP_TOML = "stratum-mcp/pyproject.toml"
+PY_TOML = "pyproject.toml"
+
+
+def read_version(path: str) -> str | None:
+    m = re.search(r'^version = "(\d+\.\d+\.\d+)"', Path(path).read_text(), re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def bump_patch(version: str) -> str:
+    major, minor, patch = version.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
+def set_version(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    p.write_text(p.read_text().replace(f'version = "{old}"', f'version = "{new}"', 1))
+
+
+# Only bump when pushing to main
+pushing_to_main = False
+for line in sys.stdin.read().splitlines():
+    parts = line.strip().split()
+    if len(parts) >= 4 and parts[2] in ("refs/heads/main", "main"):
+        pushing_to_main = True
+        break
+
+if not pushing_to_main:
+    sys.exit(0)
+
+current = read_version(MCP_TOML)
+if not current:
+    print("pre-push: could not read version from stratum-mcp/pyproject.toml", file=sys.stderr)
+    sys.exit(1)
+
+new_version = bump_patch(current)
+print(f"pre-push: {current} → {new_version}")
+
+set_version(MCP_TOML, current, new_version)
+set_version(PY_TOML, current, new_version)
+
+subprocess.run(["git", "add", MCP_TOML, PY_TOML], check=True)
+subprocess.run(["git", "commit", "-m", f"chore: bump to {new_version}"], check=True)
