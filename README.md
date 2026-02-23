@@ -153,38 +153,7 @@ Stratum has two distinct deployment contexts with different users, constraints, 
 - **Professional developers** — review typed execution plans, understand the step graph, tune contracts. The MCP enforces what the library would have enforced if they'd written the code themselves.
 - **Vibe coders** — prompt Claude Code to build things. The IR is invisible. They see plain-language plans, approve them, and get reliable results (and, when the output is code, `@infer`-annotated Python they can keep).
 
-The enforcement gap is real in Track 2 — Claude Code is an AI agent that can route around constraints. Different machinery required. See [`docs/claude-code/enforcement-gap.md`](docs/claude-code/enforcement-gap.md).
-
----
-
-## Document Index
-
-### Track 1 — Python Library
-
-- [`docs/library/language-design.md`](docs/library/language-design.md) — semantic model: `infer`, `compute`, `flow`, `refine`, `ensure`
-- [`docs/library/type-system.md`](docs/library/type-system.md) — contracts, schema compilation, `Probabilistic[T]`, content hash
-- [`docs/library/execution-model.md`](docs/library/execution-model.md) — runtime, prompt compiler, retry loop, trace records, LLM client configuration
-- [`docs/library/concurrency-and-agents.md`](docs/library/concurrency-and-agents.md) — `parallel`, `race`, `quorum`, `debate`, agents, isolation model
-- [`docs/library/dynamic-orchestration.md`](docs/library/dynamic-orchestration.md) — `orchestrate`, `adapt`, `reflect`, typed plan validation
-- [`docs/library/patterns.md`](docs/library/patterns.md) — pattern library: actor-critic, constitutional, ensemble, reflexion, plan-and-execute
-- [`docs/library/token-efficiency.md`](docs/library/token-efficiency.md) — the principle (v1) and the optimization layer (v2)
-- [`docs/library/design-tensions.md`](docs/library/design-tensions.md) — trade-off matrix, where the design cursor sits
-- [`docs/library/open-problems.md`](docs/library/open-problems.md) — design decisions: resolved, deferred, and open
-- [`docs/library/how-to-build.md`](docs/library/how-to-build.md) — Python library implementation and build sequence
-
-### Track 2 — Claude Code Integration
-
-- [`docs/claude-code/claude-code-integration.md`](docs/claude-code/claude-code-integration.md) — two audiences (professional devs + vibe coders), workflow improvements, comparison with skills/rules/hooks
-- [`docs/claude-code/distribution-and-integration.md`](docs/claude-code/distribution-and-integration.md) — MCP server strategy, integration paths, the flywheel
-- [`docs/claude-code/enforcement-gap.md`](docs/claude-code/enforcement-gap.md) — what forces Claude to use the MCP, options ranked, honest limits
-- [`docs/claude-code/how-to-build.md`](docs/claude-code/how-to-build.md) — IR spec, MCP server code, Claude Code wiring, plan skill
-
-### Strategy
-
-- [`docs/strategy/positioning.md`](docs/strategy/positioning.md) — competitive analysis: instructor, DSPy, n8n, LangChain
-- [`docs/strategy/prior-art.md`](docs/strategy/prior-art.md) — what exists today, where the gap is, competitive table
-- [`docs/strategy/go-to-market.md`](docs/strategy/go-to-market.md) — paths to value, vibe coder opportunity, recommended sequence
-- [`docs/strategy/implementation-path.md`](docs/strategy/implementation-path.md) — Python first, TypeScript second, Rust core
+The enforcement gap is real in Track 2 — Claude Code is an AI agent that can route around constraints. Different machinery required.
 
 ## Integrations
 
