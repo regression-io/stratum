@@ -222,6 +222,29 @@ def _cmd_setup() -> None:
         print("  CLAUDE.md: created")
         changed.append("CLAUDE.md")
 
+    # --- Skills ---
+    import importlib.resources
+    skills_home = Path.home() / ".claude" / "skills"
+    pkg_skills = Path(__file__).parent / "skills"
+    if pkg_skills.is_dir():
+        for skill_dir in sorted(pkg_skills.iterdir()):
+            if not skill_dir.is_dir():
+                continue
+            src = skill_dir / "SKILL.md"
+            if not src.exists():
+                continue
+            dest_dir = skills_home / skill_dir.name
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = dest_dir / "SKILL.md"
+            content = src.read_text()
+            if dest.exists() and dest.read_text() == content:
+                print(f"  ~/.claude/skills/{skill_dir.name}: already up to date — skipped")
+            else:
+                dest.write_text(content)
+                verb = "updated" if dest.exists() else "installed"
+                print(f"  ~/.claude/skills/{skill_dir.name}: {verb}")
+                changed.append(f"skills/{skill_dir.name}")
+
     if changed:
         print("\nDone. Restart Claude Code to activate the Stratum MCP server.")
     else:

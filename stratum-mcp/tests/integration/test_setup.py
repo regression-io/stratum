@@ -171,3 +171,44 @@ def test_setup_done_message_on_changes(tmp_path, capsys):
     _run_setup(tmp_path)
     out = capsys.readouterr().out
     assert "Restart Claude Code" in out
+
+
+# ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+
+EXPECTED_SKILLS = ["stratum-review", "stratum-feature", "stratum-debug", "stratum-refactor"]
+SKILLS_HOME = Path.home() / ".claude" / "skills"
+
+
+def test_setup_installs_all_skills(tmp_path, capsys):
+    _run_setup(tmp_path)
+    for skill in EXPECTED_SKILLS:
+        assert (SKILLS_HOME / skill / "SKILL.md").exists(), f"Missing skill: {skill}"
+
+
+def test_setup_skill_contains_frontmatter(tmp_path):
+    _run_setup(tmp_path)
+    for skill in EXPECTED_SKILLS:
+        content = (SKILLS_HOME / skill / "SKILL.md").read_text()
+        assert content.startswith("---"), f"{skill} missing frontmatter"
+        assert f"name: {skill}" in content
+
+
+def test_setup_skill_contains_key_instructions(tmp_path):
+    _run_setup(tmp_path)
+    for skill in EXPECTED_SKILLS:
+        content = (SKILLS_HOME / skill / "SKILL.md").read_text()
+        assert "stratum_plan" in content, f"{skill} missing stratum_plan reference"
+        assert "stratum_step_done" in content, f"{skill} missing stratum_step_done reference"
+        assert "never show it to the user" in content, f"{skill} missing privacy instruction"
+
+
+def test_setup_skill_idempotent(tmp_path, capsys):
+    _run_setup(tmp_path)
+    _run_setup(tmp_path)
+    out = capsys.readouterr().out
+    assert "nothing to do" in out
+    for skill in EXPECTED_SKILLS:
+        content = (SKILLS_HOME / skill / "SKILL.md").read_text()
+        assert content.count(f"name: {skill}") == 1
