@@ -38,6 +38,7 @@ from ._config import configure
 from .types import Probabilistic, HumanDecision, HumanReviewContext, Success, Failure
 from .hitl import await_human, ReviewSink, ConsoleReviewSink, PendingReview
 from .concurrency import parallel, debate, race
+from .flow_scope import FlowScope
 from . import exporters
 
 
@@ -91,6 +92,8 @@ __all__ = [
     "parallel",
     "debate",
     "race",
+    # Flow context
+    "FlowScope",
     # Configuration
     "configure",
     "run",

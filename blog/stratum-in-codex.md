@@ -80,22 +80,9 @@ Not "retry the whole thing." The failure, and nothing else.
 
 Codex has a plan. You just can't see it. It exists in the model's context, implicit in the sequence of tool calls. When something goes wrong partway through a multi-step task, you often can't tell which step produced the bad state, what the intended sequence was, or which prior steps completed cleanly.
 
-With Stratum, Codex calls `stratum_plan` before touching anything. The result is a typed execution DAG — steps, dependencies, inputs, outputs — presented for your review:
+With Stratum, Codex writes a `.stratum.yaml` spec before touching anything — a typed execution DAG with steps, dependencies, inputs, outputs, and postconditions. It then calls `stratum_plan(spec, flow, inputs)`. The server validates the spec, builds the execution graph, and returns the first step. Codex executes each step using its own tools and calls `stratum_step_done(flow_id, step_id, result)` after each one.
 
-```
-ExecutionPlan {
-  steps: [
-    { id: "1", fn: "read_payment_module", output: SourceAnalysis },
-    { id: "2", fn: "identify_refactor_targets", output: RefactorPlan, depends_on: ["1"] },
-    { id: "3", fn: "apply_refactors", output: RefactoredCode, depends_on: ["2"] },
-    { id: "4", fn: "update_tests", output: TestSuite, depends_on: ["3"] },
-    { id: "5", fn: "validate", output: ValidationResult, depends_on: ["4"],
-      ensure: "all tests pass, no type errors" },
-  ]
-}
-```
-
-You see it. You approve it. Codex executes it. If step 4 fails, you know steps 1–3 completed successfully and exactly what they produced.
+If step 4 fails a postcondition, Codex gets back the specific violation — not a generic failure. It knows steps 1–3 completed successfully and exactly what they produced. The retry is targeted: fix this, not everything.
 
 ### Silent budget exhaustion
 
@@ -151,30 +138,31 @@ Codex reads files. Has an implicit plan. Writes middleware. Writes tests. Tests 
 
 **With Stratum:**
 
-Codex calls `stratum_plan`:
+Codex writes a `.stratum.yaml` spec and calls `stratum_plan(spec, "add_rate_limiting", inputs)`. The server validates the spec, builds the execution graph, and returns the first step. Codex executes each step using its own tools, then calls `stratum_step_done(flow_id, step_id, result)` after each one.
 
-```
-ExecutionPlan {
-  steps: [
-    { id: "1", fn: "read_routing_config", output: RouteMap },
-    { id: "2", fn: "design_middleware", output: MiddlewareSpec, depends_on: ["1"] },
-    { id: "3", fn: "implement_middleware", output: MiddlewareCode, depends_on: ["2"] },
-    { id: "4", fn: "write_tests", output: TestSuite, depends_on: ["3"],
-      ensure: "all routes covered, health checks excluded" },
-  ],
-  budget: "~6 tool calls, estimated $0.04"
+Step 3 fails its postcondition — middleware not applied to the `/api/v2/` prefix. Codex gets:
+
+```json
+{
+  "status": "ensure_failed",
+  "step_id": "s3",
+  "violations": ["result.coverage_complete == true — /api/v2/ prefix not covered"],
+  "retries_remaining": 2
 }
 ```
 
-Developer approves. Step 3 completes. Step 4's ensure fails: "middleware not applied to `/api/v2/` prefix." Step 3 retries with exactly that failure. Fixed. Tests pass.
+Targeted failure. Codex fixes the prefix pattern and resubmits. Passes. Tests pass. Final response:
 
-`stratum_audit`:
-```
-Step 1: 1 attempt, 0.002 USD
-Step 2: 1 attempt, 0.006 USD
-Step 3: 2 attempts, 0.011 USD — retry: middleware not applied to /api/v2/ prefix
-Step 4: 1 attempt, 0.018 USD
-Total: 0.037 USD, 2 retries, all passing
+```json
+{
+  "status": "complete",
+  "trace": [
+    {"step_id": "s1", "function": "read_routing_config", "attempts": 1, "duration_ms": 134},
+    {"step_id": "s2", "function": "design_middleware", "attempts": 1, "duration_ms": 741},
+    {"step_id": "s3", "function": "implement_middleware", "attempts": 2, "duration_ms": 2890},
+    {"step_id": "s4", "function": "write_tests", "attempts": 1, "duration_ms": 1544}
+  ]
+}
 ```
 
 The code Codex writes is annotated:
@@ -246,7 +234,7 @@ The short version: Codex stops surprising you.
 
 ## The Honest Limitation
 
-Codex can ignore the MCP server. Nothing forces it to use `stratum_plan` or `stratum_execute`. This is worth being direct about.
+Codex can ignore the MCP server. Nothing forces it to use `stratum_plan` or `stratum_step_done`. This is worth being direct about.
 
 What the MCP server actually provides is a structural default — a path that Codex takes naturally because it's the right tool for the job, not because it's forced. Three things reinforce it:
 
@@ -260,7 +248,7 @@ This is an alignment model, not a security model. It works because Stratum-align
 
 ## Status
 
-The Stratum MCP server ships with Phase 2 of the library. The Python library (Phase 1, the core runtime) is the prerequisite.
+The Stratum MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library.
 
 The complete normative specification is at [SPEC.md](../SPEC.md). The library design walkthrough is at [introducing-stratum.md](introducing-stratum.md). For the Claude Code equivalent of this post, see [stratum-in-claude-code.md](stratum-in-claude-code.md).
 

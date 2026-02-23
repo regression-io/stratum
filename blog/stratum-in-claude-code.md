@@ -88,40 +88,51 @@ Claude reads files. Has a plan in its head. Writes middleware. Writes tests. Tes
 
 **With Stratum:**
 
-Claude calls `stratum_plan`:
+Claude writes a `.stratum.yaml` spec describing the task as a typed flow, then calls `stratum_plan(spec, "add_rate_limiting", inputs)`. The server validates the spec, builds the execution graph, and returns the first step to execute:
 
-```
-ExecutionPlan {
-  steps: [
-    { id: "1", fn: "read_routes", output: RouteList },
-    { id: "2", fn: "design_middleware", output: MiddlewareSpec,
-      depends_on: ["1"] },
-    { id: "3", fn: "implement_middleware", output: MiddlewareCode,
-      depends_on: ["2"] },
-    { id: "4", fn: "write_tests", output: TestSuite,
-      depends_on: ["3"],
-      ensure: "all tests pass" },
-  ],
-  budget: "~8 tool calls, ~3 minutes"
+```json
+{
+  "status": "execute_step",
+  "flow_id": "abc-123",
+  "step_id": "s1",
+  "function": "read_routes",
+  "intent": "Read current routing configuration",
+  "inputs": {"project": "myapi"},
+  "output_contract": "RouteList",
+  "step_number": 1,
+  "total_steps": 4
 }
 ```
 
-You review it. Looks right. You approve.
+Claude executes each step using its own tools — reading files, writing code, running tests. After completing each step, it calls `stratum_step_done(flow_id, step_id, result)` and gets back either the next step or an `ensure_failed` response with the specific violation.
 
-Step 3 completes. Step 4's tests fail: "middleware not applied to `/api/v2/` prefix — only `/api/` covered." That specific failure goes back to step 3 as the retry context. Claude fixes the prefix pattern. Tests pass.
+Step 3 fails its postcondition: `"result.coverage_complete == true"` — middleware not applied to the `/api/v2/` prefix. Claude gets back:
 
-`stratum_audit` at the end:
-
-```
-Step 1: read_routes — 1 attempt, 312 tokens
-Step 2: design_middleware — 1 attempt, 891 tokens
-Step 3: implement_middleware — 2 attempts, 1,204 tokens
-  Retry reason: middleware not applied to /api/v2/ prefix
-Step 4: write_tests — 1 attempt, 2,108 tokens
-Total: 4,515 tokens, 2 retries, all passing
+```json
+{
+  "status": "ensure_failed",
+  "step_id": "s3",
+  "violations": ["result.coverage_complete == true — /api/v2/ prefix not covered"],
+  "retries_remaining": 2
+}
 ```
 
-That's the audit trail. Committed alongside the code.
+Targeted failure. Claude fixes the prefix pattern and resubmits. Passes. Step 4 passes. The final `stratum_step_done` returns:
+
+```json
+{
+  "status": "complete",
+  "output": {"...": "..."},
+  "trace": [
+    {"step_id": "s1", "function": "read_routes", "attempts": 1, "duration_ms": 145},
+    {"step_id": "s2", "function": "design_middleware", "attempts": 1, "duration_ms": 892},
+    {"step_id": "s3", "function": "implement_middleware", "attempts": 2, "duration_ms": 3241},
+    {"step_id": "s4", "function": "write_tests", "attempts": 1, "duration_ms": 1873}
+  ]
+}
+```
+
+That's the audit trail. Per step: function name, attempt count, wall-clock duration. Structured, queryable, committable alongside the code.
 
 ---
 
@@ -211,7 +222,7 @@ This isn't a security model. It's an alignment model. And it works — not becau
 
 ## Status
 
-The MCP server ships with Phase 2 of the Stratum library. The Python library (Phase 1) is the prerequisite — the MCP server is a thin wrapper over it.
+The MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library — it's an independent state manager and contract enforcer that works entirely within your Claude Code session.
 
 The spec for exactly what the runtime enforces is at [SPEC.md](../SPEC.md). The detailed walkthrough of the library design is at [introducing-stratum.md](introducing-stratum.md).
 

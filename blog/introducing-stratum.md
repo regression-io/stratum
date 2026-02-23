@@ -250,7 +250,7 @@ Always, regardless of export configuration. OTel export to any OTLP endpoint shi
 
 The v1 Python library covers: `@infer`, `@compute`, `@contract`, `@flow`, `@refine`, `opaque[T]`, `await_human`, `stratum.parallel`, `quorum`, `stratum.debate`, `stratum.race`, full budget enforcement, structured retry, and OTel export.
 
-Phase 2 adds: `.stratum.yaml` IR format, MCP server, TypeScript library, `@agent`/`spawn`/`supervise`.
+Phase 2 adds: `.stratum.yaml` IR format, MCP server (standalone — no Track 1 library dependency at runtime), TypeScript library, `@agent`/`spawn`/`supervise`.
 
 Phase 3 adds: `orchestrate`/`adapt`/`reflect` (LLM-driven dynamic orchestration), Temporal integration (durable execution), Ray distribution, DSPy prompt optimization.
 

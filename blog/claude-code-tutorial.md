@@ -4,46 +4,48 @@ Claude Code is good at the individual moves. It reads files fluently, writes cle
 
 This tutorial shows how Stratum changes that. Not theoretically — with concrete session transcripts for the tasks you actually do when building software: understanding a codebase, reviewing code, adding features, debugging failures, and refactoring. In each case the comparison is the same: what Claude Code does on its own versus what it does with Stratum behind it.
 
-The setup is Phase 2: Stratum's MCP server registered in Claude Code, giving Claude access to `stratum_plan`, `stratum_execute`, `stratum_review`, and `stratum_audit`. The library itself is the codebase we're working on — there's no better test than dogfooding.
+The setup is Phase 2: Stratum's MCP server registered in Claude Code, giving Claude access to `stratum_validate`, `stratum_plan`, `stratum_step_done`, and `stratum_audit`. Claude Code is the executor throughout — the MCP server manages plan state and checks postconditions. No sub-LLM calls, no separate API billing.
 
 ---
 
 ## Setup
 
-Install the library and start the MCP server:
+Install the MCP server:
 
 ```bash
-pip install stratum
-stratum mcp serve --port 7700
+pip install stratum-mcp
 ```
 
-Register it in your Claude Code MCP config (`.claude/mcp.json`):
+Register it in Claude Code's MCP config (`.claude/mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "stratum": {
-      "url": "http://localhost:7700"
+      "command": "stratum-mcp"
     }
   }
 }
 ```
+
+The server runs over stdio — Claude Code starts and manages it.
 
 Add to your project's `CLAUDE.md`:
 
 ```markdown
 ## Execution Model
 
-Non-trivial tasks use the Stratum MCP server. Before writing or modifying any code:
-1. Call `stratum_plan` to generate a typed execution plan
-2. Present the plan for approval
-3. Execute via `stratum_execute` with the approved plan ID
+Non-trivial tasks use the Stratum MCP server:
+1. Write the task as a `.stratum.yaml` spec — contracts, functions, and a flow
+2. Call `stratum_plan` to validate the spec, create execution state, and get the first step
+3. Execute each step using your own tools (Read, Bash, Edit, etc.)
+4. Call `stratum_step_done` with the result — get the next step, a retry request, or completion
+5. Call `stratum_audit` at the end and include the trace in the commit
 
-For code review: use `stratum_review` with parallel passes.
-For post-task audit: call `stratum_audit` and commit the output alongside the code.
+For code review: write a review flow with separate infer steps for security, logic, and performance.
 ```
 
-That's all the configuration. The MCP server exposes the Stratum runtime as Claude Code tools. Claude Code calls them the way it calls any other tool — reads files, runs commands, writes code — but now with typed plans, budget enforcement, and structured traces.
+That's all the configuration. Claude Code calls the tools the same way it calls any other tool. The difference: task decomposition is written down as a YAML spec before a single file is touched, postconditions are checked by the server against what Claude actually produced, and every retry is targeted rather than a full replay.
 
 ---
 
@@ -57,105 +59,139 @@ Claude reads files in whatever order seems right. It builds up a mental model. I
 
 **With Stratum:**
 
-Claude calls `stratum_plan` with the task:
+Claude reads the directory listing, then writes a spec and presents it for your review:
+
+```yaml
+version: "0.1"
+contracts:
+  EntrypointList:
+    files: {type: string}
+  MiddlewareAnalysis:
+    chain: {type: string}
+    entry_points: {type: string}
+  AuthFlowSummary:
+    entry_points: {type: string}
+    middleware_chain: {type: string}
+    token_validation: {type: string}
+    failure_modes: {type: string}
+    gaps: {type: string}
+
+functions:
+  discover_entrypoints:
+    mode: infer
+    intent: "Find all authentication entry points — routes, middleware, decorators — from the file listing"
+    input:
+      file_listing: {type: string}
+    output: EntrypointList
+    ensure:
+      - "result.files != ''"
+
+  analyze_middleware:
+    mode: infer
+    intent: "Read the middleware files and map the chain: what runs, in what order, what it validates"
+    input:
+      entry_files: {type: string}
+      file_contents: {type: string}
+    output: MiddlewareAnalysis
+
+  synthesize_summary:
+    mode: infer
+    intent: >
+      Synthesize the middleware analysis and entry points into a coherent auth flow summary.
+      Every claim must include a specific file:line reference.
+      Record anything that could not be determined in the gaps field.
+    input:
+      entrypoints: {type: string}
+      middleware: {type: string}
+    output: AuthFlowSummary
+    ensure:
+      - "result.entry_points != ''"
+      - "result.gaps is not None"
+    retries: 2
+
+flows:
+  analyze_auth:
+    input:
+      file_listing: {type: string}
+      file_contents: {type: string}
+    output: AuthFlowSummary
+    steps:
+      - id: s1
+        function: discover_entrypoints
+        inputs:
+          file_listing: "$.input.file_listing"
+      - id: s2
+        function: analyze_middleware
+        inputs:
+          entry_files: "$.steps.s1.output.files"
+          file_contents: "$.input.file_contents"
+        depends_on: [s1]
+      - id: s3
+        function: synthesize_summary
+        inputs:
+          entrypoints: "$.steps.s1.output.files"
+          middleware: "$.steps.s2.output.chain"
+        depends_on: [s2]
+```
+
+You review the spec. Looks right. Claude calls `stratum_plan`:
 
 ```
-> Understand the authentication flow in this codebase.
-  What are the entry points, what does token validation actually do,
-  and where are the failure modes?
+stratum_plan(spec=<above YAML>, flow="analyze_auth", inputs={...})
+→ {
+    "status": "execute_step",
+    "flow_id": "a1b2c3...",
+    "step_id": "s1",
+    "function": "discover_entrypoints",
+    "intent": "Find all authentication entry points...",
+    "inputs": {"file_listing": "src/\n  routes/\n    auth.py\n..."},
+    "output_contract": "EntrypointList",
+    "output_fields": {"files": "string"},
+    "ensure": ["result.files != ''"],
+    "retries_remaining": 3
+  }
 ```
 
-The plan it generates:
+Claude executes step `s1` — reads the directory listing, identifies auth-related files — and reports:
 
 ```
-ExecutionPlan {
-  id: "plan_a1b2c3",
-  task: "Understand authentication flow",
-  steps: [
-    {
-      id: "1",
-      fn: "discover_auth_entrypoints",
-      description: "Find all files matching auth*, middleware, routes/auth",
-      output: FileList,
-      cost_estimate: "4 tool calls"
-    },
-    {
-      id: "2",
-      fn: "read_middleware_chain",
-      description: "Read middleware files in execution order",
-      output: MiddlewareAnalysis,
-      depends_on: ["1"],
-      cost_estimate: "3-6 tool calls"
-    },
-    {
-      id: "3a",
-      fn: "trace_token_validation",
-      description: "Follow token validation from header extraction to claims",
-      output: ValidationTrace,
-      depends_on: ["2"],
-      parallel_with: ["3b", "3c"]
-    },
-    {
-      id: "3b",
-      fn: "trace_session_handling",
-      description: "Follow session creation, storage, and expiry",
-      output: SessionTrace,
-      depends_on: ["2"],
-      parallel_with: ["3a", "3c"]
-    },
-    {
-      id: "3c",
-      fn: "find_failure_modes",
-      description: "Find error handling, expired tokens, revocation",
-      output: FailureModeList,
-      depends_on: ["2"],
-      parallel_with: ["3a", "3b"]
-    },
-    {
-      id: "4",
-      fn: "synthesize_findings",
-      description: "Compile traces into coherent understanding",
-      output: AuthFlowSummary,
-      depends_on: ["3a", "3b", "3c"],
-      ensure: "summary references specific file:line locations for each claim"
-    }
-  ],
-  budget: "~14 tool calls, estimated 90 seconds"
+stratum_step_done(flow_id="a1b2c3...", step_id="s1",
+    result={"files": "routes/auth.py, middleware/jwt.py, middleware/session.py"})
+→ {"status": "execute_step", "step_id": "s2", "inputs": {"entry_files": "routes/auth.py...", ...}}
+```
+
+Steps `s2` and `s3` run the same way. On `s3`, the ensure fires on the first attempt — `result.entry_points` was empty because Claude summarized instead of citing. The server returns:
+
+```json
+{
+  "status": "ensure_failed",
+  "step_id": "s3",
+  "violations": ["ensure 'result.entry_points != \"\"' failed"],
+  "retries_remaining": 1
 }
 ```
 
-Two things stand out. First, the parallel steps: token validation, session handling, and failure mode discovery happen concurrently. Wall time drops by roughly a third. Second, the `ensure` on step 4: the summary must reference specific `file:line` locations for every claim. Claude can't produce a plausible-but-vague summary and call it done — the postcondition fails and it gets told exactly what's missing.
+Claude re-executes `s3` with file:line citations. The ensure passes. The `complete` response:
 
-The resulting `AuthFlowSummary` contract:
-
-```python
-@contract
-class AuthFlowSummary(BaseModel):
-    entry_points: list[CodeLocation]      # file, line, function
-    middleware_chain: list[MiddlewareStep] # ordered
-    token_validation: ValidationSummary   # with specific code refs
-    session_flow: SessionSummary
-    failure_modes: list[FailureMode]      # each with a triggering condition
-    gaps: list[str]                       # things that couldn't be determined
+```json
+{
+  "status": "complete",
+  "output": {
+    "entry_points": "routes/auth.py:14 (login), routes/auth.py:31 (logout), middleware/jwt.py:8 (validate_token)",
+    "middleware_chain": "jwt.py:8 → session.py:22 → rbac.py:41",
+    "token_validation": "jwt.py:47 — decode via PyJWT, exp claim checked at :52",
+    "failure_modes": "Expired token: jwt.py:55 raises TokenExpired. Missing header: :19 returns 401.",
+    "gaps": "Token revocation list not found — either not implemented or outside this repo"
+  },
+  "trace": [
+    {"step_id": "s1", "function_name": "discover_entrypoints", "attempts": 1, "duration_ms": 840},
+    {"step_id": "s2", "function_name": "analyze_middleware",   "attempts": 1, "duration_ms": 2100},
+    {"step_id": "s3", "function_name": "synthesize_summary",   "attempts": 2, "duration_ms": 1900}
+  ]
+}
 ```
 
-The `gaps` field matters. The ensure postcondition doesn't just require confidence — it requires explicit acknowledgment of what wasn't resolved. An honest summary beats a confident one.
-
-The trace after execution:
-
-```
-stratum_audit plan_a1b2c3
-
-Step 1: discover_auth_entrypoints  —  1 attempt  4 tool calls   0.8s
-Step 2: read_middleware_chain       —  1 attempt  5 tool calls   2.1s
-Steps 3a+3b+3c (parallel)          —  1 attempt  11 tool calls  3.4s
-Step 4: synthesize_findings         —  2 attempts 2 tool calls   1.2s
-  Retry reason: 3 claims lacked file:line references
-
-Total: 22 tool calls  7.5s
-```
-
-Step 4 retried once. The retry message was specific: "3 claims lacked file:line references." Claude got that, added the references, passed. You see exactly what had to be fixed and that only one targeted retry was needed.
+Two things stand out. First, `synthesize_summary` needed two attempts — the ensure caught a vague first output and forced Claude to add file:line references. Second, the `gaps` field: the ensure requires it to be non-null, so Claude must explicitly record what it couldn't determine. An honest summary beats a confident one.
 
 ---
 
@@ -163,132 +199,138 @@ Step 4 retried once. The retry message was specific: "3 claims lacked file:line 
 
 The standard Claude Code approach to code review: you paste in a diff or point at a file and ask "does this look right?" Claude reads it and responds. The response is sequential — it walks through the code top to bottom, catching what it catches.
 
-The problem: sequential review has sequential blind spots. Security review requires a different mental model than logic review. Performance review requires a different model than both. One pass over the code can't hold all three simultaneously without losing fidelity.
+The problem: sequential review has sequential blind spots. Security review requires a different mental model than logic review. Performance review requires a different model than both.
 
 **With Stratum:**
 
-```python
-@contract
-class Finding(BaseModel):
-    severity: Literal["critical", "high", "medium", "low", "info"]
-    category: Literal["security", "logic", "performance", "style"]
-    file: str
-    line: int
-    description: str
-    suggestion: str
-    confidence: Annotated[float, Field(ge=0.0, le=1.0)]
+```yaml
+version: "0.1"
+contracts:
+  SecurityFindings:
+    findings: {type: string}
+  LogicFindings:
+    findings: {type: string}
+  PerformanceFindings:
+    findings: {type: string}
+  ReviewReport:
+    security: {type: string}
+    logic: {type: string}
+    performance: {type: string}
+    summary: {type: string}
 
-@infer(
-    intent="Review this code for security vulnerabilities",
-    context=[
-        "Focus: injection, auth bypass, insecure deserialization, secrets in code",
-        "Ignore style issues — security only",
-        "Flag anything suspicious even if not definitely a vulnerability",
-    ],
-    ensure=lambda findings: all(f.confidence > 0.6 for f in findings),
-    model="claude-opus-4-6",
-    budget=Budget(ms=30000, usd=0.05),
-    retries=2,
-)
-def security_review(diff: str, context_files: list[str]) -> list[Finding]: ...
+functions:
+  security_review:
+    mode: infer
+    intent: >
+      Review this code diff for security vulnerabilities only.
+      Focus: injection, auth bypass, insecure deserialization, secrets in code.
+      Ignore style issues. Flag anything suspicious even if not definitely a vulnerability.
+      Format each finding as: SEVERITY file:line — description — suggestion
+    input:
+      diff: {type: string}
+      context: {type: string}
+    output: SecurityFindings
+    ensure:
+      - "result.findings is not None"
+    retries: 2
 
-@infer(
-    intent="Review this code for logic errors and correctness issues",
-    context=[
-        "Focus: off-by-one errors, null handling, race conditions, incorrect state transitions",
-        "Flag edge cases that aren't covered",
-        "Note: security issues should be ignored here — assume another pass handles them",
-    ],
-    ensure=lambda findings: all(f.category == "logic" for f in findings),
-    model="claude-opus-4-6",
-    budget=Budget(ms=30000, usd=0.05),
-    retries=2,
-)
-def logic_review(diff: str, context_files: list[str]) -> list[Finding]: ...
+  logic_review:
+    mode: infer
+    intent: >
+      Review this code diff for logic errors and correctness issues only.
+      Focus: off-by-one errors, null handling, race conditions, incorrect state transitions.
+      Flag edge cases that aren't covered. Do not flag security issues.
+    input:
+      diff: {type: string}
+      context: {type: string}
+    output: LogicFindings
+    ensure:
+      - "result.findings is not None"
+    retries: 2
 
-@infer(
-    intent="Review this code for performance issues",
-    context=[
-        "Focus: N+1 queries, unnecessary allocations, blocking calls in async context",
-        "Note expected call frequency when assessing severity",
-        "Only flag genuine performance concerns — not theoretical micro-optimizations",
-    ],
-    ensure=lambda findings: all(f.category == "performance" for f in findings),
-    model="claude-opus-4-6",
-    budget=Budget(ms=20000, usd=0.04),
-    retries=2,
-)
-def performance_review(diff: str, context_files: list[str]) -> list[Finding]: ...
+  performance_review:
+    mode: infer
+    intent: >
+      Review this code diff for performance issues only.
+      Focus: N+1 queries, unnecessary allocations, blocking calls in async context.
+      Only flag genuine concerns — not theoretical micro-optimizations.
+    input:
+      diff: {type: string}
+      context: {type: string}
+    output: PerformanceFindings
+    retries: 2
+
+  consolidate_review:
+    mode: infer
+    intent: >
+      Consolidate security, logic, and performance findings into a review report.
+      Deduplicate findings that appear in multiple passes. Rank the top issues by severity.
+    input:
+      security: {type: string}
+      logic: {type: string}
+      performance: {type: string}
+    output: ReviewReport
+
+flows:
+  review_diff:
+    input:
+      diff: {type: string}
+      context: {type: string}
+    output: ReviewReport
+    steps:
+      - id: sec
+        function: security_review
+        inputs:
+          diff: "$.input.diff"
+          context: "$.input.context"
+      - id: logic
+        function: logic_review
+        inputs:
+          diff: "$.input.diff"
+          context: "$.input.context"
+        depends_on: [sec]
+      - id: perf
+        function: performance_review
+        inputs:
+          diff: "$.input.diff"
+          context: "$.input.context"
+        depends_on: [logic]
+      - id: report
+        function: consolidate_review
+        inputs:
+          security: "$.steps.sec.output.findings"
+          logic: "$.steps.logic.output.findings"
+          performance: "$.steps.perf.output.findings"
+        depends_on: [perf]
 ```
 
-These three run concurrently via `stratum_review`:
+Claude executes each step in order, reporting results via `stratum_step_done`. The final `complete` response:
 
-```python
-@flow(budget=Budget(ms=60000, usd=0.15))
-async def review_diff(diff: str, context_files: list[str]) -> ReviewReport:
-    security_findings, logic_findings, perf_findings = await stratum.parallel(
-        security_review(diff=diff, context_files=context_files),
-        logic_review(diff=diff, context_files=context_files),
-        performance_review(diff=diff, context_files=context_files),
-        require="all",
-    )
-
-    all_findings = security_findings + logic_findings + perf_findings
-
-    # For anything high-severity where passes disagree: debate it
-    contested = [f for f in all_findings if f.severity in ("critical", "high")]
-    if contested:
-        resolution = await stratum.debate(
-            agents=[security_review, logic_review],
-            subject=contested,
-            rounds=2,
-            agree_on="severity",
-        )
-        return ReviewReport(findings=resolution.resolved, raw=all_findings)
-
-    return ReviewReport(findings=all_findings)
+```json
+{
+  "status": "complete",
+  "output": {
+    "security": "CRITICAL executor.py:183 — Retry context interpolated directly into prompt without sanitization. Prior LLM output containing instruction-override text will propagate. Suggestion: use opaque field for retry_context.",
+    "logic": "HIGH executor.py:241 — Budget clone at flow entry doesn't deep-copy the token counter. Concurrent @infer calls in parallel() can race. Suggestion: use copy.deepcopy(budget).",
+    "performance": "MEDIUM executor.py:156 — all_records() called on every retry. O(n) per retry for long flows. Suggestion: pass relevant records as parameter.",
+    "summary": "3 findings: 1 critical (security), 1 high (logic), 1 medium (performance). Critical requires immediate attention before merge."
+  },
+  "trace": [
+    {"step_id": "sec",   "function_name": "security_review",    "attempts": 1, "duration_ms": 6200},
+    {"step_id": "logic", "function_name": "logic_review",       "attempts": 1, "duration_ms": 5800},
+    {"step_id": "perf",  "function_name": "performance_review", "attempts": 1, "duration_ms": 4100},
+    {"step_id": "report","function_name": "consolidate_review", "attempts": 1, "duration_ms": 1900}
+  ]
+}
 ```
 
-What you get from `stratum_review` on a PR:
-
-```
-Code Review — executor.py (47 lines changed)
-
-CRITICAL  security  executor.py:183
-  Retry context from previous attempt is interpolated directly into the prompt
-  without sanitization. If prior LLM output contains instruction-override text,
-  it propagates to the next attempt.
-  Suggestion: use opaque[str] for retry_context field in the prompt assembly.
-  Confidence: 0.91
-
-HIGH      logic     executor.py:241
-  Budget clone at flow entry doesn't deep-copy the token counter. Two concurrent
-  @infer calls in parallel() can race on the same counter, underreporting usage
-  and potentially bypassing the budget limit.
-  Suggestion: use copy.deepcopy(budget) not budget.clone() which shares the counter.
-  Confidence: 0.87
-
-MEDIUM    performance  executor.py:156
-  all_records() is called on every retry attempt to build context. If a long
-  flow has many prior steps, this builds an O(n) list per retry. Consider
-  passing the relevant records as a parameter instead.
-  Confidence: 0.74
-
----
-3 findings | 1 critical, 1 high, 1 medium
-Security pass: 1 finding  |  Logic pass: 1 finding  |  Performance pass: 1 finding
-Parallel passes took 18.4s combined (6.1s wall time)
-```
-
-Three things are different here versus the native Claude Code review:
+Two things are different here versus the native Claude Code review:
 
 **Separation of concerns.** Each pass looks for exactly one category. The security reviewer isn't distracted by style. The logic reviewer isn't looking at import ordering. The signal-to-noise ratio is higher because the focus is narrower.
 
-**Parallel execution.** Three independent reviews in the time it takes to run one. The `Finding` contract enforces category purity — the `ensure` postcondition on `logic_review` verifies every finding is actually a logic finding, not security dressed up as logic.
+**Structured output.** The `ReviewReport` contract forces each finding to be a discrete, attributable statement. Claude can't produce a paragraph of hedged observations and call it a review — the output contract is checked on every attempt.
 
-**Debate for contested severity.** When the security and logic passes both flag the same line but disagree on severity, `stratum.debate` runs them adversarially. The security pass argues `critical`, the logic pass argues `high`. A synthesizer gets the argument history and the `converged` flag. The output is a reasoned severity, not a coin flip.
-
-The CRITICAL finding above — prompt injection via unsanitized retry context — is exactly the kind of issue a single pass misses. The security reviewer finds it by specifically looking for injection vectors. The logic reviewer, scanning for correctness issues, might note it's a string concat but not flag the security implication. Parallel focused passes catch what composite passes drop.
+> **Note:** Steps run sequentially in the current implementation. True parallel execution across the three review passes is planned for a future release.
 
 ---
 
@@ -298,7 +340,7 @@ The task: add a `session_cache` to the Stratum executor so identical inputs with
 
 **Without Stratum:**
 
-Claude reads `executor.py`, understands the execution loop, designs the cache. Makes changes. Runs tests. Some tests fail because the cache interacts with budget accounting in a non-obvious way. Claude retries — re-reading the executor, re-establishing context, building up to the failing test again. The retry is bigger than the fix.
+Claude reads `executor.py`, designs the cache. Makes changes. Runs tests. Some tests fail because the cache interacts with budget accounting in a non-obvious way. Claude retries — re-reading the executor, re-establishing context, building up to the failing test again. The retry is bigger than the fix.
 
 **With Stratum:**
 
@@ -310,90 +352,147 @@ Claude reads `executor.py`, understands the execution loop, designs the cache. M
   Write tests.
 ```
 
-The plan:
+Claude writes and presents the spec:
 
+```yaml
+version: "0.1"
+contracts:
+  ExecutorAnalysis:
+    flow_lifecycle: {type: string}
+    execution_loop: {type: string}
+    budget_integration: {type: string}
+  CacheDesign:
+    key_type: {type: string}
+    storage: {type: string}
+    hit_behavior: {type: string}
+    budget_on_hit: {type: string}
+  ImplementationResult:
+    files_changed: {type: string}
+    summary: {type: string}
+  TestResult:
+    passed: {type: string}
+    failures: {type: string}
+
+functions:
+  read_executor:
+    mode: infer
+    intent: "Read executor.py and understand the @flow/_FlowContext lifecycle and execution loop"
+    input:
+      executor_content: {type: string}
+    output: ExecutorAnalysis
+
+  read_tests:
+    mode: infer
+    intent: "Read the test suite and identify fixture patterns, existing cache-adjacent tests"
+    input:
+      test_content: {type: string}
+    output: ExecutorAnalysis
+
+  design_cache:
+    mode: infer
+    intent: >
+      Design the session_cache: key type, where it lives in _FlowContext, hit/miss behavior,
+      and how budget accounting applies on cache hit (charged on first call only).
+    input:
+      executor_analysis: {type: string}
+      test_analysis: {type: string}
+    output: CacheDesign
+    ensure:
+      - "result.budget_on_hit != ''"
+      - "result.key_type != ''"
+    retries: 2
+
+  implement_cache:
+    mode: infer
+    intent: "Implement the session_cache in _FlowContext and hit/miss logic in the executor loop. No new imports beyond stdlib."
+    input:
+      design: {type: string}
+      executor_content: {type: string}
+    output: ImplementationResult
+    ensure:
+      - "result.files_changed != ''"
+    retries: 3
+
+  write_tests:
+    mode: infer
+    intent: >
+      Write tests: cache hit returns same object (LLM not called twice),
+      budget charged on first call not on hits, ensure still runs on cache hit.
+      All tests must pass.
+    input:
+      implementation: {type: string}
+      test_patterns: {type: string}
+    output: TestResult
+    ensure:
+      - "result.failures == '' or result.failures == 'none'"
+    retries: 3
+
+flows:
+  add_session_cache:
+    input:
+      executor_content: {type: string}
+      test_content: {type: string}
+    output: TestResult
+    steps:
+      - id: s1
+        function: read_executor
+        inputs:
+          executor_content: "$.input.executor_content"
+      - id: s2
+        function: read_tests
+        inputs:
+          test_content: "$.input.test_content"
+        depends_on: [s1]
+      - id: s3
+        function: design_cache
+        inputs:
+          executor_analysis: "$.steps.s1.output.flow_lifecycle"
+          test_analysis: "$.steps.s2.output.execution_loop"
+        depends_on: [s2]
+      - id: s4
+        function: implement_cache
+        inputs:
+          design: "$.steps.s3.output.key_type"
+          executor_content: "$.input.executor_content"
+        depends_on: [s3]
+      - id: s5
+        function: write_tests
+        inputs:
+          implementation: "$.steps.s4.output.summary"
+          test_patterns: "$.steps.s2.output.budget_integration"
+        depends_on: [s4]
 ```
-ExecutionPlan {
-  id: "plan_d4e5f6",
-  task: "Add session_cache to executor",
-  steps: [
-    {
-      id: "1",
-      fn: "read_executor_flow",
-      description: "Read executor.py and understand the @flow/_FlowContext lifecycle",
-      output: ExecutorAnalysis,
-      cost_estimate: "2 tool calls"
-    },
-    {
-      id: "2",
-      fn: "read_test_suite",
-      description: "Read tests/test_executor.py to understand existing test structure",
-      output: TestAnalysis,
-      depends_on: ["1"],
-      cost_estimate: "1 tool call"
-    },
-    {
-      id: "3",
-      fn: "design_cache_interface",
-      description: "Design the session_cache: key type, storage location in _FlowContext, hit/miss behavior",
-      output: CacheDesign,
-      depends_on: ["1", "2"],
-      ensure: "design addresses budget accounting on cache hit"
-    },
-    {
-      id: "4",
-      fn: "implement_cache",
-      description: "Add session_cache to _FlowContext and hit/miss logic in executor loop",
-      output: ImplementedFiles,
-      depends_on: ["3"],
-      ensure: "no new imports beyond stdlib, existing tests still pass"
-    },
-    {
-      id: "5",
-      fn: "write_tests",
-      description: "Write tests: cache hit returns same object, LLM not called twice, budget charged once, ensure still runs on hit",
-      output: TestFile,
-      depends_on: ["4"],
-      ensure: "pytest passes with zero failures, tests cover cache hit, miss, and budget-on-hit scenarios"
-    }
-  ],
-  budget: "~12 tool calls, estimated $0.06"
+
+You review it. Step `s3`'s ensures require `budget_on_hit` and `key_type` to be non-empty — the subtle interaction that trips up naive implementations. Step `s5`'s ensure requires `failures` to be empty. Not "write tests that look right" — they must actually pass.
+
+You approve. Claude calls `stratum_plan`, executes steps `s1`–`s4` cleanly, then reports step `s5` results. The ensure fires — two tests are failing. The server responds:
+
+```json
+{
+  "status": "ensure_failed",
+  "step_id": "s5",
+  "violations": ["ensure 'result.failures == \"\" or result.failures == \"none\"' failed"],
+  "retries_remaining": 2
 }
 ```
 
-You review it. A few things stand out:
+Claude re-reads its implementation, finds the two bugs — the cache was bypassing the ensure check on hits, and the budget deduction was in the wrong branch — and fixes them. Reports again. The ensure passes.
 
-- Step 3 has an `ensure` that the design explicitly addresses budget accounting on cache hits. That's the subtle interaction that trips up naive implementations. The ensure means Claude can't skip it.
-- Step 5's ensure requires pytest to actually pass before the step is considered done. Not "write tests that look right" — pass the test runner.
+The `complete` trace:
 
-You approve the plan. Steps 1–3 run cleanly. Step 4 runs. Step 5 fails:
-
-```
-Step 5: write_tests — attempt 1 failed
-  ensure: pytest passes with zero failures
-  Actual: 2 failures
-    FAILED tests/test_executor.py::test_cache_hit_ensure_still_runs
-      AssertionError: ensure callback not invoked on cache hit
-    FAILED tests/test_executor.py::test_cache_budget_charged_once
-      AssertionError: budget charged twice — once on first call, once on cache hit
-```
-
-Claude's retry is not "run the whole task again." It gets exactly those two failure messages. It goes back to step 4's implementation, finds the two bugs — the cache was bypassing the ensure check on hits, and the budget deduction was in the wrong branch — and fixes them. Tests pass.
-
-```
-stratum_audit plan_d4e5f6
-
-Step 1: read_executor_flow     —  1 attempt  2 tool calls   1.1s
-Step 2: read_test_suite        —  1 attempt  1 tool call    0.4s
-Step 3: design_cache_interface —  1 attempt  1 tool call    2.3s
-Step 4: implement_cache        —  1 attempt  4 tool calls   3.8s
-Step 5: write_tests            —  2 attempts 3 tool calls   4.1s
-  Retry reason: ensure not run on hit; budget charged twice
-
-Total: 11 tool calls  $0.051  11.7s  1 retry
+```json
+{
+  "trace": [
+    {"step_id": "s1", "function_name": "read_executor",   "attempts": 1, "duration_ms": 1100},
+    {"step_id": "s2", "function_name": "read_tests",      "attempts": 1, "duration_ms": 400},
+    {"step_id": "s3", "function_name": "design_cache",    "attempts": 1, "duration_ms": 2300},
+    {"step_id": "s4", "function_name": "implement_cache", "attempts": 1, "duration_ms": 3800},
+    {"step_id": "s5", "function_name": "write_tests",     "attempts": 2, "duration_ms": 4100}
+  ]
+}
 ```
 
-The audit goes in the commit message. "11 tool calls, 1 retry on ensure/budget bug" tells the next person exactly what was non-trivial.
+The trace goes in the commit description. "1 retry on `write_tests` — ensure not run on hit; budget charged twice" tells the next person exactly what was non-trivial.
 
 ---
 
@@ -401,449 +500,265 @@ The audit goes in the commit message. "11 tool calls, 1 retry on ensure/budget b
 
 The test `test_budget_exceeded_on_retry` is failing in CI. It passes locally. You don't know why.
 
-**Without Stratum:**
-
-Claude reads the test, reads the executor, reads the budget module. Has a theory. Makes a change. Runs the test — still failing. Makes another change. Eventually produces a fix that passes but you're not sure what the actual root cause was.
-
 **With Stratum:**
 
 ```
 > test_budget_exceeded_on_retry is failing in CI but not locally.
-  Here's the failure:
-
-  FAILED tests/test_executor.py::test_budget_exceeded_on_retry
-    stratum.errors.BudgetExceeded not raised
-
+  stratum.errors.BudgetExceeded not raised.
   Diagnose the root cause and fix it.
   Do not change the test assertion.
 ```
 
-The plan:
+The spec Claude writes:
 
+```yaml
+version: "0.1"
+contracts:
+  TestSpec:
+    inputs: {type: string}
+    expectation: {type: string}
+    mock: {type: string}
+  BudgetCodeAnalysis:
+    enforcement_points: {type: string}
+    clone_behavior: {type: string}
+  CIAnalysis:
+    environment_differences: {type: string}
+  HypothesisList:
+    hypotheses: {type: string}
+    ci_discrepancy_addressed: {type: string}
+  DiagnosisReport:
+    confirmed: {type: string}
+    evidence: {type: string}
+    code_location: {type: string}
+    ruled_out: {type: string}
+  FixResult:
+    files_changed: {type: string}
+    explanation: {type: string}
+
+functions:
+  read_failing_test:
+    mode: infer
+    intent: "Read the test: what inputs, what it expects, what mock it uses"
+    input: {test_content: {type: string}}
+    output: TestSpec
+
+  read_budget_enforcement:
+    mode: infer
+    intent: "Read the Budget class and all enforcement points in executor.py"
+    input:
+      budget_content: {type: string}
+      executor_content: {type: string}
+    output: BudgetCodeAnalysis
+
+  check_ci_differences:
+    mode: infer
+    intent: "Read CI config. Check Python version, env vars, test isolation, timing assumptions"
+    input: {ci_config: {type: string}}
+    output: CIAnalysis
+
+  form_hypotheses:
+    mode: infer
+    intent: "List candidate root causes ranked by likelihood. One must specifically address the local-vs-CI discrepancy."
+    input:
+      test_spec: {type: string}
+      budget_analysis: {type: string}
+      ci_analysis: {type: string}
+    output: HypothesisList
+    ensure:
+      - "result.ci_discrepancy_addressed != ''"
+      - "result.hypotheses != ''"
+    retries: 2
+
+  test_hypotheses:
+    mode: infer
+    intent: >
+      For each hypothesis: identify the code path, evaluate it, rule in or out.
+      Exactly one hypothesis confirmed; all others explicitly ruled out.
+    input:
+      hypotheses: {type: string}
+      budget_analysis: {type: string}
+    output: DiagnosisReport
+    ensure:
+      - "result.confirmed != ''"
+      - "result.ruled_out != ''"
+    retries: 2
+
+  implement_fix:
+    mode: infer
+    intent: "Fix the confirmed root cause. Do not change the test."
+    input:
+      diagnosis: {type: string}
+      code_location: {type: string}
+      executor_content: {type: string}
+    output: FixResult
+    retries: 3
+
+flows:
+  debug_ci_failure:
+    input:
+      test_content: {type: string}
+      budget_content: {type: string}
+      executor_content: {type: string}
+      ci_config: {type: string}
+    output: FixResult
+    steps:
+      - id: s1
+        function: read_failing_test
+        inputs: {test_content: "$.input.test_content"}
+      - id: s2
+        function: read_budget_enforcement
+        inputs:
+          budget_content: "$.input.budget_content"
+          executor_content: "$.input.executor_content"
+        depends_on: [s1]
+      - id: s3
+        function: check_ci_differences
+        inputs: {ci_config: "$.input.ci_config"}
+        depends_on: [s1]
+      - id: s4
+        function: form_hypotheses
+        inputs:
+          test_spec: "$.steps.s1.output.expectation"
+          budget_analysis: "$.steps.s2.output.enforcement_points"
+          ci_analysis: "$.steps.s3.output.environment_differences"
+        depends_on: [s2, s3]
+      - id: s5
+        function: test_hypotheses
+        inputs:
+          hypotheses: "$.steps.s4.output.hypotheses"
+          budget_analysis: "$.steps.s2.output.clone_behavior"
+        depends_on: [s4]
+      - id: s6
+        function: implement_fix
+        inputs:
+          diagnosis: "$.steps.s5.output.confirmed"
+          code_location: "$.steps.s5.output.code_location"
+          executor_content: "$.input.executor_content"
+        depends_on: [s5]
 ```
-ExecutionPlan {
-  id: "plan_g7h8i9",
-  task: "Debug test_budget_exceeded_on_retry CI failure",
-  steps: [
-    {
-      id: "1",
-      fn: "read_failing_test",
-      description: "Read the test: what inputs, what it expects, what mock it uses",
-      output: TestSpec
-    },
-    {
-      id: "2a",
-      fn: "read_budget_enforcement",
-      description: "Read Budget class and all enforcement points in executor.py",
-      output: BudgetCodeAnalysis,
-      depends_on: ["1"],
-      parallel_with: ["2b"]
-    },
-    {
-      id: "2b",
-      fn: "check_ci_differences",
-      description: "Read CI config. Check: Python version, environment variables, test isolation",
-      output: CIAnalysis,
-      depends_on: ["1"],
-      parallel_with: ["2a"]
-    },
-    {
-      id: "3",
-      fn: "form_hypotheses",
-      description: "List candidate root causes. Rank by likelihood.",
-      output: HypothesisList,
-      depends_on: ["2a", "2b"],
-      ensure: "at least one hypothesis addresses the local-vs-CI discrepancy specifically"
-    },
-    {
-      id: "4",
-      fn: "test_hypotheses",
-      description: "For each hypothesis: identify the code path, read it, rule in or out",
-      output: DiagnosisReport,
-      depends_on: ["3"],
-      ensure: "exactly one hypothesis is confirmed; all others explicitly ruled out"
-    },
-    {
-      id: "5",
-      fn: "implement_fix",
-      description: "Fix the confirmed root cause. Do not change the test.",
-      output: FixedFiles,
-      depends_on: ["4"],
-      ensure: "pytest test_budget_exceeded_on_retry passes"
-    }
-  ],
-  budget: "~10 tool calls"
-}
-```
 
-Step 3's ensure matters: Claude must produce a hypothesis that specifically addresses why the test fails in CI but not locally. This rules out "the test is wrong" as a response (the test assertion is unchanged by instruction) and forces engagement with the environment difference.
-
-The diagnosis that comes back from step 4:
-
-```
-DiagnosisReport {
-  confirmed: {
-    hypothesis: "Budget.clone() uses time.monotonic() at clone time, not at call time",
-    evidence: "executor.py:198 — budget_copy = budget.clone() called at flow entry.
-               CI runners have higher base latency. By the time the @infer call runs,
-               some of the ms budget has already been consumed by setup.
-               Local: 12ms setup overhead. CI: 140ms setup overhead.",
-    code_location: "executor.py:198, budget.py:47"
-  },
-  ruled_out: [
-    "Mock timing: the mock is synchronous, no latency difference",
-    "Python version: CI uses 3.11.8, local 3.11.9 — no relevant stdlib changes",
-    "Environment variable: GROQ_API_KEY not set in CI — but test mocks LiteLLM entirely"
-  ]
-}
-```
-
-Step 5 implements the fix: budget time measurement starts at call time, not at clone time. The test passes. The diagnosis is committed alongside the fix.
-
-This is the part that's hard to get from unstructured Claude Code sessions: "all others explicitly ruled out." The `ensure` on step 4 requires Claude to disconfirm its other theories, not just state the one it likes. Debugging traces in production are useful only if they tell you what the problem wasn't, not just what it was.
+Step `s4`'s ensure matters: the hypothesis list must specifically address why the test fails in CI but not locally. Step `s5`'s ensures require exactly one confirmed hypothesis and explicit ruled-out entries for the rest. Debugging traces in production are useful only if they tell you what the problem wasn't, not just what it was.
 
 ---
 
 ## Workflow 5: Refactoring a Large File
 
-`executor.py` is 600 lines. It handles the execution loop, budget accounting, retry logic, cache management, and trace recording. It needs to be split.
+`executor.py` is 600 lines. It needs to be split.
 
-**Without Stratum:**
+The spec Claude writes enforces a critical constraint at step `s3`:
 
-Claude reads the file, proposes a split, starts making changes. Halfway through, it modifies `executor.py` to import from `budget_enforcer.py` — which it hasn't written yet. Tests break. It backtracks. The intermediate state is a broken codebase.
-
-**With Stratum:**
-
-```
-> Refactor executor.py (600 lines) into focused modules.
-  It currently does too many things.
-  Keep the public API unchanged.
-  All existing tests must pass.
-```
-
-The plan:
-
-```
-ExecutionPlan {
-  id: "plan_j1k2l3",
-  task: "Refactor executor.py into focused modules",
-  steps: [
-    {
-      id: "1",
-      fn: "analyze_responsibilities",
-      description: "Map the current responsibilities: what does each section of executor.py do?",
-      output: ResponsibilityMap,
-      ensure: "every function in executor.py is assigned to exactly one responsibility"
-    },
-    {
-      id: "2",
-      fn: "design_module_split",
-      description: "Propose module names, file paths, and public APIs for each responsibility",
-      output: ModuleDesign,
-      depends_on: ["1"],
-      ensure: "no circular imports in proposed design; public API of executor.py unchanged"
-    },
-    {
-      id: "3",
-      fn: "identify_extraction_order",
-      description: "Order the extractions so each step leaves tests passing",
-      output: ExtractionSequence,
-      depends_on: ["2"],
-      ensure: "at no intermediate step does an import reference a file that doesn't exist yet"
-    },
-    {
-      id: "4",
-      fn: "extract_budget_module",
-      description: "Extract Budget, BudgetEnforcer to budget.py",
-      output: BudgetModule,
-      depends_on: ["3"],
-      ensure: "pytest passes after this step alone"
-    },
-    {
-      id: "5",
-      fn: "extract_trace_module",
-      description: "Extract TraceRecord, trace collection to trace.py",
-      output: TraceModule,
-      depends_on: ["4"],
-      ensure: "pytest passes after this step alone"
-    },
-    {
-      id: "6",
-      fn: "extract_retry_module",
-      description: "Extract retry loop, ensure evaluation to retry.py",
-      output: RetryModule,
-      depends_on: ["5"],
-      ensure: "pytest passes after this step alone"
-    },
-    {
-      id: "7",
-      fn: "clean_executor",
-      description: "executor.py becomes the orchestrator — thin imports, no logic",
-      output: FinalExecutor,
-      depends_on: ["6"],
-      ensure: "executor.py < 150 lines; pytest passes; public API unchanged"
-    }
-  ],
-  budget: "~25 tool calls, estimated $0.12"
-}
+```yaml
+  identify_extraction_order:
+    mode: infer
+    intent: >
+      Order the extractions so each step leaves a passing codebase.
+      At no intermediate step should an import reference a file that doesn't exist yet.
+    input:
+      module_design: {type: string}
+    output: ExtractionSequence
+    ensure:
+      - "result.ordered_steps != ''"
+    retries: 3
 ```
 
-Step 3's ensure is the critical one: at no intermediate step does an import reference a file that doesn't exist. This is the constraint that prevents the "wrote an import for a module I haven't written yet" failure. Claude plans the extraction order specifically to satisfy this, which means writing the depended-on modules first and the depending modules second.
+And each extraction step:
 
-Each of steps 4–7 has `ensure: pytest passes after this step alone`. The refactor is a sequence of small, test-passing steps. If step 5 breaks something, the retry happens at step 5 with the specific test failure — not at step 7 after three other things have changed.
-
-The audit:
-
-```
-stratum_audit plan_j1k2l3
-
-Step 1: analyze_responsibilities  —  1 attempt  2 tool calls   2.1s
-Step 2: design_module_split       —  1 attempt  1 tool call    3.4s
-Step 3: identify_extraction_order —  2 attempts 1 tool call    2.8s
-  Retry: initial order had executor.py importing retry.py before it existed
-Step 4: extract_budget_module     —  1 attempt  5 tool calls   4.2s
-Step 5: extract_trace_module      —  1 attempt  4 tool calls   3.1s
-Step 6: extract_retry_module      —  2 attempts 5 tool calls   5.8s
-  Retry: _run_ensure() reference to budget context missed in extraction
-Step 7: clean_executor            —  1 attempt  3 tool calls   2.9s
-
-Total: 21 tool calls  $0.098  24.3s  2 retries
+```yaml
+  extract_module:
+    mode: infer
+    intent: "Extract the specified module. After this step alone, all existing tests must pass."
+    input:
+      module_name: {type: string}
+      extraction_order: {type: string}
+      executor_content: {type: string}
+    output: ExtractionResult
+    ensure:
+      - "result.test_status == 'passing'"
+    retries: 3
 ```
 
-Two retries. Step 3: Claude tried to write the extraction order with a forward import — caught before any code was written and replanned. Step 6: one missed reference to `budget context` in the retry module — caught by the pytest ensure, fixed surgically.
+The ensure on `identify_extraction_order` — at no intermediate step does an import reference a file that doesn't exist — is the constraint that prevents the "wrote an import for a module I haven't written yet" failure. Claude plans the extraction order specifically to satisfy this. When it doesn't on the first attempt, the server rejects it and Claude replans.
 
-The codebase was never in a broken state. Every intermediate step passed tests. You can check out any commit in the sequence and `pytest` passes.
+Each extraction step's ensure requires tests to pass before the flow continues. The codebase is never in a broken intermediate state. If step `s5` breaks something, the retry happens at `s5` with the specific test failure — not at `s6` after something else has changed.
 
 ---
 
 ## Workflow 6: Writing Tests for Existing Code
 
-You've just shipped the `await_human` HITL primitive. It has no tests. Write them.
+```yaml
+  identify_cases:
+    mode: infer
+    intent: >
+      List the behaviors to test. Must cover all of:
+      suspension-and-resume, timeout-raise, timeout-approve,
+      auto-approve via sink, rejection, and decision metadata.
+    input:
+      hitl_analysis: {type: string}
+      conventions: {type: string}
+    output: TestCaseList
+    ensure:
+      - "'suspension' in result.cases"
+      - "'timeout' in result.cases"
+      - "'rejection' in result.cases"
+    retries: 2
 
-```
-> Write tests for stratum/hitl.py.
-  Tests should cover: suspension, timeout behavior, auto-approve, rejection.
-  Use real asyncio — no mocking the event loop.
-  Follow the testing conventions in tests/.
-```
-
-The plan:
-
-```
-ExecutionPlan {
-  id: "plan_m4n5o6",
-  task: "Write tests for stratum/hitl.py",
-  steps: [
-    {
-      id: "1",
-      fn: "read_hitl_implementation",
-      description: "Read hitl.py: PendingReview, ReviewSink, await_human signature",
-      output: HitlAnalysis
-    },
-    {
-      id: "2",
-      fn: "read_existing_tests",
-      description: "Read tests/ directory: understand conventions, fixtures, patterns",
-      output: TestConventions,
-      depends_on: ["1"]
-    },
-    {
-      id: "3",
-      fn: "identify_test_cases",
-      description: "List the behaviors to test: what are the success paths? the failure paths? the edge cases?",
-      output: TestCaseList,
-      depends_on: ["1", "2"],
-      ensure: "suspension, timeout (both raise and approve), auto-approve via sink, rejection, and decision_type validation are all covered"
-    },
-    {
-      id: "4",
-      fn: "write_tests",
-      description: "Write tests/test_hitl.py following the conventions identified in step 2",
-      output: TestFile,
-      depends_on: ["3"],
-      ensure: "pytest tests/test_hitl.py passes; no mocking of asyncio internals"
-    }
-  ],
-  budget: "~8 tool calls, estimated $0.04"
-}
+  write_tests:
+    mode: infer
+    intent: "Write tests/test_hitl.py. Use real asyncio — no mocking of asyncio internals. All tests must pass."
+    input:
+      cases: {type: string}
+      conventions: {type: string}
+      hitl_content: {type: string}
+    output: TestFile
+    ensure:
+      - "result.failures == '' or result.failures == 'none'"
+      - "int(result.test_count) >= 5"
+    retries: 3
 ```
 
-Step 3's ensure specifies the behaviors by name. This is the difference between "write some tests" and "write tests that cover these specific behaviors." Claude can't write three tests that all check the happy path and call it done — the ensure checks for suspension, both timeout modes, auto-approve, rejection, and type validation. If any are missing, it gets told exactly which are absent.
-
-The test file that comes out:
-
-```python
-# tests/test_hitl.py
-
-import asyncio
-import pytest
-from datetime import timedelta
-from stratum.hitl import await_human, PendingReview
-from stratum.types import HumanDecision
-
-
-class AutoSink:
-    """Sink that resolves immediately with a preset decision."""
-    def __init__(self, value, *, reject: bool = False):
-        self.value = value
-        self.reject = reject
-
-    async def on_review(self, review: PendingReview) -> None:
-        if self.reject:
-            review.reject("test rejection")
-        else:
-            review.resolve(self.value)
-
-
-@pytest.mark.asyncio
-async def test_await_human_suspends_and_resumes():
-    """Flow genuinely suspends until sink resolves."""
-    resolved = []
-
-    async def flow():
-        decision = await await_human(
-            context="approve this",
-            decision_type=str,
-            options=["yes", "no"],
-            sink=AutoSink("yes"),
-        )
-        resolved.append(decision.value)
-
-    await flow()
-    assert resolved == ["yes"]
-
-
-@pytest.mark.asyncio
-async def test_timeout_raises():
-    """on_timeout='raise' produces TimeoutError after deadline."""
-    with pytest.raises(asyncio.TimeoutError):
-        await await_human(
-            context="approve this",
-            decision_type=str,
-            options=["yes", "no"],
-            timeout=timedelta(milliseconds=50),
-            on_timeout="raise",
-            sink=_never_resolves_sink(),
-        )
-
-
-@pytest.mark.asyncio
-async def test_timeout_approve():
-    """on_timeout='approve' resolves with first option after deadline."""
-    decision = await await_human(
-        context="approve this",
-        decision_type=str,
-        options=["yes", "no"],
-        timeout=timedelta(milliseconds=50),
-        on_timeout="approve",
-        sink=_never_resolves_sink(),
-    )
-    assert decision.value == "yes"
-    assert decision.decided_by == "timeout"
-
-
-@pytest.mark.asyncio
-async def test_rejection_propagates():
-    """Rejected review raises HumanRejected with the rejection reason."""
-    from stratum.errors import HumanRejected
-    with pytest.raises(HumanRejected, match="test rejection"):
-        await await_human(
-            context="approve this",
-            decision_type=str,
-            options=["yes", "no"],
-            sink=AutoSink("yes", reject=True),
-        )
-
-
-@pytest.mark.asyncio
-async def test_decision_carries_metadata():
-    """HumanDecision carries value, decided_by, and timestamp."""
-    decision = await await_human(
-        context="approve this",
-        decision_type=str,
-        options=["yes"],
-        sink=AutoSink("yes"),
-    )
-    assert decision.value == "yes"
-    assert decision.decided_by is not None
-    assert decision.decided_at is not None
-```
-
-The tests cover the five behaviors specified in step 3's `ensure`. They use real asyncio — `pytest.mark.asyncio`, actual `asyncio.TimeoutError` for timeout, actual `asyncio.Future` suspension under the hood. No mock of the event loop.
+Step `identify_cases`'s ensures specify the behaviors by name. Claude can't write three tests that all check the happy path and call it done — the server checks for `suspension`, `timeout`, and `rejection` in the output. If any are missing, it gets told exactly which ones. `write_tests` requires both zero failures and at least 5 tests.
 
 ---
 
-## The Audit Trail
+## The Execution Trace
 
-After any non-trivial Claude Code session, `stratum_audit` produces a structured record:
+Every `stratum_step_done` that returns `"status": "complete"` includes a `trace` array:
 
-```
-stratum_audit --session current
-
-SESSION SUMMARY
-───────────────
-Duration:       47 minutes
-Plans executed: 3
-Total steps:    24
-Total retries:  5
-Total cost:     $0.31
-
-PLANS
-─────
-plan_d4e5f6  Add session_cache to executor
-  Steps 1-4: clean  |  Step 5: 1 retry (2 tests failing)
-  Cost: $0.051
-
-plan_g7h8i9  Debug test_budget_exceeded_on_retry
-  Steps 1-3: clean  |  Step 4: 1 retry (hypothesis not addressing CI discrepancy)
-  Cost: $0.089
-
-plan_j1k2l3  Refactor executor.py
-  Steps 1-2: clean  |  Step 3: 1 retry (circular import in extraction order)
-  Steps 4-5: clean  |  Step 6: 1 retry (missed budget context reference)
-  Step 7: clean
-  Cost: $0.098
-
-RETRY LOG
-─────────
-plan_d4e5f6 step 5:   ensure not run on cache hit; budget charged twice
-plan_g7h8i9 step 4:   hypothesis list didn't address local-vs-CI discrepancy
-plan_j1k2l3 step 3:   executor.py would import retry.py before it was created
-plan_j1k2l3 step 6:   _run_ensure() referenced budget context not in retry module
-
-CONTRACT HASHES
-───────────────
-Finding (review): 3a7b91c2d4e5
-TicketRoute:      8f2e04b1c7d3
-SentimentResult:  1d4f72a9b8c0
-  (no hash changes — prompt behavior stable)
+```json
+{
+  "status": "complete",
+  "output": {...},
+  "trace": [
+    {"step_id": "s1", "function_name": "read_executor",   "attempts": 1, "duration_ms": 1100},
+    {"step_id": "s2", "function_name": "design_cache",    "attempts": 1, "duration_ms": 2300},
+    {"step_id": "s3", "function_name": "implement_cache", "attempts": 1, "duration_ms": 3800},
+    {"step_id": "s4", "function_name": "write_tests",     "attempts": 2, "duration_ms": 4100}
+  ],
+  "total_duration_ms": 11300
+}
 ```
 
-This goes in the commit description. It's a precise accounting of what the session actually did — not a summary Claude wrote about what it thinks it did. The retry log tells you what was legitimately hard. The contract hashes tell you whether LLM behavior may have drifted.
+This goes in the commit description. "1 retry on `write_tests` — ensure not run on hit" tells the next person exactly what was non-trivial. Call `stratum_audit(flow_id)` at any point to get the same trace for a flow in progress.
 
 ---
 
 ## What This Changes
 
-The individual moves Claude Code makes don't change: it still reads files, writes code, runs tests, makes changes. What changes is the structure around those moves.
+The individual moves Claude Code makes don't change: it still reads files, writes code, runs tests. What changes is the structure around those moves.
 
 **Before Stratum:**
 - Task decomposition happens in Claude's head, invisible
-- Retry is full-prompt replay, attention-wasteful
-- Failures are diagnosed by reading transcripts
-- Budget is whatever you accept before ending the session
+- Retry is full-context replay, attention-wasteful
+- Failures diagnosed by reading transcript
 - Review is serial, one mental model at a time
 
 **After Stratum:**
-- Task decomposition is explicit, reviewable, committable
-- Retry is targeted — the specific failure, nothing else
-- Failures are diagnosed from structured trace records with confirmed/ruled-out structure
-- Budget is a hard limit, enforced as an exception
-- Review is parallel, each pass focused on one category
+- Task decomposition is a `.stratum.yaml` spec — reviewable before execution starts
+- Retry is targeted — the server returns the specific ensure violation, nothing else
+- Failures are structured trace records with attempt counts
+- Review uses separate focused functions per category
 
-The tradeoff is real: Stratum adds overhead. Every task starts with a planning step. The MCP round-trips add latency. For a two-file change, the overhead is not worth it.
-
-The threshold is roughly: "would I want a diff of what Claude attempted?" If yes, use Stratum. If it's a single targeted edit, don't.
+The tradeoff is real: Stratum adds overhead. Writing the YAML spec takes time. The threshold is roughly: "would I want a record of what Claude attempted?" If yes, use Stratum. For a single targeted edit, don't.
 
 ---
 
@@ -853,26 +768,67 @@ The threshold is roughly: "would I want a diff of what Claude attempted?" If yes
 
 | Tool | What it does |
 |---|---|
-| `stratum_plan` | Generate a typed execution plan for a task |
-| `stratum_execute` | Execute an approved plan |
-| `stratum_review` | Run parallel review passes on a diff or file |
-| `stratum_audit` | Structured audit of completed plans and traces |
-| `stratum_checkpoint` | Save current execution state (for long sessions) |
+| `stratum_validate` | Validate a `.stratum.yaml` spec. Returns `{valid, errors}`. |
+| `stratum_plan` | Validate + create execution state + return first step. Takes `spec` (YAML string), `flow` (name), `inputs` (dict). |
+| `stratum_step_done` | Report a completed step. Takes `flow_id`, `step_id`, `result` (dict). Returns next step, ensure failure with retry instructions, or flow completion. |
+| `stratum_audit` | Return execution trace for a flow by `flow_id`. |
 
-**Useful patterns:**
+**CLI usage:**
 
-```python
-# Ensure postconditions are Python lambdas — testable, not magic
-ensure=lambda r: r.confidence > 0.7
+```bash
+# Validate a spec file offline (exits 0 on success, 1 on error)
+stratum-mcp validate path/to/spec.yaml
+```
 
-# Multiple ensures: all must pass
-ensure=[
-    lambda r: r.confidence > 0.7,
-    lambda r: len(r.findings) > 0,
-]
+**`ensure` expressions:**
 
-# ensure can call external validators
-ensure=lambda result: run_pytest(result.test_file).returncode == 0
+```yaml
+# Python expressions — 'result' is the step's output (dict fields accessible as attributes)
+ensure:
+  - "result.confidence > 0.7"
+  - "result.label in ['positive', 'negative', 'neutral']"
+  - "result.failures == '' or result.failures == 'none'"
+  - "int(result.test_count) >= 5"
+
+# Dunder attributes blocked: "result.__class__" raises a compile error at plan time
+```
+
+**IR spec structure:**
+
+```yaml
+version: "0.1"
+
+contracts:
+  MyContract:
+    field_name: {type: string}    # type: string | number | integer | boolean
+    another_field: {type: number}
+
+functions:
+  my_function:
+    mode: infer           # or "compute" (deterministic, no LLM)
+    intent: "..."         # what Claude Code should do for this step
+    input:
+      param_name: {type: string}
+    output: MyContract    # must reference a defined contract
+    ensure:               # Python expressions; all must pass or step is retried
+      - "result.field_name != ''"
+    retries: 3            # total attempts (default: 3)
+
+flows:
+  my_flow:
+    input:
+      input_param: {type: string}
+    output: MyContract
+    steps:
+      - id: s1
+        function: my_function
+        inputs:
+          param_name: "$.input.input_param"       # $ ref to flow input
+      - id: s2
+        function: another_function
+        inputs:
+          param: "$.steps.s1.output.field_name"   # $ ref to prior step output field
+        depends_on: [s1]
 ```
 
 **Session configuration:**
@@ -883,18 +839,14 @@ ensure=lambda result: run_pytest(result.test_file).returncode == 0
 ## Stratum
 
 For tasks touching more than 2 files:
-- Call stratum_plan first, present plan before proceeding
-- Call stratum_audit at end of session, include in commit
+- Write a `.stratum.yaml` spec first and present it for approval
+- Call `stratum_plan` to start execution
+- For each step: execute using your tools, then call `stratum_step_done`
+- Include the execution trace in the commit
 
 For code review:
-- Use stratum_review with parallel=True
-- Minimum: security + logic passes
-- For high-severity findings: run debate pass
-
-Budget defaults:
-- Per @infer call: 30s, $0.05
-- Per @flow: 5min, $0.30
-- Override per task as needed
+- Write a review flow with separate infer functions for security, logic, and performance
+- Each function's intent should explicitly exclude other categories
 ```
 
 ---

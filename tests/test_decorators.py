@@ -253,12 +253,7 @@ class TestRefineDecorator:
             # Feedback is injected into the user message via the compiled prompt
             for m in msgs:
                 if m["role"] == "user":
-                    content = m["content"]
-                    if isinstance(content, list):
-                        content = " ".join(
-                            b.get("text", "") for b in content if isinstance(b, dict)
-                        )
-                    captured_contexts.append(content)
+                    captured_contexts.append(m["content"])
             conf = 0.3 if call_count[0] == 1 else 0.95
             return _make_response({"label": "a", "confidence": conf})
 
