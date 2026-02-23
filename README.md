@@ -1,6 +1,6 @@
 # Stratum
 
-[![Specification](https://img.shields.io/badge/Specification-SPEC.md-blue)](SPEC.md)
+[![Specification](https://img.shields.io/badge/Specification-SPEC.md-blue)](https://github.com/regression-io/stratum/blob/main/SPEC.md)
 [![PyPI](https://img.shields.io/badge/PyPI-stratum-orange)](https://pypi.org/project/stratum/)
 
 **Stop babysitting your LLM calls.**
@@ -27,19 +27,58 @@ If the LLM returns low confidence, it gets told exactly what failed and retries 
 
 ---
 
+## Two Tracks
+
+**Track 1 — Python library** (`stratum`): `@infer`, `@contract`, `@flow` decorators for building production LLM systems. Requires Python 3.11+, `litellm`, `pydantic`.
+
+**Track 2 — Claude Code MCP server** (`stratum-mcp`): Stratum as an execution runtime for Claude Code. Claude writes `.stratum.yaml` specs, the MCP server enforces typed contracts and postconditions, Claude narrates progress in plain English. No sub-LLM calls — all execution stays within the Claude Code session.
+
+---
+
+## Track 2: Claude Code + Stratum
+
+```bash
+pip install stratum-mcp
+stratum-mcp setup
+```
+
+`setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs four skills to `~/.claude/skills/`. Restart Claude Code and it's active.
+
+**Four skills installed automatically:**
+
+| Skill | What it structures |
+|---|---|
+| `/stratum-review` | Three-pass code review: security → logic → performance → consolidate |
+| `/stratum-feature` | Feature build: read existing patterns → design → implement → tests pass |
+| `/stratum-debug` | Debug: read test → read code → check env → form hypotheses → confirm/rule out → fix |
+| `/stratum-refactor` | File split: analyze → design modules → plan extraction order → extract one at a time |
+
+Claude writes the `.stratum.yaml` spec internally — you never see it. You see plain English narration and the result. The MCP server enforces postconditions on every step; if a step's output fails a check, Claude fixes it and retries before reporting success.
+
+**MCP tools exposed:**
+
+| Tool | What it does |
+|---|---|
+| `stratum_validate` | Validate a `.stratum.yaml` spec offline |
+| `stratum_plan` | Validate + create execution state + return first step |
+| `stratum_step_done` | Report a completed step; check postconditions; return next step or completion |
+| `stratum_audit` | Return per-step trace (attempts, duration) for any flow |
+
+---
+
 ## Blog
 
-**[Introducing Stratum: LLM Calls That Behave Like the Rest of Your Code](blog/introducing-stratum.md)**
+**[Introducing Stratum: LLM Calls That Behave Like the Rest of Your Code](https://github.com/regression-io/stratum/blob/main/blog/introducing-stratum.md)**
 The design rationale — why `@infer` and `@compute` share a type, how structured retry works, and what contracts actually buy you.
 
-**[Stratum as a Claude Code Execution Runtime](blog/stratum-in-claude-code.md)**
-Claude Code is a capable agent improvising in a loop. This post is about giving it a formal execution model — typed plans, budget enforcement, auditable traces.
+**[Stratum as a Claude Code Execution Runtime](https://github.com/regression-io/stratum/blob/main/blog/stratum-in-claude-code.md)**
+Claude Code is a capable agent improvising in a loop. This post is about giving it a formal execution model — typed plans, postcondition enforcement, auditable traces.
 
-**[Building Software with Claude Code + Stratum: A Tutorial](blog/claude-code-tutorial.md)**
-Step-by-step: understanding a codebase, parallel code review, adding features with typed plans, debugging with confirmed/ruled-out diagnosis, refactoring without an intermediate broken state.
+**[Building Software with Claude Code + Stratum: A Tutorial](https://github.com/regression-io/stratum/blob/main/blog/claude-code-tutorial.md)**
+Real session transcripts: understanding a codebase, reviewing code, adding features, debugging CI failures, refactoring large files. Claude narrates in plain English throughout.
 
-**[Stratum as a Codex Execution Runtime](blog/stratum-in-codex.md)**
-Same problem, different surface. Codex operating on a codebase without a formal execution model produces results you can't reason about. Stratum changes that.
+**[Stratum as a Codex Execution Runtime](https://github.com/regression-io/stratum/blob/main/blog/stratum-in-codex.md)**
+Same problem, different surface. Codex operating without a formal execution model produces results you can't reason about. Stratum changes that.
 
 ---
 
@@ -133,38 +172,47 @@ async def process_ticket(text: str) -> Resolution:
 
 ## Examples
 
-Working examples in [`examples/`](examples/):
+Working examples in [`examples/`](https://github.com/regression-io/stratum/tree/main/examples):
 
 | File | What it shows |
 |---|---|
-| [`01_sentiment.py`](examples/01_sentiment.py) | `@infer` + `@contract` + `@flow` + `@compute` end-to-end |
-| [`02_migrate.py`](examples/02_migrate.py) | Migrating `@infer` → `@compute` without changing callers |
-| [`03_parallel.py`](examples/03_parallel.py) | Three concurrent `@infer` calls with `parallel(require="all")` |
-| [`04_refine.py`](examples/04_refine.py) | `@refine` convergence loop — iterates until quality passes |
-| [`05_debate.py`](examples/05_debate.py) | `debate()` — two agents argue, synthesizer resolves |
-| [`06_hitl.py`](examples/06_hitl.py) | `await_human` — human-in-the-loop approval gate |
+| [`01_sentiment.py`](https://github.com/regression-io/stratum/blob/main/examples/01_sentiment.py) | `@infer` + `@contract` + `@flow` + `@compute` end-to-end |
+| [`02_migrate.py`](https://github.com/regression-io/stratum/blob/main/examples/02_migrate.py) | Migrating `@infer` → `@compute` without changing callers |
+| [`03_parallel.py`](https://github.com/regression-io/stratum/blob/main/examples/03_parallel.py) | Three concurrent `@infer` calls with `parallel(require="all")` |
+| [`04_refine.py`](https://github.com/regression-io/stratum/blob/main/examples/04_refine.py) | `@refine` convergence loop — iterates until quality passes |
+| [`05_debate.py`](https://github.com/regression-io/stratum/blob/main/examples/05_debate.py) | `debate()` — two agents argue, synthesizer resolves |
+| [`06_hitl.py`](https://github.com/regression-io/stratum/blob/main/examples/06_hitl.py) | `await_human` — human-in-the-loop approval gate |
 
 ---
 
 ## Install
 
+**Track 1 — Python library:**
 ```bash
 pip install stratum
 ```
+Requires Python 3.11+. Set `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any key LiteLLM supports, then specify it in `model=`.
 
-Requires Python 3.11+. Set the `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any other key LiteLLM supports, then specify it in `model=`.
+**Track 2 — Claude Code MCP server:**
+```bash
+pip install stratum-mcp
+stratum-mcp setup
+```
+Requires Claude Code. `setup` configures everything — restart Claude Code to activate.
 
 ---
 
 ## Specification
 
-[`SPEC.md`](SPEC.md) is the normative specification covering the full type system, decorator signatures, execution loop, prompt compiler, concurrency semantics, HITL protocol, budget rules, trace record schema, and error types.
+[`SPEC.md`](https://github.com/regression-io/stratum/blob/main/SPEC.md) is the normative specification covering the full type system, decorator signatures, execution loop, prompt compiler, concurrency semantics, HITL protocol, budget rules, trace record schema, and error types.
 
 ---
 
 ## Status
 
-Track 1 (Python library) is implemented and tested. [`SPEC.md`](SPEC.md) reflects the implemented design.
+**Track 1** (Python library): implemented and tested.
+
+**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with four bundled skills. 66 tests passing.
 
 Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions)
 
@@ -172,4 +220,4 @@ Questions and feedback: [GitHub Discussions](https://github.com/regression-io/st
 
 ## License
 
-[Apache 2.0](LICENSE)
+[Apache 2.0](https://github.com/regression-io/stratum/blob/main/LICENSE)

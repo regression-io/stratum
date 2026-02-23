@@ -15,9 +15,11 @@
 - `ensure` expressions evaluated by the server against Claude Code's reported output (Python expressions, dunder-blocked, SimpleNamespace-wrapped for dict access)
 - `$.input.<field>` and `$.steps.<id>.output[.<field>]` reference resolution for chaining step outputs
 - Kahn's topological sort on explicit `depends_on` + implicit `$.steps.*` ref dependencies
-- `stratum-mcp setup` — one-command project configuration: writes `.claude/mcp.json` (MCP server registration) and appends execution model block to `CLAUDE.md`; idempotent, finds project root via `.git` or `CLAUDE.md`
+- `stratum-mcp setup` — one-command project configuration: writes `.claude/mcp.json` (MCP server registration), appends execution model block to `CLAUDE.md`, and installs four Claude Code skills to `~/.claude/skills/`; idempotent, finds project root via `.git` or `CLAUDE.md`
+- Four Claude Code skills installed by `setup`: `stratum-review` (three-pass code review), `stratum-feature` (read → design → implement → test), `stratum-debug` (hypothesis formation and elimination), `stratum-refactor` (extraction order planning, no broken intermediate states)
+- Each skill contains a spec template Claude adapts internally — YAML never shown to the user; Claude narrates in plain English
 - CLI triple-mode: `stratum-mcp setup`, `stratum-mcp validate <file>`, stdio MCP transport
-- 62 passing tests across contracts, invariants, and integration suites
+- 66 passing tests across contracts, invariants, and integration suites
 
 **Dependencies:** `mcp>=1.0`, `jsonschema>=4.20`, `pyyaml>=6.0` — no stratum library dependency
 

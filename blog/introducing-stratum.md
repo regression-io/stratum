@@ -246,12 +246,16 @@ Always, regardless of export configuration. OTel export to any OTLP endpoint shi
 
 ---
 
+## What's Shipped
+
+**Track 1 — Python library:** `@infer`, `@compute`, `@contract`, `@flow`, `@refine`, `opaque[T]`, `await_human`, `stratum.parallel`, `quorum`, `stratum.debate`, `stratum.race`, full budget enforcement, structured retry, and OTel export.
+
+**Track 2 — Claude Code MCP server (`stratum-mcp`):** `.stratum.yaml` IR format, `stratum_plan` / `stratum_step_done` / `stratum_audit` / `stratum_validate`, one-command setup (`stratum-mcp setup`), four bundled Claude Code skills. Standalone package — no Track 1 library dependency.
+
 ## What's Next
 
-The v1 Python library covers: `@infer`, `@compute`, `@contract`, `@flow`, `@refine`, `opaque[T]`, `await_human`, `stratum.parallel`, `quorum`, `stratum.debate`, `stratum.race`, full budget enforcement, structured retry, and OTel export.
+Track 2: session continuity (interrupted flows survive context resets), parallel step execution, memory integration for project-specific spec patterns.
 
-Phase 2 adds: `.stratum.yaml` IR format, MCP server (standalone — no Track 1 library dependency at runtime), TypeScript library, `@agent`/`spawn`/`supervise`.
-
-Phase 3 adds: `orchestrate`/`adapt`/`reflect` (LLM-driven dynamic orchestration), Temporal integration (durable execution), Ray distribution, DSPy prompt optimization.
+Track 3: TypeScript library, `@agent`/`spawn`/`supervise`, `orchestrate`/`adapt`/`reflect` (LLM-driven dynamic orchestration), Temporal integration (durable execution), Ray distribution, DSPy prompt optimization.
 
 The specification is at [SPEC.md](https://github.com/regression-io/stratum/blob/main/SPEC.md). Questions and feedback welcome in [Discussions](https://github.com/regression-io/stratum/discussions).
