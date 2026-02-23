@@ -153,25 +153,109 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
     }
 
 
-def main() -> None:
-    """Entry point: CLI mode if called with 'validate'; stdio MCP server otherwise."""
-    if len(sys.argv) >= 2 and sys.argv[1] == "validate":
-        arg = sys.argv[2] if len(sys.argv) > 2 else ""
-        yaml_content = arg
-        if arg and "\n" not in arg and not arg.lstrip().startswith("version:"):
-            try:
-                with open(arg) as f:
-                    yaml_content = f.read()
-            except OSError:
-                pass  # treat as inline YAML
+_CLAUDE_MD_MARKER = "## Stratum Execution Model"
+
+_CLAUDE_MD_BLOCK = """
+## Stratum Execution Model
+
+For non-trivial tasks, use Stratum internally:
+1. Write a `.stratum.yaml` spec — never show it to the user
+2. Call `stratum_plan` to validate and get the first step
+3. Narrate progress in plain English as you execute each step
+4. Call `stratum_step_done` after each step — the server checks your work
+5. If a step fails postconditions, fix it silently and retry
+6. Call `stratum_audit` at the end and include the trace in the commit
+"""
+
+
+def _cmd_setup() -> None:
+    """Write .claude/mcp.json and append Stratum block to CLAUDE.md."""
+    import json
+    from pathlib import Path
+
+    # Walk up from cwd to find project root (nearest .git or CLAUDE.md)
+    root = Path.cwd()
+    for candidate in [root, *root.parents]:
+        if (candidate / ".git").exists() or (candidate / "CLAUDE.md").exists():
+            root = candidate
+            break
+
+    changed: list[str] = []
+
+    # --- .claude/mcp.json ---
+    mcp_dir = root / ".claude"
+    mcp_file = mcp_dir / "mcp.json"
+
+    if mcp_file.exists():
         try:
-            parse_and_validate(yaml_content)
-            print("OK")
-            sys.exit(0)
-        except Exception as exc:
-            err = exception_to_mcp_error(exc)
-            print(f"ERROR [{err['error_type']}]: {err['message']}", file=sys.stderr)
-            sys.exit(1)
+            config = json.loads(mcp_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            config = {}
+        servers = config.setdefault("mcpServers", {})
+        if "stratum" in servers:
+            print(f"  {mcp_file.relative_to(root)}: stratum already present — skipped")
+        else:
+            servers["stratum"] = {"command": "stratum-mcp"}
+            mcp_file.write_text(json.dumps(config, indent=2) + "\n")
+            print(f"  {mcp_file.relative_to(root)}: added stratum server")
+            changed.append(str(mcp_file.relative_to(root)))
+    else:
+        mcp_dir.mkdir(parents=True, exist_ok=True)
+        config = {"mcpServers": {"stratum": {"command": "stratum-mcp"}}}
+        mcp_file.write_text(json.dumps(config, indent=2) + "\n")
+        print(f"  {mcp_file.relative_to(root)}: created")
+        changed.append(str(mcp_file.relative_to(root)))
+
+    # --- CLAUDE.md ---
+    claude_md = root / "CLAUDE.md"
+
+    if claude_md.exists():
+        content = claude_md.read_text()
+        if _CLAUDE_MD_MARKER in content:
+            print("  CLAUDE.md: Stratum section already present — skipped")
+        else:
+            claude_md.write_text(content.rstrip() + "\n" + _CLAUDE_MD_BLOCK)
+            print("  CLAUDE.md: added Stratum section")
+            changed.append("CLAUDE.md")
+    else:
+        claude_md.write_text(_CLAUDE_MD_BLOCK.lstrip())
+        print("  CLAUDE.md: created")
+        changed.append("CLAUDE.md")
+
+    if changed:
+        print("\nDone. Restart Claude Code to activate the Stratum MCP server.")
+    else:
+        print("\nAlready configured — nothing to do.")
+
+
+def _cmd_validate(arg: str) -> None:
+    yaml_content = arg
+    if arg and "\n" not in arg and not arg.lstrip().startswith("version:"):
+        try:
+            with open(arg) as f:
+                yaml_content = f.read()
+        except OSError:
+            pass  # treat as inline YAML
+    try:
+        parse_and_validate(yaml_content)
+        print("OK")
+        sys.exit(0)
+    except Exception as exc:
+        err = exception_to_mcp_error(exc)
+        print(f"ERROR [{err['error_type']}]: {err['message']}", file=sys.stderr)
+        sys.exit(1)
+
+
+def main() -> None:
+    """Entry point: CLI subcommands or stdio MCP server."""
+    if len(sys.argv) >= 2:
+        cmd = sys.argv[1]
+        if cmd == "setup":
+            _cmd_setup()
+            return
+        if cmd == "validate":
+            _cmd_validate(sys.argv[2] if len(sys.argv) > 2 else "")
+            return
 
     mcp.run(transport="stdio")
 
