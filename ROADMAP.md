@@ -44,7 +44,7 @@
 | T2-10 | `stratum-mcp validate <file>` CLI command | COMPLETE |
 | T2-11 | Published to PyPI as `stratum-mcp` 0.1.2 | COMPLETE |
 | T2-12 | 66 passing tests (contracts, invariants, integration) | COMPLETE |
-| T2-13 | `stratum-mcp uninstall` command | PLANNED |
+| T2-13 | `stratum-mcp uninstall` command | COMPLETE |
 | T2-14 | FlowState persistence (survive MCP server restart) | PLANNED |
 
 ### Skills

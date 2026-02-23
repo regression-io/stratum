@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+---
+
+## [0.1.3] — 2026-02-23
+
+### Added
+
+- `stratum-mcp uninstall` CLI command — removes Stratum config from a project: deletes `stratum` entry from `.claude/mcp.json` (removes file if empty), strips `## Stratum Execution Model` block from `CLAUDE.md` (removes file if empty), removes installed skills from `~/.claude/skills/`; `--keep-skills` flag preserves user-customized skill files
+- 13 new tests for `uninstall` (mcp.json removal, CLAUDE.md removal, skill removal, `--keep-skills`, roundtrip setup→uninstall→setup, idempotency messaging) — 79 total passing
+
 ### Added
 
 **MCP server (Track 2) — `stratum-mcp`**

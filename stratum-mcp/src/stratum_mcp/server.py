@@ -251,6 +251,90 @@ def _cmd_setup() -> None:
         print("\nAlready configured — nothing to do.")
 
 
+def _cmd_uninstall(keep_skills: bool = False) -> None:
+    """Remove Stratum config from the project and optionally from ~/.claude/skills/."""
+    import json
+    from pathlib import Path
+
+    root = Path.cwd()
+    for candidate in [root, *root.parents]:
+        if (candidate / ".git").exists() or (candidate / "CLAUDE.md").exists():
+            root = candidate
+            break
+
+    removed: list[str] = []
+
+    # --- .claude/mcp.json ---
+    mcp_file = root / ".claude" / "mcp.json"
+    if mcp_file.exists():
+        try:
+            config = json.loads(mcp_file.read_text())
+            servers = config.get("mcpServers", {})
+            if "stratum" in servers:
+                del servers["stratum"]
+                if servers:
+                    mcp_file.write_text(json.dumps(config, indent=2) + "\n")
+                else:
+                    # No servers left — remove the file entirely
+                    mcp_file.unlink()
+                print(f"  {mcp_file.relative_to(root)}: removed stratum server")
+                removed.append(str(mcp_file.relative_to(root)))
+            else:
+                print(f"  {mcp_file.relative_to(root)}: stratum not present — skipped")
+        except (json.JSONDecodeError, OSError):
+            print(f"  {mcp_file.relative_to(root)}: could not parse — skipped")
+    else:
+        print("  .claude/mcp.json: not found — skipped")
+
+    # --- CLAUDE.md ---
+    claude_md = root / "CLAUDE.md"
+    if claude_md.exists():
+        content = claude_md.read_text()
+        if _CLAUDE_MD_MARKER in content:
+            # Remove the marker line and everything after it that belongs to our block
+            idx = content.find(_CLAUDE_MD_MARKER)
+            new_content = content[:idx].rstrip()
+            if new_content:
+                claude_md.write_text(new_content + "\n")
+            else:
+                claude_md.unlink()
+            print("  CLAUDE.md: removed Stratum section")
+            removed.append("CLAUDE.md")
+        else:
+            print("  CLAUDE.md: Stratum section not present — skipped")
+    else:
+        print("  CLAUDE.md: not found — skipped")
+
+    # --- Skills ---
+    if keep_skills:
+        print("  ~/.claude/skills/stratum-*: kept (--keep-skills)")
+    else:
+        skills_home = Path.home() / ".claude" / "skills"
+        pkg_skills = Path(__file__).parent / "skills"
+        if pkg_skills.is_dir():
+            for skill_dir in sorted(pkg_skills.iterdir()):
+                if not skill_dir.is_dir():
+                    continue
+                dest = skills_home / skill_dir.name / "SKILL.md"
+                dest_dir = skills_home / skill_dir.name
+                if dest.exists():
+                    dest.unlink()
+                    # Remove the directory if now empty
+                    try:
+                        dest_dir.rmdir()
+                    except OSError:
+                        pass
+                    print(f"  ~/.claude/skills/{skill_dir.name}: removed")
+                    removed.append(f"skills/{skill_dir.name}")
+                else:
+                    print(f"  ~/.claude/skills/{skill_dir.name}: not found — skipped")
+
+    if removed:
+        print("\nDone. Restart Claude Code to deactivate the Stratum MCP server.")
+    else:
+        print("\nNothing to remove — Stratum was not configured here.")
+
+
 def _cmd_validate(arg: str) -> None:
     yaml_content = arg
     if arg and "\n" not in arg and not arg.lstrip().startswith("version:"):
@@ -275,6 +359,10 @@ def main() -> None:
         cmd = sys.argv[1]
         if cmd == "setup":
             _cmd_setup()
+            return
+        if cmd == "uninstall":
+            keep = "--keep-skills" in sys.argv[2:]
+            _cmd_uninstall(keep_skills=keep)
             return
         if cmd == "validate":
             _cmd_validate(sys.argv[2] if len(sys.argv) > 2 else "")
