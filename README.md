@@ -38,7 +38,7 @@ If the LLM returns low confidence, it gets told exactly what failed and retries 
 ## Track 2: Claude Code + Stratum
 
 ```bash
-pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
+pip install stratum-mcp
 stratum-mcp setup
 ```
 
@@ -191,13 +191,13 @@ Working examples in [`examples/`](https://github.com/regression-io/stratum/tree/
 
 **Track 1 — Python library:**
 ```bash
-pip install git+https://github.com/regression-io/stratum.git#egg=stratum-py
+pip install stratum-py
 ```
 Requires Python 3.11+. Set `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any key LiteLLM supports, then specify it in `model=`.
 
 **Track 2 — Claude Code MCP server:**
 ```bash
-pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
+pip install stratum-mcp
 stratum-mcp setup
 ```
 Requires Claude Code. `setup` configures everything — restart Claude Code to activate.

@@ -225,7 +225,7 @@ This isn't a security model. It's an alignment model. And it works — not becau
 The MCP server is available now as a standalone package (`stratum-mcp`). It has no dependency on the Track 1 Python library — it's an independent state manager and contract enforcer that works entirely within your Claude Code session.
 
 ```bash
-pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
+pip install stratum-mcp
 stratum-mcp setup
 ```
 
