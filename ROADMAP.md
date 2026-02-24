@@ -107,8 +107,8 @@ Full SmartMemory service — multi-tenant, LLM entity extraction, Wikidata groun
 
 | ID | Feature | Status |
 |---|---|---|
-| T2-SM5 | `SessionStart` / `Stop` / `PostToolUseFailure` hooks via `smartmemory-mcp` | PLANNED |
-| T2-SM6 | Skills use `memory_search` MCP tool when full backend configured | PLANNED |
+| T2-SM5 | `SessionStart` / `Stop` / `PostToolUseFailure` hooks via `smartmemory-mcp` | PARKED |
+| T2-SM6 | Skills use `memory_search` MCP tool when full backend configured | PARKED |
 
 ---
 
