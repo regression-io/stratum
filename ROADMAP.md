@@ -122,7 +122,8 @@ The `stratum_audit` trace is the built-in instrument — attempt counts, step du
 
 | ID | Item | Status |
 |---|---|---|
-| E-1 | Task battery — 5-10 representative coding tasks with known-correct outputs | PLANNED |
+| E-0 | Difficulty taxonomy — collect empirically difficult tasks from session transcripts; classify by failure dimension (cascading incorrectness, ambiguous spec, stale blueprint, self-reporting temptation, multi-file coordination, non-obvious constraint, cross-session dependency, noisy memory) | PLANNED |
+| E-1 | Task battery — 5-10 tasks selected from E-0 taxonomy, covering each difficulty dimension, with known-correct outputs | PLANNED |
 | E-2 | Automated scorer — `file_exists`, test pass/fail, `forge-reviewer` confidence | PLANNED |
 | E-3 | Comparison harness — run task with Stratum vs. without, collect audit traces | PLANNED |
 | E-4 | Metrics report — artifact completeness, retry rate, recovery rate, abandonment rate | PLANNED |
