@@ -2,6 +2,9 @@
 import pytest
 
 from stratum_mcp.executor import (
+    _ENSURE_BUILTINS,
+    _FILE_CONTAINS_SIZE_LIMIT,
+    _validate_output_schema,
     EnsureCompileError,
     RefResolutionError,
     compile_ensure,
@@ -45,6 +48,114 @@ def test_compile_ensure_on_non_dict():
     fn = compile_ensure("result > 5")
     assert fn(10) is True
     assert fn(3) is False
+
+
+# ---------------------------------------------------------------------------
+# file-aware builtins
+# ---------------------------------------------------------------------------
+
+def test_file_exists_true(tmp_path):
+    f = tmp_path / "output.md"
+    f.write_text("hello")
+    fn = compile_ensure("file_exists(result.path)")
+    assert fn({"path": str(f)}) is True
+
+
+def test_file_exists_false(tmp_path):
+    fn = compile_ensure("file_exists(result.path)")
+    assert fn({"path": str(tmp_path / "missing.md")}) is False
+
+
+def test_file_contains_true(tmp_path):
+    f = tmp_path / "output.md"
+    f.write_text("# Design Doc\nsome content")
+    fn = compile_ensure("file_contains(result.path, '# Design Doc')")
+    assert fn({"path": str(f)}) is True
+
+
+def test_file_contains_false(tmp_path):
+    f = tmp_path / "output.md"
+    f.write_text("some content")
+    fn = compile_ensure("file_contains(result.path, '# Design Doc')")
+    assert fn({"path": str(f)}) is False
+
+
+def test_file_contains_missing_file(tmp_path):
+    fn = compile_ensure("file_contains(result.path, 'anything')")
+    assert fn({"path": str(tmp_path / "missing.md")}) is False
+
+
+def test_file_contains_binary_file_returns_false(tmp_path):
+    """Binary/non-UTF-8 content returns False rather than raising."""
+    f = tmp_path / "binary.bin"
+    f.write_bytes(b"\x80\x81\x82\xff\xfe")
+    fn = compile_ensure("file_contains(result.path, 'marker')")
+    assert fn({"path": str(f)}) is False
+
+
+def test_file_contains_oversized_file_returns_false(tmp_path, monkeypatch):
+    """File over the size limit returns False without reading it."""
+    f = tmp_path / "big.txt"
+    f.write_text("contains the marker")
+    monkeypatch.setattr("stratum_mcp.executor._FILE_CONTAINS_SIZE_LIMIT", 5)
+    fn = compile_ensure("file_contains(result.path, 'marker')")
+    assert fn({"path": str(f)}) is False
+
+
+# ---------------------------------------------------------------------------
+# _validate_output_schema
+# ---------------------------------------------------------------------------
+
+def test_validate_output_schema_passes():
+    schema = {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}
+    assert _validate_output_schema({"path": "/tmp/out.md"}, schema) == []
+
+
+def test_validate_output_schema_missing_required():
+    schema = {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}
+    errors = _validate_output_schema({}, schema)
+    assert len(errors) == 1
+    assert "output_schema violation" in errors[0]
+    assert "path" in errors[0]
+
+
+def test_validate_output_schema_wrong_type():
+    schema = {"type": "object", "properties": {"count": {"type": "integer"}}}
+    errors = _validate_output_schema({"count": "not-an-int"}, schema)
+    assert len(errors) == 1
+    assert "output_schema violation" in errors[0]
+
+
+def test_validate_output_schema_multiple_violations():
+    schema = {
+        "type": "object",
+        "required": ["a", "b"],
+        "properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
+    }
+    errors = _validate_output_schema({}, schema)
+    assert len(errors) == 2
+
+
+def test_validate_output_schema_unresolvable_ref_returns_violation():
+    """Unresolvable $ref in output_schema returns a violation string, not an exception."""
+    schema = {"$ref": "#/$defs/DoesNotExist"}
+    errors = _validate_output_schema({"path": "/tmp/out.md"}, schema)
+    assert len(errors) == 1
+    assert "output_schema violation" in errors[0]
+
+
+def test_validate_output_schema_empty_schema_accepts_anything():
+    """Empty schema {} is valid JSON Schema — accepts any value."""
+    assert _validate_output_schema({"anything": 123}, {}) == []
+    assert _validate_output_schema({}, {}) == []
+    assert _validate_output_schema({"nested": {"deep": True}}, {}) == []
+
+
+def test_ensure_builtins_no_dangerous_names():
+    """_ENSURE_BUILTINS must not expose exec, eval, import, or open at top level."""
+    dangerous = {"exec", "eval", "__import__", "compile", "globals", "locals", "vars"}
+    exposed = set(_ENSURE_BUILTINS.keys())
+    assert not (dangerous & exposed)
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Stratum Roadmap
 
-**Last updated:** 2026-02-23
+**Last updated:** 2026-02-24
 
 ---
 
@@ -46,6 +46,19 @@
 | T2-12 | 66 passing tests (contracts, invariants, integration) | COMPLETE |
 | T2-13 | `stratum-mcp uninstall` command | COMPLETE |
 | T2-14 | FlowState persistence (survive MCP server restart) | PLANNED |
+| T2-15 | `ensure` file-aware builtins (`file_exists`, `file_contains`) | COMPLETE |
+| T2-16 | Step output contracts (schema validation in `stratum_step_done`) | COMPLETE |
+
+### Forge Integration
+
+Enable the `forge` skill to use Stratum as its execution backbone. See `docs/plans/2026-02-24-forge-stratum-integration-plan.md`.
+
+| ID | Feature | Status |
+|---|---|---|
+| T2-F1 | Result schema convention for forge steps | PLANNED |
+| T2-F2 | `ensure` file-aware builtins (→ T2-15) | COMPLETE |
+| T2-F3 | Step output contracts (→ T2-16) | COMPLETE |
+| T2-F4 | Forge skill emits `.stratum.yaml` | PLANNED |
 
 ### Skills
 
@@ -60,6 +73,7 @@
 | T2-S7 | `/stratum-migrate` — rewrite bare LLM calls as `@infer` | COMPLETE |
 | T2-S8 | `/stratum-test` — write test suite for existing code | COMPLETE |
 | T2-S9 | `/stratum-learn` — extract patterns from session transcripts | COMPLETE |
+| T2-S10 | `/forge` rewrite — emits `.stratum.yaml`, uses `stratum_plan` loop (→ T2-F4) | PLANNED |
 
 ### Memory & Hooks
 

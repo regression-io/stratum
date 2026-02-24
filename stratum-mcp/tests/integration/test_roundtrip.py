@@ -187,6 +187,258 @@ flows:
 
 
 @pytest.mark.asyncio
+async def test_roundtrip_output_schema_passes():
+    """Step with output_schema: conforming result advances to complete."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a design doc"
+    input: {name: {type: string}}
+    output: Out
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+            word_count: {type: integer}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "feature-x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    done = await stratum_step_done(flow_id, "s1", {"path": "/tmp/design.md", "word_count": 512}, ctx)
+    assert done["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_output_schema_missing_required_field():
+    """Step with output_schema: missing required field returns schema_failed."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a design doc"
+    input: {name: {type: string}}
+    output: Out
+    retries: 3
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "feature-x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Result missing required 'path' field
+    fail = await stratum_step_done(flow_id, "s1", {"word_count": 100}, ctx)
+    assert fail["status"] == "schema_failed"
+    assert fail["retries_remaining"] == 2
+    assert any("output_schema violation" in v for v in fail["violations"])
+    assert any("path" in v for v in fail["violations"])
+
+    # Retry with correct result
+    done = await stratum_step_done(flow_id, "s1", {"path": "/tmp/design.md"}, ctx)
+    assert done["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_output_schema_exhausts_retries():
+    """Step with output_schema: repeated failures exhaust retries."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a design doc"
+    input: {name: {type: string}}
+    output: Out
+    retries: 2
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "feature-x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    bad = {"word_count": 0}
+    await stratum_step_done(flow_id, "s1", bad, ctx)  # attempt 1 → schema_failed
+    result = await stratum_step_done(flow_id, "s1", bad, ctx)  # attempt 2 → retries_exhausted
+    assert result["status"] == "error"
+    assert result["error_type"] == "retries_exhausted"
+    assert any("output_schema violation" in v for v in result["violations"])
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_output_schema_checked_before_ensures():
+    """Schema validation runs before ensures — schema error surfaces first."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a design doc"
+    input: {name: {type: string}}
+    output: Out
+    ensure:
+      - "result.path != ''"
+    retries: 3
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "feature-x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Missing required field — should get schema_failed, not ensure_failed
+    fail = await stratum_step_done(flow_id, "s1", {"wrong_key": "value"}, ctx)
+    assert fail["status"] == "schema_failed"
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_output_schema_retries_1_exhausted_on_first_failure():
+    """retries=1 means 1 total attempt — schema failure exhausts immediately."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a doc"
+    input: {name: {type: string}}
+    output: Out
+    retries: 1
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    result = await stratum_step_done(flow_id, "s1", {"wrong": "value"}, ctx)
+    assert result["status"] == "error"
+    assert result["error_type"] == "retries_exhausted"
+
+
+@pytest.mark.asyncio
+async def test_roundtrip_schema_fail_then_ensure_fail_then_pass():
+    """Mixed retry path: attempt 1 → schema_failed, attempt 2 → ensure_failed, attempt 3 → complete."""
+    IR = """
+version: "0.1"
+contracts:
+  Out:
+    path: {type: string}
+functions:
+  write_doc:
+    mode: compute
+    intent: "Write a doc"
+    input: {name: {type: string}}
+    output: Out
+    ensure:
+      - "result.path != ''"
+    retries: 3
+flows:
+  run:
+    input: {name: {type: string}}
+    output: Out
+    steps:
+      - id: s1
+        function: write_doc
+        inputs: {name: "$.input.name"}
+        output_schema:
+          type: object
+          required: [path]
+          properties:
+            path: {type: string}
+"""
+    ctx = MagicMock()
+    plan = await stratum_plan(IR, "run", {"name": "x"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Attempt 1: missing required field → schema_failed
+    r1 = await stratum_step_done(flow_id, "s1", {"wrong": "value"}, ctx)
+    assert r1["status"] == "schema_failed"
+    assert r1["retries_remaining"] == 2
+
+    # Attempt 2: schema passes, ensure fails (empty path)
+    r2 = await stratum_step_done(flow_id, "s1", {"path": ""}, ctx)
+    assert r2["status"] == "ensure_failed"
+    assert r2["retries_remaining"] == 1
+
+    # Attempt 3: schema and ensure both pass
+    r3 = await stratum_step_done(flow_id, "s1", {"path": "/tmp/out.md"}, ctx)
+    assert r3["status"] == "complete"
+    assert r3["trace"][0]["attempts"] == 3
+
+
+@pytest.mark.asyncio
 async def test_roundtrip_flow_not_found():
     ctx = MagicMock()
     result = await stratum_plan(VALID_IR, "nonexistent_flow", {}, ctx)

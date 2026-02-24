@@ -99,13 +99,13 @@ async def stratum_step_done(
             "violations": violations,
         }
 
-    if status == "ensure_failed":
+    if status in ("ensure_failed", "schema_failed"):
         # current_idx has not advanced — get_current_step_info returns the same step
         # with updated retries_remaining
         step_info = get_current_step_info(state)
         return {
             **step_info,
-            "status": "ensure_failed",
+            "status": status,
             "violations": violations,
         }
 

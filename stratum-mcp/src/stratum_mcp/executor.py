@@ -1,12 +1,15 @@
 """Flow controller: plan state management, $ reference resolution, ensure compilation."""
 from __future__ import annotations
 
+import os
 import time
 import types
 import uuid
 import dataclasses
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+from jsonschema import Draft202012Validator
 
 from .errors import MCPExecutionError
 from .spec import IRSpec, IRFlowDef, IRStepDef
@@ -18,6 +21,35 @@ from .spec import IRSpec, IRFlowDef, IRStepDef
 
 class EnsureCompileError(Exception):
     pass
+
+
+# Safe builtins available in all ensure expressions.
+# __builtins__ is always empty — only these specific names are exposed.
+
+_FILE_CONTAINS_SIZE_LIMIT = 10 * 1024 * 1024  # 10 MB
+
+
+def _file_contains(path: str, substring: str) -> bool:
+    """Return True if path exists, is under the size limit, and contains substring."""
+    try:
+        if not os.path.isfile(path):
+            return False
+        if os.path.getsize(path) > _FILE_CONTAINS_SIZE_LIMIT:
+            return False
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return substring in f.read()
+    except OSError:
+        return False
+
+
+_ENSURE_BUILTINS: dict[str, Any] = {
+    "file_exists": lambda p: os.path.isfile(p),
+    "file_contains": _file_contains,
+    "len": len,
+    "bool": bool,
+    "int": int,
+    "str": str,
+}
 
 
 def compile_ensure(expr: str) -> Callable[[Any], bool]:
@@ -42,7 +74,7 @@ def compile_ensure(expr: str) -> Callable[[Any], bool]:
         if isinstance(result, dict):
             result = types.SimpleNamespace(**result)
         try:
-            return bool(eval(code, {"__builtins__": {}}, {"result": result}))
+            return bool(eval(code, {"__builtins__": {}, **_ENSURE_BUILTINS}, {"result": result}))
         except Exception as exc:
             raise EnsureCompileError(
                 f"Ensure expression {expr!r} raised: {exc}"
@@ -54,6 +86,18 @@ def compile_ensure(expr: str) -> Callable[[Any], bool]:
 
 def compile_ensure_list(exprs: list[str]) -> list[Callable[[Any], bool]]:
     return [compile_ensure(e) for e in exprs]
+
+
+def _validate_output_schema(result: dict[str, Any], schema: dict[str, Any]) -> list[str]:
+    """Validate result dict against a JSON Schema. Returns list of violation strings."""
+    validator = Draft202012Validator(schema)
+    try:
+        return [
+            f"output_schema violation: {e.message}"
+            for e in validator.iter_errors(result)
+        ]
+    except Exception as exc:
+        return [f"output_schema violation: schema error — {exc}"]
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +310,22 @@ def process_step_result(
     fn_def = state.spec.functions[step.function]
     state.attempts[step_id] = state.attempts.get(step_id, 0) + 1
     attempt = state.attempts[step_id]
+
+    # Schema validation runs before ensures — structural errors are caught first.
+    if step.output_schema is not None:
+        schema_errors = _validate_output_schema(result, step.output_schema)
+        if schema_errors:
+            if attempt >= fn_def.retries:
+                dispatched = state.dispatched_at.get(step_id, state.flow_start)
+                duration_ms = int((time.monotonic() - dispatched) * 1000)
+                state.records.append(StepRecord(
+                    step_id=step_id,
+                    function_name=fn_def.name,
+                    attempts=attempt,
+                    duration_ms=duration_ms,
+                ))
+                return ("retries_exhausted", schema_errors)
+            return ("schema_failed", schema_errors)
 
     violations: list[str] = []
     for expr in fn_def.ensure:

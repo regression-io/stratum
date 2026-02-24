@@ -52,6 +52,7 @@ class IRStepDef:
     function: str
     inputs: dict[str, str]
     depends_on: list[str]
+    output_schema: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -125,7 +126,7 @@ _IR_SCHEMA_V01: dict = {
                 "output": {"type": "string"},
                 "ensure": {"type": "array", "items": {"type": "string"}},
                 "budget": {"$ref": "#/$defs/BudgetDef"},
-                "retries": {"type": "integer", "minimum": 0},
+                "retries": {"type": "integer", "minimum": 1},
                 "model": {"type": "string"},
             }
         },
@@ -138,6 +139,7 @@ _IR_SCHEMA_V01: dict = {
                 "function": {"type": "string"},
                 "inputs": {"type": "object", "additionalProperties": {"type": "string"}},
                 "depends_on": {"type": "array", "items": {"type": "string"}},
+                "output_schema": {"type": "object"},
             }
         },
         "FlowDef": {
@@ -243,6 +245,7 @@ def _build_flow(name: str, d: dict) -> IRFlowDef:
             function=s["function"],
             inputs=s.get("inputs", {}),
             depends_on=s.get("depends_on", []),
+            output_schema=s.get("output_schema"),
         )
         for s in d.get("steps", [])
     ]
