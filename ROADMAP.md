@@ -48,6 +48,8 @@
 | T2-14 | FlowState persistence (survive MCP server restart) | PLANNED |
 | T2-15 | `ensure` file-aware builtins (`file_exists`, `file_contains`) | COMPLETE |
 | T2-16 | Step output contracts (schema validation in `stratum_step_done`) | COMPLETE |
+| T2-17 | `stratum_commit` — explicit flow-state checkpoint with label | PLANNED |
+| T2-18 | `stratum_revert` — roll back to a named checkpoint, trace records revert | PLANNED |
 
 ### Forge Integration
 
@@ -77,12 +79,27 @@ Enable the `forge` skill to use Stratum as its execution backbone. See `docs/pla
 
 ### Memory & Hooks
 
+Default backend: MEMORY.md files. SmartMemory backend is opt-in for users who want semantic retrieval.
+
+#### Default — MEMORY.md backend
+
 | ID | Feature | Status |
 |---|---|---|
 | T2-M1 | `## Memory` sections in all 9 skills — read/write MEMORY.md | COMPLETE |
 | T2-M2 | `SessionStart` hook — auto-inject relevant MEMORY.md entries at session open | PLANNED |
 | T2-M3 | `Stop` hook — auto-append session summary to MEMORY.md at session close | PLANNED |
 | T2-M4 | `PostToolUseFailure` hook — auto-record ensure failures and tool errors | PLANNED |
+
+#### Opt-in — SmartMemory backend
+
+Replaces MEMORY.md read/write with `memory_search` / `memory_add` via the SmartMemory MCP. Requires `smartmemory-mcp` configured. Falls back to MEMORY.md if unavailable.
+
+| ID | Feature | Status |
+|---|---|---|
+| T2-SM1 | `SessionStart` hook — `memory_search` for project-relevant context | PLANNED |
+| T2-SM2 | `Stop` hook — `memory_add` session summary as `episodic` memory | PLANNED |
+| T2-SM3 | `PostToolUseFailure` hook — `memory_add` failures as `observation` memory | PLANNED |
+| T2-SM4 | Skills read from SmartMemory instead of MEMORY.md when backend is configured | PLANNED |
 
 ---
 
@@ -113,4 +130,5 @@ Enable the `forge` skill to use Stratum as its execution backbone. See `docs/pla
 **Longer horizon:**
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort
 - T2-14 (FlowState persistence) — needed for long-running flows across sessions
+- T2-17/18 (commit/revert) — flow-state checkpoints and rollback; git is one implementation; natural companion to T2-14
 - T1-13/14/15 (DSPy, Temporal, Ray) — Phase 3 per original design
