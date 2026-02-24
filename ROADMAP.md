@@ -79,9 +79,9 @@ Enable the `forge` skill to use Stratum as its execution backbone. See `docs/pla
 
 ### Memory & Hooks
 
-Default backend: MEMORY.md files. SmartMemory backend is opt-in for users who want semantic retrieval.
+Three tiers — default is zero-dependency. Opt-in tiers add semantic retrieval without changing the skill interface.
 
-#### Default — MEMORY.md backend
+#### Tier 1 — MEMORY.md (default, zero dependencies)
 
 | ID | Feature | Status |
 |---|---|---|
@@ -90,16 +90,25 @@ Default backend: MEMORY.md files. SmartMemory backend is opt-in for users who wa
 | T2-M3 | `Stop` hook — auto-append session summary to MEMORY.md at session close | PLANNED |
 | T2-M4 | `PostToolUseFailure` hook — auto-record ensure failures and tool errors | PLANNED |
 
-#### Opt-in — SmartMemory backend
+#### Tier 2 — SmartMemory lite (opt-in, pip only, no Docker)
 
-Replaces MEMORY.md read/write with `memory_search` / `memory_add` via the SmartMemory MCP. Requires `smartmemory-mcp` configured. Falls back to MEMORY.md if unavailable.
+`pip install smartmemory[lite]` — local SQLite graph + usearch vectors + markdown notes at `~/.smartmemory/`. No network calls, no Docker, no LLM extraction. Uses `lite_context()` / `create_lite_memory()` directly. Replaces MEMORY.md read/write with `memory.search()` / `memory.ingest()`.
 
 | ID | Feature | Status |
 |---|---|---|
-| T2-SM1 | `SessionStart` hook — `memory_search` for project-relevant context | PLANNED |
-| T2-SM2 | `Stop` hook — `memory_add` session summary as `episodic` memory | PLANNED |
-| T2-SM3 | `PostToolUseFailure` hook — `memory_add` failures as `observation` memory | PLANNED |
-| T2-SM4 | Skills read from SmartMemory instead of MEMORY.md when backend is configured | PLANNED |
+| T2-SM1 | `SessionStart` hook — `memory.search()` for project-relevant context | PLANNED |
+| T2-SM2 | `Stop` hook — `memory.ingest()` session summary as `episodic` memory | PLANNED |
+| T2-SM3 | `PostToolUseFailure` hook — `memory.ingest()` failures as `observation` memory | PLANNED |
+| T2-SM4 | Skills use `memory.search()` instead of MEMORY.md when lite backend configured | PLANNED |
+
+#### Tier 3 — SmartMemory full (opt-in, requires Docker stack or remote API)
+
+Full SmartMemory service — multi-tenant, LLM entity extraction, Wikidata grounding, REST API. Uses `smartmemory-mcp` HTTP client. Same hook/skill interface as Tier 2 but backed by the remote API.
+
+| ID | Feature | Status |
+|---|---|---|
+| T2-SM5 | `SessionStart` / `Stop` / `PostToolUseFailure` hooks via `smartmemory-mcp` | PLANNED |
+| T2-SM6 | Skills use `memory_search` MCP tool when full backend configured | PLANNED |
 
 ---
 
