@@ -112,6 +112,34 @@ Full SmartMemory service — multi-tenant, LLM entity extraction, Wikidata groun
 
 ---
 
+## Evaluation & Benchmarks
+
+Answers two questions: (1) is Stratum/Forge better than not using it, and (2) which memory tier is better for a given workload.
+
+### Stratum/Forge vs. baseline
+
+The `stratum_audit` trace is the built-in instrument — attempt counts, step durations, ensure failure reasons. The missing piece is a standardized task battery and comparison harness.
+
+| ID | Item | Status |
+|---|---|---|
+| E-1 | Task battery — 5-10 representative coding tasks with known-correct outputs | PLANNED |
+| E-2 | Automated scorer — `file_exists`, test pass/fail, `forge-reviewer` confidence | PLANNED |
+| E-3 | Comparison harness — run task with Stratum vs. without, collect audit traces | PLANNED |
+| E-4 | Metrics report — artifact completeness, retry rate, recovery rate, abandonment rate | PLANNED |
+
+### Memory tier comparison
+
+Retrieval precision benchmark: pre-load known patterns into each backend, run tasks that require applying those patterns without being told explicitly, score whether the agent applied them.
+
+| ID | Item | Status |
+|---|---|---|
+| E-5 | Pattern fixture set — known project-specific patterns to pre-load into each backend | PLANNED |
+| E-6 | Retrieval precision test — did agent apply the right pattern without explicit prompting? | PLANNED |
+| E-7 | Context efficiency metric — tokens injected vs. tokens actually used per session | PLANNED |
+| E-8 | Tier comparison report — Tier 1 vs. Tier 2 on precision, token cost, task outcome | PLANNED |
+
+---
+
 ## Distribution & Discovery
 
 | ID | Item | Status |
