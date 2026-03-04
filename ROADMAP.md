@@ -43,13 +43,13 @@
 | T2-9 | `stratum-mcp setup` CLI command | COMPLETE |
 | T2-10 | `stratum-mcp validate <file>` CLI command | COMPLETE |
 | T2-11 | Published to PyPI as `stratum-mcp` 0.1.2 | COMPLETE |
-| T2-12 | 66 passing tests (contracts, invariants, integration) | COMPLETE |
+| T2-12 | 202 passing tests (contracts, invariants, integration) | COMPLETE |
 | T2-13 | `stratum-mcp uninstall` command | COMPLETE |
-| T2-14 | FlowState persistence (survive MCP server restart) | PLANNED |
+| T2-14 | FlowState persistence (survive MCP server restart) | COMPLETE |
 | T2-15 | `ensure` file-aware builtins (`file_exists`, `file_contains`) | COMPLETE |
 | T2-16 | Step output contracts (schema validation in `stratum_step_done`) | COMPLETE |
-| T2-17 | `stratum_commit` — explicit flow-state checkpoint with label | PLANNED |
-| T2-18 | `stratum_revert` — roll back to a named checkpoint, trace records revert | PLANNED |
+| T2-17 | `stratum_commit` — explicit flow-state checkpoint with label | COMPLETE |
+| T2-18 | `stratum_revert` — roll back to a named checkpoint, trace records revert | COMPLETE |
 
 ### Forge Integration
 
@@ -57,7 +57,7 @@ Enable the `forge` skill to use Stratum as its execution backbone. See `docs/pla
 
 | ID | Feature | Status |
 |---|---|---|
-| T2-F1 | Result schema convention for forge steps | PLANNED |
+| T2-F1 | Result schema convention for forge steps | COMPLETE |
 | T2-F2 | `ensure` file-aware builtins (→ T2-15) | COMPLETE |
 | T2-F3 | Step output contracts (→ T2-16) | COMPLETE |
 | T2-F4 | Forge skill emits `.stratum.yaml` | COMPLETE |
@@ -86,9 +86,9 @@ Three tiers — default is zero-dependency. Opt-in tiers add semantic retrieval 
 | ID | Feature | Status |
 |---|---|---|
 | T2-M1 | `## Memory` sections in all 9 skills — read/write MEMORY.md | COMPLETE |
-| T2-M2 | `SessionStart` hook — auto-inject relevant MEMORY.md entries at session open | PLANNED |
-| T2-M3 | `Stop` hook — auto-append session summary to MEMORY.md at session close | PLANNED |
-| T2-M4 | `PostToolUseFailure` hook — auto-record ensure failures and tool errors | PLANNED |
+| T2-M2 | `SessionStart` hook — auto-inject relevant MEMORY.md entries at session open | COMPLETE |
+| T2-M3 | `Stop` hook — auto-append session summary to MEMORY.md at session close | COMPLETE |
+| T2-M4 | `PostToolUseFailure` hook — auto-record ensure failures and tool errors | COMPLETE |
 
 #### Tier 2 — SmartMemory lite (opt-in, pip only, no Docker)
 
@@ -96,10 +96,10 @@ Three tiers — default is zero-dependency. Opt-in tiers add semantic retrieval 
 
 | ID | Feature | Status |
 |---|---|---|
-| T2-SM1 | `SessionStart` hook — `memory.search()` for project-relevant context | PLANNED |
-| T2-SM2 | `Stop` hook — `memory.ingest()` session summary as `episodic` memory | PLANNED |
-| T2-SM3 | `PostToolUseFailure` hook — `memory.ingest()` failures as `observation` memory | PLANNED |
-| T2-SM4 | Skills use `memory.search()` instead of MEMORY.md when lite backend configured | PLANNED |
+| T2-SM1 | `SessionStart` hook — `memory.search()` for project-relevant context | COMPLETE |
+| T2-SM2 | `Stop` hook — `memory.ingest()` session summary as `episodic` memory | COMPLETE |
+| T2-SM3 | `PostToolUseFailure` hook — `memory.ingest()` failures as `observation` memory | COMPLETE |
+| T2-SM4 | Skills use `memory.search()` instead of MEMORY.md when lite backend configured | COMPLETE |
 
 #### Tier 3 — SmartMemory full (opt-in, requires Docker stack or remote API)
 
@@ -109,6 +109,109 @@ Full SmartMemory service — multi-tenant, LLM entity extraction, Wikidata groun
 |---|---|---|
 | T2-SM5 | `SessionStart` / `Stop` / `PostToolUseFailure` hooks via `smartmemory-mcp` | PARKED |
 | T2-SM6 | Skills use `memory_search` MCP tool when full backend configured | PARKED |
+
+---
+
+## Track 3 — Forge + Stratum + spec-kit Substrate
+
+Refactor Forge to use Stratum as its execution backbone and spec-kit as its specification layer. The result is a clean three-layer stack:
+
+```
+spec-kit  →  specification layer   (spec.md, plan.md, tasks/)
+stratum   →  execution layer       (.stratum.yaml, postconditions, audit)
+forge     →  orchestration layer   (UI, Vision Surface, agent coordination)
+```
+
+See `docs/features/forge-speckit-substrate/design.md` for full architecture.
+
+### Pipeline Authoring Model
+
+Users do not write `.stratum.yaml` — it is IR. Three user interfaces replace it: Python
+decorators (`@pipeline`/`@phase`) for library users, skill invocation for Claude Code users,
+and `stratum.toml` for policy overrides. See `docs/features/pipeline-authoring/design.md`.
+
+| ID | Feature | Status |
+|---|---|---|
+| T3-A1 | Pipeline authoring model design | COMPLETE |
+| T3-A2 | `@pipeline` / `@phase` Python decorators in `stratum-py` | COMPLETE |
+| T3-A3 | Capability tiers (`Capability`, `Policy` enums) in `stratum-py` | COMPLETE |
+| T3-A4 | `stratum.toml` project config — policy overrides, capability mapping | COMPLETE |
+| T3-A5 | Run workspace convention — `.stratum/runs/` output passing | COMPLETE |
+| T3-A6 | Skill-driven pipeline execution — no YAML visible to user | COMPLETE |
+| T3-A7 | File-based gate protocol — `.gate` / `.gate.approved` convention | COMPLETE |
+| T3-A8 | `stratum-ui` — monitor, gate, edit, generate (separate project) | COMPLETE |
+
+### Bridge: Task→Step Compiler
+
+| ID | Feature | Status |
+|---|---|---|
+| T3-1 | Architecture design: three-layer stack | COMPLETE |
+| T3-2 | Task→step compiler: `tasks/*.md` → `.stratum.yaml` (acceptance criteria → `ensure` expressions) | COMPLETE |
+| T3-3 | `/stratum-speckit` bridge skill — drives spec-kit phases through stratum, emits compiled flow | COMPLETE |
+
+### Forge Skill Refactor
+
+| ID | Feature | Status |
+|---|---|---|
+| T3-4 | Adopt spec-kit artifact format: design phases produce `spec.md`, `plan.md`, `tasks/` under `.specify/` | COMPLETE |
+| T3-5 | Replace custom phase artifacts with spec-kit canonical structure | COMPLETE |
+| T3-6 | `stratum-build` skill compiles `tasks/` → `.stratum.yaml`, drives execution via `stratum_plan` loop | COMPLETE |
+
+### Forge Web App Integration
+
+| ID | Feature | Status |
+|---|---|---|
+| T3-7 | Vision Surface seeds work items from `.specify/` directory on load | COMPLETE |
+| T3-8 | Vision Surface reflects live stratum flow state (step status, `ensure` violations = blockers) | COMPLETE |
+| T3-9 | Audit trace from `stratum_audit` surfaces in session log / item evidence | COMPLETE |
+
+---
+
+## Track 4 — Consolidation
+
+Merge `coder-forge` into this repo. Restructure developer configuration (`CLAUDE.md`, rules,
+skills, memory) from monolithic files into pointed sub-docs.
+
+| ID | Item | Status |
+|---|---|---|
+| T4-1 | Fresh copy of `coder-forge` content into `app/` — no git history carry-over | PLANNED |
+| T4-2 | Merge `coder-forge/docs/` into `docs/` — plans, features, decisions | PLANNED |
+| T4-3 | `CLAUDE.md` restructure — both repos merged, extracted to sub-docs, CLAUDE.md becomes pointer | PLANNED |
+| T4-4 | Archive / remove `coder-forge` repo | PLANNED |
+
+---
+
+## Track 5 — Pipeline Runtime
+
+Implement the pipeline authoring model. Users define pipelines via Python decorators or skills,
+never by writing `.stratum.yaml` by hand. See `docs/features/pipeline-authoring/design.md`.
+
+| ID | Item | Status |
+|---|---|---|
+| T5-1 | `Capability` and `Policy` enums in `stratum-py` | COMPLETE |
+| T5-2 | `@pipeline` / `@phase` decorators — metadata capture and validation (IR compilation is separate; needed for MCP execution mode, not Python harness) | COMPLETE |
+| T5-3 | Named assertion vocabulary — `tests_pass`, `files_changed`, `approved`, `file_exists`, etc. | COMPLETE |
+| T5-4 | `stratum.toml` project config — policy overrides, capability mapping, connector routing | COMPLETE |
+| T5-5 | Run workspace convention — `.stratum/runs/{run-id}/{phase-id}.json` output passing | COMPLETE |
+| T5-6 | File-based gate protocol — `.gate` / `.gate.approved` / `.gate.rejected` | COMPLETE |
+| T5-7 | Pipeline runtime loop — `run_pipeline()` drives `@pipeline` classes through phases via `Connector` | COMPLETE |
+
+---
+
+## Track 6 — stratum-ui
+
+Separate project. First-party reference UI for Stratum. Four responsibilities: monitor pipeline
+runs, approve/reject gate-blocked phases, edit pipeline definitions visually, generate output
+(`stratum.toml`, `@pipeline` Python, or `.stratum.yaml` IR). Talks directly to the filesystem
+via a thin local HTTP server — not an MCP client.
+
+| ID | Item | Status |
+|---|---|---|
+| T6-1 | Project scaffold — FastAPI + uvicorn, src layout, `/api/status` `/api/runs` `/api/gates` endpoints | COMPLETE |
+| T6-2 | Monitor view — `GET /` run list, `GET /runs/{id}` phase detail with auto-refresh | COMPLETE |
+| T6-3 | Gate queue — `GET /gates` view with approve/reject forms, `POST /gates/{id}/{phase}/approve|reject` | COMPLETE |
+| T6-4 | Pipeline editor — `GET /editor` form UI, phase CRUD + reorder, draft persisted to `.stratum/pipeline-draft.json` | COMPLETE |
+| T6-5 | Generate — export to `stratum.toml`, `@pipeline` Python, `.stratum.yaml` IR | COMPLETE |
 
 ---
 
@@ -150,7 +253,7 @@ Retrieval precision benchmark: pre-load known patterns into each backend, run ta
 | D-3 | PyPI metadata (description, readme, license, authors, URLs) | COMPLETE |
 | D-4 | Submit `stratum-mcp` to MCP server registry | PLANNED |
 | D-5 | Post tutorial to Hacker News / r/ClaudeAI | PLANNED |
-| D-6 | Codex integration post (`blog/stratum-in-codex.md`) | PLANNED |
+| D-6 | Codex integration post (`blog/stratum-in-codex.md`) | COMPLETE |
 
 ---
 
