@@ -18,7 +18,7 @@
 | T1-8 | OTLP trace export (no OTel SDK) | COMPLETE |
 | T1-9 | `opaque[T]` annotation | COMPLETE |
 | T1-10 | Published to PyPI as `stratum-py` 0.1.1 | COMPLETE |
-| T1-11 | End-to-end validation against real LLM | PLANNED |
+| T1-11 | End-to-end validation against real LLM | COMPLETE |
 | T1-12 | TypeScript library (`stratum-ts`) | PLANNED |
 | T1-13 | DSPy prompt optimization integration | PLANNED |
 | T1-14 | Temporal durable execution integration | PLANNED |
@@ -259,17 +259,11 @@ Retrieval precision benchmark: pre-load known patterns into each backend, run ta
 
 ## Prioritization Notes
 
-**Highest leverage, shortest path:**
-- T2-M2/M3/M4 (hooks) — passive memory capture; one afternoon, no new MCP tools needed
-- T2-13 (`uninstall`) — users can't safely remove Stratum right now
-- D-4 (MCP registry) — discovery channel with minimal effort
-
-**Real validation needed before broader push:**
-- T1-11 (end-to-end test against real LLM) — `stratum-py` is published but nobody has proven it runs outside tests
-- D-5 (post to HN) — should happen after T1-11 confirms Track 1 actually works
+**Next up (as of 2026-03-04):**
+- D-4 (MCP registry) — discovery channel, low effort
+- D-5 (post to HN) — T1-11 now confirmed passing
 
 **Longer horizon:**
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort
-- T2-14 (FlowState persistence) — needed for long-running flows across sessions
-- T2-17/18 (commit/revert) — flow-state checkpoints and rollback; git is one implementation; natural companion to T2-14
+- E-0 → E-8 (Evaluation & Benchmarks) — difficulty taxonomy, task battery, comparison harness
 - T1-13/14/15 (DSPy, Temporal, Ray) — Phase 3 per original design
