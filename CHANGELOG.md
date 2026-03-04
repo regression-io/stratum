@@ -2,6 +2,73 @@
 
 ## [Unreleased]
 
+### stratum-py
+
+- `@pipeline` / `@phase` decorators — pipeline authoring model; metadata capture and IR compilation separate from MCP execution mode
+- `Capability` and `Policy` enums — capability tiers for connector routing and policy overrides
+- `stratum.toml` project config — policy overrides, capability mapping, connector routing
+- Run workspace convention — `.stratum/runs/{run-id}/{phase-id}.json` output passing between phases
+- File-based gate protocol — `.gate` / `.gate.approved` / `.gate.rejected` files for human approval checkpoints
+- Pipeline runtime loop — `run_pipeline()` drives `@pipeline` classes through phases via `Connector`
+
+**Bug fixes**
+
+- `run()` now detects closed event loops and creates a fresh one instead of raising `RuntimeError: Event loop is closed` — resolves e2e test failures after first loop close
+- `run()` closes the passed coroutine before raising on a running-loop path — eliminates "coroutine never awaited" warning
+- `run()` drains pending async tasks (both on normal return and exception paths) before closing the loop — prevents dropped telemetry callbacks (e.g. litellm `async_success_handler`)
+- Anthropic (claude-*) models now receive `cache_control: {type: ephemeral}` blocks on system message, user message, and tool definition — restores prompt caching behavior that reduces cost and latency
+- `datetime.utcnow()` replaced with `datetime.now(timezone.utc)` throughout — clears Python 3.12 deprecation warnings
+
+**Testing**
+
+- T1-11: 17-test end-to-end suite (`tests/test_e2e.py`) runs against a real LLM (gpt-4o-mini via OpenAI) — validates `@infer`, `@compute`, `@flow`, `ensure` postconditions, `PostconditionFailed`, `TraceRecord` fields, trace accumulation, `clear_traces`, and `stratum.run()` sync shim
+
+### stratum-mcp
+
+**New MCP tools**
+
+- `stratum_commit` — checkpoint the current flow state under a named label; label recorded in audit trace
+- `stratum_revert` — roll back flow state to a named checkpoint; revert event recorded in trace
+
+**MCP server improvements**
+
+- FlowState persistence — flows survive MCP server restarts; state written to `~/.stratum/flows/{flow_id}.json` after each step
+- `output_schema` validation in `stratum_step_done` — JSON Schema checked before `ensure` expressions; returns `schema_failed` with violations if invalid
+- `ensure` file-aware builtins — `file_exists(path)` and `file_contains(path, substring)` available in postcondition expressions
+- `stratum-mcp validate <file>` CLI — validates a `.stratum.yaml` file from the command line
+- `stratum-mcp compile <tasks-dir>` CLI — compiles `tasks/*.md` acceptance criteria into `.stratum.yaml` IR (task compiler)
+
+**Skills (ten total)**
+
+- `/forge` — full feature lifecycle skill; emits `.stratum.yaml`, drives spec-kit phases through `stratum_plan` loop
+- `/stratum-speckit` — bridge skill; drives spec-kit phases through Stratum, emits compiled flow
+- `/stratum-build` — compiles `tasks/` → `.stratum.yaml` and drives execution via `stratum_plan` loop
+- Memory sections added to all skills — read project `MEMORY.md` before writing spec; write new patterns after `stratum_audit`
+
+**Memory & Hooks (Tier 1 — MEMORY.md)**
+
+- `SessionStart` hook — auto-injects relevant `MEMORY.md` entries at session open
+- `Stop` hook — auto-appends session summary to `MEMORY.md` at session close
+- `PostToolUseFailure` hook — auto-records `ensure` failures and tool errors
+
+**Memory (Tier 2 — SmartMemory lite, opt-in)**
+
+- `SessionStart` hook — `memory.search()` for project-relevant context
+- `Stop` hook — `memory.ingest()` session summary as episodic memory
+- `PostToolUseFailure` hook — `memory.ingest()` failures as observation memory
+- Skills use `memory.search()` instead of `MEMORY.md` when lite backend configured (`pip install smartmemory[lite]`)
+
+**Track 3 — Forge + Stratum + spec-kit**
+
+- Task→step compiler — `tasks/*.md` acceptance criteria → `.stratum.yaml` `ensure` expressions
+- Forge skill adopts spec-kit artifact format — design phases produce `spec.md`, `plan.md`, `tasks/` under `.specify/`
+- Forge web app (Vision Surface) integration:
+  - Startup seed from `.specify/` — work items created from spec-kit directories on load, updated on file change
+  - Live stratum flow sync — 15s poller maps bound flows to Vision items; detects `running`, `blocked` (retries exhausted = ensure violations), `paused`; clears stale violation evidence on recovery
+  - Audit trace surfaced in item evidence panel — `stratum_audit` trace stored in `evidence.stratumTrace`; item transitions to `complete` on flow completion
+
+**Testing:** 211 tests passing (up from 79 at 0.1.3)
+
 ---
 
 ## [0.1.3] — 2026-02-23

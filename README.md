@@ -44,7 +44,7 @@ stratum-mcp setup
 
 `setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code and it's active.
 
-**Nine skills installed automatically:**
+**Ten skills installed automatically:**
 
 | Skill | What it structures |
 |---|---|
@@ -57,6 +57,7 @@ stratum-mcp setup
 | `/stratum-migrate` | Find bare LLM calls and rewrite as `@infer` + `@contract` with typed contracts and postconditions |
 | `/stratum-test` | Write a test suite for existing untested code — golden flows, error-path harness, passing on first report |
 | `/stratum-learn` | Review recent session transcripts — extract retry patterns, write project-specific conclusions to `MEMORY.md` |
+| `/forge` | Full feature lifecycle: emits `.stratum.yaml`, drives spec-kit phases via `stratum_plan` loop |
 
 Claude writes the `.stratum.yaml` spec internally — you never see it. You see plain English narration and the result. The MCP server enforces postconditions on every step; if a step's output fails a check, Claude fixes it and retries before reporting success.
 
@@ -70,6 +71,8 @@ Each skill reads project-specific patterns from `MEMORY.md` before writing its s
 | `stratum_plan` | Validate + create execution state + return first step |
 | `stratum_step_done` | Report a completed step; check postconditions; return next step or completion |
 | `stratum_audit` | Return per-step trace (attempts, duration) for any flow |
+| `stratum_commit` | Checkpoint the current flow state under a named label |
+| `stratum_revert` | Roll back flow state to a named checkpoint; revert is recorded in the audit trace |
 
 ---
 
@@ -214,9 +217,11 @@ Requires Claude Code. `setup` configures everything — restart Claude Code to a
 
 ## Status
 
-**Track 1** (Python library): implemented and tested.
+**Track 1** (Python library `stratum-py` v0.1.1): implemented and end-to-end validated against a real LLM. 321 tests passing.
 
-**Track 2** (stratum-mcp): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`. One-command setup with seven bundled skills and a memory system for project-specific pattern capture. 66 tests passing.
+**Track 2** (MCP server `stratum-mcp` v0.1.7): MCP controller server implemented — `stratum_plan`, `stratum_step_done`, `stratum_audit`, `stratum_validate`, `stratum_commit`, `stratum_revert`. One-command setup with ten bundled skills, a three-tier memory system, and FlowState persistence across server restarts. 211 tests passing.
+
+**Track 3** (pipeline authoring): `@pipeline` / `@phase` Python decorators, `stratum.toml` project config, run workspace convention (`.stratum/runs/`), file-based gate protocol, and `stratum-ui` reference monitor. Task compiler generates `.stratum.yaml` IR from `tasks/*.md` acceptance criteria.
 
 Questions and feedback: [GitHub Discussions](https://github.com/regression-io/stratum/discussions)
 
