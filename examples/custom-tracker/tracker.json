@@ -1,0 +1,6 @@
+[
+  { "id": "ITEM-1", "title": "Set up project", "type": "task", "status": "complete" },
+  { "id": "ITEM-2", "title": "Write tests", "type": "task", "status": "in_progress" },
+  { "id": "ITEM-3", "title": "Deploy to staging", "type": "task", "status": "planned" },
+  { "id": "ITEM-4", "title": "Auth flow broken on mobile", "type": "bug", "status": "in_progress" }
+]

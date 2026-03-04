@@ -12,7 +12,7 @@ Drive the full spec-kit lifecycle for a feature: specify → plan → decompose 
 - Starting a non-trivial feature that needs design and task decomposition before implementation
 - You already have a `tasks/` directory and want to execute it via Stratum
 - When you want human review gates between design phases before implementation begins
-- As the orchestration layer when forge skill hands off to execution
+- As the orchestration layer when compose skill hands off to execution
 
 ## Artifact Locations
 

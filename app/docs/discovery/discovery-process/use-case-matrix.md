@@ -72,7 +72,7 @@ Both enter every mode. But away from home turf, they need more support from the 
 - A dev brainstorming product direction needs the AI to help articulate Why and challenge assumptions
 - A founder prototyping needs the AI to handle the How and surface technical constraints
 
-**Implication for Forge:** Don't serve two personas — serve one person who moves between modes, and adjust AI support based on where they're deep vs. shallow. This connects to [Onboarding Inputs](onboarding-inputs.md) — Forge needs to know the user's home turf to calibrate.
+**Implication for Compose:** Don't serve two personas — serve one person who moves between modes, and adjust AI support based on where they're deep vs. shallow. This connects to [Onboarding Inputs](onboarding-inputs.md) — Compose needs to know the user's home turf to calibrate.
 
 ### P1 + P2 use cases (the active set)
 

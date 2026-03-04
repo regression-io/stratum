@@ -8,9 +8,9 @@
 
 ## What is this?
 
-Level 1 identified that some inputs are "onboarding context" — things Forge needs to know to be useful, but that aren't working dimensions the user engages with day-to-day. This doc collects those as they surface.
+Level 1 identified that some inputs are "onboarding context" — things Compose needs to know to be useful, but that aren't working dimensions the user engages with day-to-day. This doc collects those as they surface.
 
-Onboarding isn't a form or a wizard. It's the minimal set of things Forge needs to calibrate itself to the user.
+Onboarding isn't a form or a wizard. It's the minimal set of things Compose needs to calibrate itself to the user.
 
 ---
 
@@ -20,9 +20,9 @@ Onboarding isn't a form or a wizard. It's the minimal set of things Forge needs 
 
 **Source:** Level 2 discussion on discovery verbs.
 
-Some users want Forge to help structure their thinking during discovery (surface the verbs, prompt for challenges, suggest next moves). Others want free-flow conversation and only want structure when they ask for it.
+Some users want Compose to help structure their thinking during discovery (surface the verbs, prompt for challenges, suggest next moves). Others want free-flow conversation and only want structure when they ask for it.
 
-This is subjective and personal. Forge can't infer it — it has to ask.
+This is subjective and personal. Compose can't infer it — it has to ask.
 
 Possible spectrum: `structured ←→ free-flow`
 
@@ -32,7 +32,7 @@ Connects to: the 3-mode dial. A structured user might want more gates. A free-fl
 
 **Source:** Level 1 dimension debate.
 
-"I'm a founder with a vision" vs. "I'm a dev doing what I was told" vs. "I'm an exec with a mandate." These starting conditions affect how Forge should interact — whether to challenge direction, accept it, or help articulate it.
+"I'm a founder with a vision" vs. "I'm a dev doing what I was told" vs. "I'm an exec with a mandate." These starting conditions affect how Compose should interact — whether to challenge direction, accept it, or help articulate it.
 
 Privacy-sensitive. Optional. But useful for calibration.
 
@@ -63,6 +63,6 @@ Greenfield? Existing codebase? Inherited project? Migration? This affects what t
 ## Open questions
 
 - What's the onboarding UX? Conversation? Form? Progressive (ask when relevant)?
-- How much can Forge infer vs. needs to ask?
+- How much can Compose infer vs. needs to ask?
 - Can onboarding inputs change over time? (User starts solo, grows a team)
 - Where do these get stored?

@@ -464,7 +464,7 @@ _spawnJournalAgent(session, transcriptPath) {
     }
   } catch { /* journal dir might not exist */ }
 
-  const prompt = `You are writing a developer journal entry for the Forge project.
+  const prompt = `You are writing a developer journal entry for the Compose project.
 
 Read the transcript at: ${transcriptPath}
 
@@ -525,7 +525,7 @@ git commit -m "Wire SessionManager into vision server: endpoints, activity recor
 
 ```bash
 #!/bin/bash
-# session-start-hook.sh — SessionStart hook. Creates a session on the Forge server.
+# session-start-hook.sh — SessionStart hook. Creates a session on the Compose server.
 # Receives JSON on stdin: { source, model, agent_type }
 # Outputs context to stdout (becomes Claude's session context).
 
@@ -588,10 +588,10 @@ Modify the existing hook to include a `content_snippet` field for richer Haiku c
 
 ```bash
 #!/bin/bash
-# agent-activity-hook.sh — PostToolUse hook that forwards tool activity to Forge server.
+# agent-activity-hook.sh — PostToolUse hook that forwards tool activity to Compose server.
 #
 # Receives JSON on stdin from Claude Code with tool_name and tool_input.
-# POSTs a compact summary to the Forge server which broadcasts it via WebSocket
+# POSTs a compact summary to the Compose server which broadcasts it via WebSocket
 # to the Vision Tracker's agent activity feed.
 #
 # Runs quickly — curl with 1s timeout, backgrounded, non-blocking.
@@ -647,7 +647,7 @@ Replace the full settings.json content:
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-start-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/session-start-hook.sh"
           }
         ]
       }
@@ -657,7 +657,7 @@ Replace the full settings.json content:
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-end-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/session-end-hook.sh"
           }
         ]
       }
@@ -668,7 +668,7 @@ Replace the full settings.json content:
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/vision-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/vision-hook.sh"
           }
         ]
       },
@@ -676,7 +676,7 @@ Replace the full settings.json content:
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/agent-activity-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/agent-activity-hook.sh"
           }
         ]
       }
@@ -721,7 +721,7 @@ Expected: `{ "sessionId": "session-...", "context": { "lastSession": null } }`
 ```bash
 # Simulate a Write to a file with known item
 curl -s http://localhost:3001/api/agent/activity -X POST -H 'Content-Type: application/json' \
-  -d '{"tool":"Edit","input":{"file_path":"/Users/ruze/reg/my/forge/coder-forge/server/vision-store.js"}}'
+  -d '{"tool":"Edit","input":{"file_path":"/Users/ruze/reg/my/compose/coder-compose/server/vision-store.js"}}'
 # Check session state
 curl -s http://localhost:3001/api/session/current | python3 -m json.tool
 ```
@@ -747,7 +747,7 @@ curl -s http://localhost:3001/api/session/start -X POST -H 'Content-Type: applic
 # Send 4 significant events to trigger batch
 for i in 1 2 3 4; do
   curl -s http://localhost:3001/api/agent/activity -X POST -H 'Content-Type: application/json' \
-    -d '{"tool":"Edit","input":{"file_path":"/Users/ruze/reg/my/forge/coder-forge/server/vision-server.js","new_string":"// change '$i'"}}'
+    -d '{"tool":"Edit","input":{"file_path":"/Users/ruze/reg/my/compose/coder-compose/server/vision-server.js","new_string":"// change '$i'"}}'
   sleep 0.5
 done
 # Wait for Haiku and check

@@ -1,24 +1,24 @@
-# Forge: UI Additions Brief
+# Compose: UI Additions Brief
 
 **Date:** 2026-02-11
 **Audience:** UI developer / AI coding agent
-**Scope:** Add deliberation and knowledge work capabilities to existing Forge UI
-**Existing codebase:** coder-forge-base44 (React 18, Vite, TailwindCSS, Radix UI)
+**Scope:** Add deliberation and knowledge work capabilities to existing Compose UI
+**Existing codebase:** coder-compose-base44 (React 18, Vite, TailwindCSS, Radix UI)
 **Supporting docs:** [UI-BRIEF](../UI-BRIEF.md) (original spec), [Taxonomy](../taxonomy.md)
 
 ---
 
 ## Context
 
-Forge has a working UI with 5 views: Dashboard (tree), Work Item Detail, Dependency Graph, Board, and Project Settings. It supports creating hierarchical work items, tracking status, managing dependencies (type: "blocks" only), attaching artifacts (as file/link attachments), and filtering/searching.
+Compose has a working UI with 5 views: Dashboard (tree), Work Item Detail, Dependency Graph, Board, and Project Settings. It supports creating hierarchical work items, tracking status, managing dependencies (type: "blocks" only), attaching artifacts (as file/link attachments), and filtering/searching.
 
-We need to add capabilities that make Forge usable for **knowledge work** — brainstorming, discussion, decision-making, evaluation — not just task tracking. The additions below extend the existing views rather than creating new ones.
+We need to add capabilities that make Compose usable for **knowledge work** — brainstorming, discussion, decision-making, evaluation — not just task tracking. The additions below extend the existing views rather than creating new ones.
 
 ---
 
 ## Addition 1: Rich Artifact Editor
 
-**Current state:** Artifacts are attachments — a name, a type dropdown, and a URL or file path. You can link to external content but cannot write content inside Forge.
+**Current state:** Artifacts are attachments — a name, a type dropdown, and a URL or file path. You can link to external content but cannot write content inside Compose.
 
 **What to add:** A markdown editor for artifacts that lets users create and edit rich text documents directly in the Work item detail panel.
 

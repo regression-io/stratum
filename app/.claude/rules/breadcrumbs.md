@@ -3,7 +3,7 @@
 Before each logical batch of file edits, write a one-line intent breadcrumb:
 
 ```bash
-echo "$(date -Iseconds) | <intent>" >> .forge/breadcrumbs.log
+echo "$(date -Iseconds) | <intent>" >> .compose/breadcrumbs.log
 ```
 
 ## Rules
@@ -16,4 +16,4 @@ echo "$(date -Iseconds) | <intent>" >> .forge/breadcrumbs.log
 
 ## Why this exists
 
-This is Forge's granular tracking applied to its own development. The breadcrumb trail lets the next agent (or human) reconstruct what was happening if the session dies. The files on disk show WHAT changed; the breadcrumbs show WHY.
+This is Compose's granular tracking applied to its own development. The breadcrumb trail lets the next agent (or human) reconstruct what was happening if the session dies. The files on disk show WHAT changed; the breadcrumbs show WHY.

@@ -6,7 +6,7 @@
 
 - **`src/stratum/`** — Python library (`@pipeline`, `@phase`, `stratum.run()`). Published as `stratum-py` on PyPI.
 - **`stratum-mcp/`** — MCP server (`stratum_plan`, `stratum_step_done`, `stratum_audit`). Published as `stratum-mcp` on PyPI.
-- **`app/`** — Forge web app (React + Express). Vision Surface, agent monitoring, session tracking. Formerly `coder-forge` repo; consolidated here in T4.
+- **`app/`** — *(Extracted)* Compose web app now lives at `/Users/ruze/reg/my/forge/compose/` as a standalone project. The `app/` directory here is the legacy source.
 
 Companion: **`stratum-ui/`** — first-party reference UI for pipeline monitoring and gate approval. Separate FastAPI project.
 
@@ -22,14 +22,12 @@ stratum-mcp/           — MCP server (FastMCP, fastapi)
     skills/            — stratum-build, stratum-speckit, stratum-plan, ...
     hooks/             — session-start/stop/failure shell hooks
 stratum-ui/            — Reference UI (FastAPI + uvicorn)
-app/                   — Forge web app (Vision Surface)
-  server/              — Express server (port 3001)
-  src/                 — React frontend
-  docs/                — App-level docs (roadmap, plans, features)
+app/                   — (Legacy) Compose source — extracted to standalone project
+                         See /Users/ruze/reg/my/forge/compose/
 docs/                  — Stratum-level docs
   plans/               — Implementation plans
   features/            — Feature specs
-  app/                 — Archived coder-forge docs (brainstorm, PRD, decisions, journal)
+  app/                 — Archived coder-compose docs (brainstorm, PRD, decisions, journal)
 ROADMAP.md             — Canonical roadmap (all tracks)
 ```
 
@@ -41,9 +39,9 @@ cd stratum-mcp && pip install -e ".[dev]"
 pytest stratum-mcp/tests/
 ```
 
-**Web app:**
+**Compose app (standalone project):**
 ```bash
-cd app && npm install && npm run dev   # starts Vite + Express on port 3001
+cd /Users/ruze/reg/my/forge/compose && npm install && npm run dev   # starts Vite + Express on port 3001
 ```
 
 **MCP server (local):**
@@ -56,7 +54,7 @@ stratum-mcp compile <tasks-dir>   # compile tasks/*.md → .stratum.yaml
 
 - `ROADMAP.md` — all tracks (T1 Python lib → T6 stratum-ui → Evaluation)
 - `stratum-mcp/src/stratum_mcp/skills/` — skill reference for stratum-build, stratum-speckit
-- `docs/app/` — full Forge design history: brainstorm, PRD, discovery, decisions, journal
+- `docs/app/` — full Compose design history: brainstorm, PRD, discovery, decisions, journal
 
 ## Stratum Execution Model
 

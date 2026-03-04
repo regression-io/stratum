@@ -5,7 +5,7 @@ import { ExternalLink, FolderOpen } from 'lucide-react';
 import VisionTracker from './vision/VisionTracker.jsx';
 import ProductGraph from './ProductGraph.jsx';
 
-const POPOUT_CHANNEL = 'forge-popout';
+const POPOUT_CHANNEL = 'compose-popout';
 
 /*
  * Canvas — the right panel. Multi-renderer shell.
@@ -58,7 +58,7 @@ const headingComponents = {
 };
 
 // Persist open tab paths, active index, and pinned state to localStorage
-const STORAGE_KEY = 'forge:canvasState';
+const STORAGE_KEY = 'compose:canvasState';
 
 function saveCanvasState(tabs, activeIndex, pinned) {
   try {
@@ -136,7 +136,7 @@ export default function Canvas({ fontSize = 14 }) {
     }
 
     const url = `/?popout=${encodeURIComponent(path)}`;
-    const win = window.open(url, `forge-popout-${path}`, 'popup,width=900,height=700');
+    const win = window.open(url, `compose-popout-${path}`, 'popup,width=900,height=700');
     if (win) {
       popoutWindowsRef.current.set(path, win);
       setUndocked(prev => new Set(prev).add(path));
@@ -371,7 +371,7 @@ export default function Canvas({ fontSize = 14 }) {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--forge-raised)' }}>
+    <div className="h-full flex flex-col" style={{ background: 'var(--compose-raised)' }}>
       {/* Header bar */}
       <div
         className="flex items-center px-2 shrink-0 gap-1"
@@ -391,7 +391,7 @@ export default function Canvas({ fontSize = 14 }) {
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[13px] shrink-0 border-none cursor-pointer group"
                 style={{
                   color: i === activeIndex ? 'var(--ink-primary)' : 'var(--ink-tertiary)',
-                  background: i === activeIndex ? 'var(--forge-overlay)' : 'transparent',
+                  background: i === activeIndex ? 'var(--compose-overlay)' : 'transparent',
                   borderBottom: i === activeIndex ? '2px solid var(--ember)' : '2px solid transparent',
                 }}
                 onClick={() => setActiveIndex(i)}
@@ -422,7 +422,7 @@ export default function Canvas({ fontSize = 14 }) {
           className="flex items-center gap-1 px-1.5 py-0.5 shrink-0 rounded"
           style={{
             color: showFilePicker ? 'var(--ember)' : 'var(--ink-tertiary)',
-            background: showFilePicker ? 'var(--forge-overlay)' : 'none',
+            background: showFilePicker ? 'var(--compose-overlay)' : 'none',
             border: 'none',
             cursor: 'pointer',
           }}
@@ -452,7 +452,7 @@ export default function Canvas({ fontSize = 14 }) {
         <div
           className="overflow-y-auto"
           style={{
-            background: 'var(--forge-overlay)',
+            background: 'var(--compose-overlay)',
             borderBottom: '1px solid var(--border-standard)',
             maxHeight: '240px',
           }}

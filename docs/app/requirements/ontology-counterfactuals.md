@@ -69,7 +69,7 @@ After adding processes as a fourth concept, pressure-tested again.
 ### CF3: "State is a property, not a concept"
 **Claim tested:** State is a top-level ontological concept.
 **Counter:** State is just attributes on things — metadata, not an entity. Elevating it is artificial.
-**Verdict:** Defensible either way. Status + confidence drive everything in Forge. Elevation may be justified pragmatically even if ontologically impure.
+**Verdict:** Defensible either way. Status + confidence drive everything in Compose. Elevation may be justified pragmatically even if ontologically impure.
 
 ### CF4: "The ontology doesn't account for scope"
 **Claim tested:** Four concepts cover everything.
@@ -77,8 +77,8 @@ After adding processes as a fourth concept, pressure-tested again.
 **Verdict:** Real. May be implicit in hierarchy (CF7 from round 1). Needs resolution.
 
 ### CF5: "This looks like a knowledge graph schema, not a product model"
-**Claim tested:** The ontology serves Forge's product needs.
-**Counter:** Items, connections, state, processes — this is generic knowledge representation. Forge is a "Build me X" pipeline with specific concepts (goals, tasks, plans, agents, checkpoints). The ontology is domain-agnostic. It doesn't encode what makes Forge Forge.
+**Claim tested:** The ontology serves Compose's product needs.
+**Counter:** Items, connections, state, processes — this is generic knowledge representation. Compose is a "Build me X" pipeline with specific concepts (goals, tasks, plans, agents, checkpoints). The ontology is domain-agnostic. It doesn't encode what makes Compose Compose.
 **Verdict:** Real tension. Flexibility vs specificity. The ontology may need product-specific constraints layered on top of generic concepts.
 
 ### CF6: "Process types overlap with the verbs"

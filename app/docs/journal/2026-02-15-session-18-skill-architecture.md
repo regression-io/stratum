@@ -1,7 +1,7 @@
 # Session 18: Skill Architecture Upgrade
 
 **Date:** 2026-02-15
-**Focus:** Agent definitions, competing architecture proposals, confidence-scored review, feature-dev → forge rename
+**Focus:** Agent definitions, competing architecture proposals, confidence-scored review, feature-dev → compose rename
 
 ## What happened
 
@@ -15,34 +15,34 @@ Our skill was a 10-phase cross-session lifecycle with gates, ralph loops, bluepr
 
 **The build.** Four changes, all additive:
 
-1. **Three agent definitions** in `~/.claude/agents/`: `forge-explorer` (codebase analysis), `forge-architect` (architecture proposals), `forge-reviewer` (confidence-scored review). All run on Sonnet with read-only tool restrictions. The `forge-` prefix was a late addition — superpowers already ships a `code-reviewer` agent, so `code-reviewer` would have collided. The human caught this by asking us to check superpowers for conflicts.
+1. **Three agent definitions** in `~/.claude/agents/`: `compose-explorer` (codebase analysis), `compose-architect` (architecture proposals), `compose-reviewer` (confidence-scored review). All run on Sonnet with read-only tool restrictions. The `compose-` prefix was a late addition — superpowers already ships a `code-reviewer` agent, so `code-reviewer` would have collided. The human caught this by asking us to check superpowers for conflicts.
 
-2. **Competing architecture proposals** in Phase 3. Instead of one architecture pass, launch 2-3 `forge-architect` agents with different mandates (minimal changes, clean architecture, pragmatic balance). Each returns an independent proposal. The main agent reviews all three, forms a recommendation, and presents the comparison to the human.
+2. **Competing architecture proposals** in Phase 3. Instead of one architecture pass, launch 2-3 `compose-architect` agents with different mandates (minimal changes, clean architecture, pragmatic balance). Each returns an independent proposal. The main agent reviews all three, forms a recommendation, and presents the comparison to the human.
 
-3. **Confidence-scored review** in Phase 7's ralph loop. The `forge-reviewer` agent rates every potential finding 0-100 and only reports findings ≥80. This filters noise on early loop iterations where obvious issues dominate.
+3. **Confidence-scored review** in Phase 7's ralph loop. The `compose-reviewer` agent rates every potential finding 0-100 and only reports findings ≥80. This filters noise on early loop iterations where obvious issues dominate.
 
-4. **Rename from `feature-dev` to `forge`.** Short, branded, no collision with Anthropic's plugin. Updated all references in the codebase (CLAUDE.md, plans, design docs) and in the bug-fix skill. Journal entries kept their original naming (historical provenance).
+4. **Rename from `feature-dev` to `compose`.** Short, branded, no collision with Anthropic's plugin. Updated all references in the codebase (CLAUDE.md, plans, design docs) and in the bug-fix skill. Journal entries kept their original naming (historical provenance).
 
 **Prior session recovery.** The session before this one (session 0 on 2026-02-15) was a ghost — 116 minutes, 0 tool uses, no commits. The transcript showed the same "Implement the following plan" queue operation repeated ~100+ times without the agent being able to process it. A stuck ralph loop or queue, never diagnosed.
 
 ## What we built
 
 ### New files
-- `~/.claude/agents/forge-explorer.md` — Codebase analysis agent (Sonnet, read-only)
-- `~/.claude/agents/forge-architect.md` — Architecture proposal agent (Sonnet, read-only)
-- `~/.claude/agents/forge-reviewer.md` — Confidence-scored review agent (Sonnet, read-only)
-- `~/.claude/skills/forge/SKILL.md` — Forge Lifecycle v3 (renamed from feature-dev)
+- `~/.claude/agents/compose-explorer.md` — Codebase analysis agent (Sonnet, read-only)
+- `~/.claude/agents/compose-architect.md` — Architecture proposal agent (Sonnet, read-only)
+- `~/.claude/agents/compose-reviewer.md` — Confidence-scored review agent (Sonnet, read-only)
+- `~/.claude/skills/compose/SKILL.md` — Compose Lifecycle v3 (renamed from feature-dev)
 - `docs/features/skill-arch-upgrade/design.md` — Design decisions for this upgrade
 
 ### Modified files
 - `CLAUDE.md` — Added Phase 5.5, renamed Phase 6 header, marked 19a complete
-- `~/.claude/skills/bug-fix/SKILL.md` — Updated feature-dev references to `/forge`
+- `~/.claude/skills/bug-fix/SKILL.md` — Updated feature-dev references to `/compose`
 - `docs/features/feature-dev-v2/design.md` — Added rename note, updated productization reference
 - `docs/plans/2026-02-15-lifecycle-engine-roadmap.md` — Updated skill path reference
-- `docs/plans/2026-02-11-integration-roadmap.md` — Updated feature-dev references to `/forge`
+- `docs/plans/2026-02-11-integration-roadmap.md` — Updated feature-dev references to `/compose`
 
 ### Deleted files
-- `~/.claude/skills/feature-dev/SKILL.md` — Replaced by `~/.claude/skills/forge/SKILL.md`
+- `~/.claude/skills/feature-dev/SKILL.md` — Replaced by `~/.claude/skills/compose/SKILL.md`
 
 ## What we learned
 
@@ -59,10 +59,10 @@ Our skill was a 10-phase cross-session lifecycle with gates, ralph loops, bluepr
 ## Open threads
 
 - [ ] Investigate the ghost session (session 0) — why did the queue repeat the same prompt ~100 times without the agent processing it?
-- [ ] Test the agents in practice — launch `forge-explorer`, `forge-architect`, `forge-reviewer` in a real `/forge` lifecycle to verify they work as expected
-- [ ] Consider adopting Anthropic's `.claude-plugin` packaging format for distributing forge as a plugin
+- [ ] Test the agents in practice — launch `compose-explorer`, `compose-architect`, `compose-reviewer` in a real `/compose` lifecycle to verify they work as expected
+- [ ] Consider adopting Anthropic's `.claude-plugin` packaging format for distributing compose as a plugin
 - [ ] Evaluate whether to separate "clarifying questions" as an explicit phase (Anthropic's Phase 3 pattern)
 
 ---
 
-*We taught the forge to delegate its thinking, then realized we'd almost given its delegates someone else's name.*
+*We taught the compose to delegate its thinking, then realized we'd almost given its delegates someone else's name.*

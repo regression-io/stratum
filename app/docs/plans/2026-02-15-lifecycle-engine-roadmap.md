@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-15
 **Status:** SKETCH — gap analysis and layer inventory, not a buildable spec
-**Related:** [Forge Skill](~/.claude/skills/forge/SKILL.md), [Feature-Dev v2 Design](../features/feature-dev-v2/design.md), [Skill Arch Upgrade Design](../features/skill-arch-upgrade/design.md), [Canonical Roadmap](../ROADMAP.md) ← Phase 6 entries, [Bootstrap Roadmap (CLAUDE.md)](../../CLAUDE.md), [Integration Roadmap (superseded)](2026-02-11-integration-roadmap.md), [PRD](../PRD.md)
+**Related:** [Compose Skill](~/.claude/skills/compose/SKILL.md), [Feature-Dev v2 Design](../features/feature-dev-v2/design.md), [Skill Arch Upgrade Design](../features/skill-arch-upgrade/design.md), [Canonical Roadmap](../ROADMAP.md) ← Phase 6 entries, [Bootstrap Roadmap (CLAUDE.md)](../../CLAUDE.md), [Integration Roadmap (superseded)](2026-02-11-integration-roadmap.md), [PRD](../PRD.md)
 
 ---
 
@@ -10,17 +10,17 @@
 
 Feature-dev encodes a 10-phase lifecycle for building features: explore, design, blueprint, plan, execute (with review and coverage loops), document, ship. Today it's a skill file — markdown instructions an agent follows on trust. The agent can rationalize past any "REQUIRED" or "never skip" instruction.
 
-The product is Forge as the runtime that enforces this lifecycle structurally. Gates that actually block. Phases that are tracked. Artifacts that are managed. Iterations that are orchestrated. Preferences that control what's gated and what's autonomous.
+The product is Compose as the runtime that enforces this lifecycle structurally. Gates that actually block. Phases that are tracked. Artifacts that are managed. Iterations that are orchestrated. Preferences that control what's gated and what's autonomous.
 
 ## Current State → Target State
 
 | Today (Skill) | Target (Product) |
 |---|---|
 | Prose says "REQUIRED" | Policy dial structurally blocks phase transition |
-| Agent scans feature folder on entry | Forge tracks phase state per feature, derives from artifacts |
-| Agent creates folders manually | Forge manages feature workspaces with templates |
+| Agent scans feature folder on entry | Compose tracks phase state per feature, derives from artifacts |
+| Agent creates folders manually | Compose manages feature workspaces with templates |
 | "Present options, human decides" | Gate UI: approve/revise/kill rendered in sidebar |
-| Ralph loop is a plugin | Forge dispatches iterations, monitors completion promises |
+| Ralph loop is a plugin | Compose dispatches iterations, monitors completion promises |
 | Claude Code primitives hardcoded | Agent-agnostic lifecycle, agent-specific connectors |
 | Agent remembers preferences (or doesn't) | User preferences inventory controls defaults system-wide |
 | No enforcement across sessions | Session-lifecycle binding tracks what each session works on |
@@ -33,26 +33,26 @@ Ordered by dependency. Each layer builds on the ones above it.
 
 ### Layer 0: User Preferences Inventory
 
-**What:** A structured inventory of everything configurable in Forge — features, defaults, policies, UI, agent settings. The config surface that controls everything downstream.
+**What:** A structured inventory of everything configurable in Compose — features, defaults, policies, UI, agent settings. The config surface that controls everything downstream.
 
 **Why first:** Before building enforcement, we need to know what's enforceable. Before building gates, we need to know what's gatable. This inventory is the input to every other layer.
 
 **Includes:**
 
-- **Feature toggles** — enable/disable Forge features (e.g., auto-journaling on/off, blueprint verification on/off)
+- **Feature toggles** — enable/disable Compose features (e.g., auto-journaling on/off, blueprint verification on/off)
 - **Default policy modes** — per-phase gate/flag/skip defaults (e.g., "design phase: gate, implementation phase: flag")
 - **Artifact preferences** — versioning strategy (verbose/clean), template selection
 - **Agent preferences** — which agent, model, temperature, context budget
 - **UI preferences** — theme, information density, default view, notification style
 - **Lifecycle preferences** — which phases to include by default, skip conditions, review depth
 
-**Shape:** A config file (`.forge/preferences.json` or similar) with sensible defaults and override at project, feature, and phase levels. Same inheritance pattern as policies.
+**Shape:** A config file (`.compose/preferences.json` or similar) with sensible defaults and override at project, feature, and phase levels. Same inheritance pattern as policies.
 
 **Can start:** Now — this is a design exercise + simple config system. No infrastructure dependency.
 
 ### Layer 1: Feature Lifecycle State Machine
 
-**What:** Forge explicitly tracks which phase each feature is in. Today this is implicit (which files exist in the folder). Needs to become explicit state with events.
+**What:** Compose explicitly tracks which phase each feature is in. Today this is implicit (which files exist in the folder). Needs to become explicit state with events.
 
 **Includes:**
 
@@ -66,7 +66,7 @@ Ordered by dependency. Each layer builds on the ones above it.
 
 ### Layer 2: Artifact Awareness
 
-**What:** Forge understands feature folders. Creates them, knows what's in them, infers phase from contents, provides templates.
+**What:** Compose understands feature folders. Creates them, knows what's in them, infers phase from contents, provides templates.
 
 **Includes:**
 
@@ -95,7 +95,7 @@ Ordered by dependency. Each layer builds on the ones above it.
 
 **Depends on:** Layer 0 (preferences define policy defaults) + Layer 1 (state machine provides transitions to enforce)
 
-**This is the most important layer.** It's the difference between "the skill says gate" and "Forge won't let you proceed without approval."
+**This is the most important layer.** It's the difference between "the skill says gate" and "Compose won't let you proceed without approval."
 
 ### Layer 4: Gate UI
 
@@ -122,26 +122,26 @@ Ordered by dependency. Each layer builds on the ones above it.
 - Activity feed grouped by feature (not just chronological)
 - Errors contextualized — a build error during Phase 7 means something different than during Phase 5 verification
 - Session transcripts auto-filed to feature folder's `sessions/` directory
-- Multi-session features — Forge knows sessions 3, 7, and 12 all worked on feature INS-SPAN-1
-- Handoff context — when a new session starts on a feature, Forge provides lifecycle context automatically
+- Multi-session features — Compose knows sessions 3, 7, and 12 all worked on feature INS-SPAN-1
+- Handoff context — when a new session starts on a feature, Compose provides lifecycle context automatically
 
 **Depends on:** Phase 3 Agent Awareness (items 11-14) + Layer 1 (state machine provides feature-phase context)
 
 ### Layer 6: Iteration Orchestration
 
-**What:** Ralph loops as a Forge primitive, not a plugin. Forge dispatches iterations, monitors for completion, enforces exit criteria.
+**What:** Ralph loops as a Compose primitive, not a plugin. Compose dispatches iterations, monitors for completion, enforces exit criteria.
 
 **Includes:**
 
-- Forge dispatches iteration to agent with prompt and completion promise
+- Compose dispatches iteration to agent with prompt and completion promise
 - Monitors agent output for promise tag
 - Tracks iteration count per loop
 - Surfaces when max iterations hit (the "problem is in the spec" signal)
-- Phase 7's three-step exit criteria enforced by Forge:
+- Phase 7's three-step exit criteria enforced by Compose:
   1. All tasks executed (tests pass, lint passes)
   2. Review loop clean (completion promise detected)
   3. Coverage sweep clean (completion promise detected)
-- Agent cannot self-report "done" without Forge confirming promises were met
+- Agent cannot self-report "done" without Compose confirming promises were met
 
 **Depends on:** Layer 5 (session binding) + Phase 4 Agent Connector (read-write, item 18)
 
@@ -156,7 +156,7 @@ Ordered by dependency. Each layer builds on the ones above it.
 - Codex connector: maps to Codex's task/execution model
 - Gemini connector: maps to Gemini's tool use and planning capabilities
 - Feature-dev lifecycle stays the same regardless of agent — phases, gates, artifacts don't change
-- Agent capability negotiation — if an agent can't do X, Forge adapts (e.g., no native plan mode → Forge manages plan state)
+- Agent capability negotiation — if an agent can't do X, Compose adapts (e.g., no native plan mode → Compose manages plan state)
 
 **Depends on:** All previous layers stable. This is post-V1.
 
@@ -195,7 +195,7 @@ Phase 4 (Agent Connector) ──────────→ Layer 6 (Iteration)
 | Layer 6 (Iteration) | Phase 4: Agent connector | Iteration is a form of agent direction |
 | Layer 7 (Agent Abstraction) | Phase 4 extension / Phase 6 | Multi-agent is post-V1 |
 
-**Key insight:** Layer 3 (Policy Enforcement Runtime) is the only layer that is entirely new. Everything else extends existing planned work. Layer 3 is also the most important — it's what makes Forge a product rather than a dashboard.
+**Key insight:** Layer 3 (Policy Enforcement Runtime) is the only layer that is entirely new. Everything else extends existing planned work. Layer 3 is also the most important — it's what makes Compose a product rather than a dashboard.
 
 ---
 
@@ -220,16 +220,16 @@ Phase 4 (Agent Connector) ──────────→ Layer 6 (Iteration)
 
 ## What V1 Looks Like
 
-With Layers 0-6 complete, Forge can:
+With Layers 0-6 complete, Compose can:
 
 1. **Track lifecycle state** — you see which phase each feature is in across the Vision Surface
 2. **Enforce gates** — the system blocks phase transitions until you approve, with trade-offs displayed
 3. **Manage artifacts** — feature folders created and populated with templates, artifact presence drives phase inference
 4. **Bind sessions** — you see which sessions worked on which features, activity feeds grouped by feature
-5. **Orchestrate iterations** — review and coverage loops run as Forge primitives, exit criteria enforced
+5. **Orchestrate iterations** — review and coverage loops run as Compose primitives, exit criteria enforced
 6. **Respect preferences** — your config controls what's gated, what's flagged, what's autonomous
 
-This is the distance between "Forge shows you what's happening" (today — Vision Surface + agent awareness) and "Forge runs the process" (target — lifecycle engine).
+This is the distance between "Compose shows you what's happening" (today — Vision Surface + agent awareness) and "Compose runs the process" (target — lifecycle engine).
 
 ---
 
@@ -238,5 +238,5 @@ This is the distance between "Forge shows you what's happening" (today — Visio
 1. **Persistence model for lifecycle state** — extend current JSON tracker? Event-sourced? New entity type?
 2. **Policy config UX** — how does a user set gate/flag/skip per phase? Settings panel? Per-feature override in detail view?
 3. **Gate notification mechanism** — sidebar badge? Modal? Toast? Blocking overlay?
-4. **Iteration dispatch protocol** — how does Forge tell an agent "run this prompt again"? Hook? API? New session?
+4. **Iteration dispatch protocol** — how does Compose tell an agent "run this prompt again"? Hook? API? New session?
 5. **Preference inheritance resolution** — when project says "gate" and feature says "skip", who wins? (Likely: most restrictive, with explicit override.)

@@ -252,7 +252,7 @@ The Stratum MCP server is available now as a standalone package (`stratum-mcp`).
 
 ```bash
 pip install "git+https://github.com/regression-io/stratum.git#subdirectory=stratum-mcp"
-stratum-mcp setup
+stratum-mcp install
 ```
 
 `setup` writes the MCP config, adds the execution model block to your agent's settings file, and installs four skills. Adapt the CLAUDE.md block to your agent's equivalent configuration file.

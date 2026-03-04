@@ -18,7 +18,7 @@ Confirmed that the combination of session context (injected at startup) and stru
 
 ### 2. Interface design system + UI polish
 
-Ran the interface design extraction skill to formalize Forge's visual language into `.interface-design/system.md`. This codifies the "warm dark workshop" aesthetic — warm carbon surfaces, ember/indigo accents, cream text hierarchy, border-only depth (no shadows).
+Ran the interface design extraction skill to formalize Compose's visual language into `.interface-design/system.md`. This codifies the "warm dark workshop" aesthetic — warm carbon surfaces, ember/indigo accents, cream text hierarchy, border-only depth (no shadows).
 
 Alongside, several UI refinements:
 - **Terminal sizing fix:** PTY now starts at the actual terminal dimensions instead of hardcoded 80x24. Client passes `cols`/`rows` as query params and sends a resize event on connect.
@@ -40,4 +40,4 @@ Phase 0.4: persistence connector. The plan exists (`docs/plans/2026-02-11-persis
 
 ---
 
-*Next: persistence connector — make Forge's UI talk to `.forge/` instead of Base44.*
+*Next: persistence connector — make Compose's UI talk to `.compose/` instead of Base44.*

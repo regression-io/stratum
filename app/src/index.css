@@ -57,7 +57,7 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 240 4% 16%;
     --muted-foreground: 215 20% 65%;
-    /* Forge semantic: accent = amber, not neutral */
+    /* Compose semantic: accent = amber, not neutral */
     --accent: 43 96% 56%;
     --accent-foreground: 240 10% 4%;
     --destructive: 0 84% 60%;
@@ -75,7 +75,7 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-    /* Forge semantic */
+    /* Compose semantic */
     --success: 142 71% 45%;
     --warning: 32 95% 52%;
     --artifact: 282 40% 60%;
@@ -165,11 +165,11 @@
   --primary-glow: rgba(99, 102, 241, 0.08);
 
   /* Legacy aliases — existing components still reference these */
-  --forge-void: #FAFAFA;
-  --forge-base: var(--color-background);
-  --forge-raised: var(--color-surface);
-  --forge-overlay: var(--color-surface-overlay);
-  --forge-inset: #F5F5F5;
+  --compose-void: #FAFAFA;
+  --compose-base: var(--color-background);
+  --compose-raised: var(--color-surface);
+  --compose-overlay: var(--color-surface-overlay);
+  --compose-inset: #F5F5F5;
   --ink-primary: var(--color-text-primary);
   --ink-secondary: var(--color-text-secondary);
   --ink-tertiary: var(--color-text-tertiary);
@@ -220,8 +220,8 @@
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
   --accent-glow: rgba(251, 191, 36, 0.12);
   --primary-glow: rgba(99, 102, 241, 0.15);
-  --forge-void: #060609;
-  --forge-inset: #08080f;
+  --compose-void: #060609;
+  --compose-inset: #08080f;
   /* Agent activity category colors (dark mode — brighter on dark bg) */
   --color-category-writing: #fbbf24;
   --color-category-executing: #f97316;
@@ -302,7 +302,7 @@
 .xterm-viewport::-webkit-scrollbar-thumb { background: hsl(var(--border)); }
 
 /* ── Header icon buttons (legacy, for terminal panel) ── */
-.forge-btn-icon {
+.compose-btn-icon {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 10px;
   font-weight: 500;
@@ -315,12 +315,12 @@
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s, background 0.1s;
 }
-.forge-btn-icon:hover:not(:disabled) {
+.compose-btn-icon:hover:not(:disabled) {
   color: var(--ink-secondary);
   border-color: var(--border-emphasis);
-  background: var(--forge-raised);
+  background: var(--compose-raised);
 }
-.forge-btn-icon:disabled {
+.compose-btn-icon:disabled {
   opacity: 0.3;
   cursor: default;
 }

@@ -25,9 +25,9 @@ The biggest build session yet. Started with architecture, ended with a working h
 
 **Navigation rethink.** Originally phases drilled in (breadcrumb push). Changed to inline accordion — click a phase, it expands in place. Drill-in only happens when clicking a linked item. This matches the spec's "two navigation modes" principle.
 
-**Taxonomy cleanup.** Renamed initiative→feature, feature→track. Assigned semantic IDs to all items (FORGE-FTR-1, FORGE-TRK-7, etc.). Normalized "specification" phase to the canonical PHASES list.
+**Taxonomy cleanup.** Renamed initiative→feature, feature→track. Assigned semantic IDs to all items (COMPOSE-FTR-1, COMPOSE-TRK-7, etc.). Normalized "specification" phase to the canonical PHASES list.
 
-**Task cleanup.** Created tasks under FORGE-TRK-7 for review findings. Wired 66 orphaned items into the hierarchy. Replaced hardcoded rgba colors with theme tokens. Added sessionStorage persistence for expanded state.
+**Task cleanup.** Created tasks under COMPOSE-TRK-7 for review findings. Wired 66 orphaned items into the hierarchy. Replaced hardcoded rgba colors with theme tokens. Added sessionStorage persistence for expanded state.
 
 ## What we built
 

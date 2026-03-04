@@ -9,7 +9,7 @@
 
 ## Guiding Principle
 
-Forge must be able to manage its own development. The concrete goal: **a planning session like the one that produced these docs happens entirely inside Forge.**
+Compose must be able to manage its own development. The concrete goal: **a planning session like the one that produced these docs happens entirely inside Compose.**
 
 Every step is measured against: can we stop doing out-of-band coordination after this?
 
@@ -17,7 +17,7 @@ Every step is measured against: can we stop doing out-of-band coordination after
 
 ## Phase 0: Bootstrap
 
-Manual, out-of-band work. None of this is tracked in Forge.
+Manual, out-of-band work. None of this is tracked in Compose.
 
 ### 0.1 Discovery + Requirements + Design — DONE
 
@@ -65,28 +65,28 @@ Embedded Claude Code in the UI via xterm.js + WebSocket + node-pty. First real b
 
 ### 0.5 Agent Monitoring (Level 1) — PLANNED
 
-The terminal is a black box. Forge can't see what the agent is doing, what errors it's hitting, or what state it's in. Minimum observability before self-hosting.
+The terminal is a black box. Compose can't see what the agent is doing, what errors it's hitting, or what state it's in. Minimum observability before self-hosting.
 
 - Pattern-match PTY output for known error signatures (API errors, stack traces, process exits)
 - Surface agent health status in the UI (beyond the connection dot)
-- Log agent events to `.forge/sessions/` for post-mortem analysis
-- **Gate:** When Claude Code hits an API error inside the terminal, Forge logs it and surfaces it
+- Log agent events to `.compose/sessions/` for post-mortem analysis
+- **Gate:** When Claude Code hits an API error inside the terminal, Compose logs it and surfaces it
 
-### --- EARLY HANDOFF: Forge tracks its own work from here ---
+### --- EARLY HANDOFF: Compose tracks its own work from here ---
 
 ---
 
 ## Phase 1: Discovery Support (make thinking capturable)
 
-**Goal:** Forge can host a planning/brainstorming session. This is the most urgent gap — it's what we can't do today.
+**Goal:** Compose can host a planning/brainstorming session. This is the most urgent gap — it's what we can't do today.
 
 ### 1.1 Rich Artifact Editor
 
-The Base44 UI has artifacts as attachments only. We need inline markdown editing — living documents created and edited inside Forge.
+The Base44 UI has artifacts as attachments only. We need inline markdown editing — living documents created and edited inside Compose.
 
 - Markdown editor in Work item detail view (edit + preview toggle)
 - Create, edit, preview artifacts inline — not just file attachments
-- **Gate:** Can we write a brainstorm doc directly in a Forge Work item?
+- **Gate:** Can we write a brainstorm doc directly in a Compose Work item?
 
 ### 1.2 Artifact Versioning
 
@@ -147,7 +147,7 @@ Gap classification (structural/functional/expected/surplus) should be a structur
 - Each gap row can become a child Work item with one click
 - **Gate:** Doing a delivery intake produces classified gaps that convert to Work items
 
-**Phase 1 exit:** We can run a planning session inside Forge — write docs inline, record decisions with rationale, link decisions to specs via `informs`, see what's stale when decisions change, classify gaps into work items.
+**Phase 1 exit:** We can run a planning session inside Compose — write docs inline, record decisions with rationale, link decisions to specs via `informs`, see what's stale when decisions change, classify gaps into work items.
 
 ---
 
@@ -177,9 +177,9 @@ Specs produce deliveries. Deliveries are evaluated against specs. The chain shou
 - Spec artifact → linked to Build work item → linked to Evaluation work item
 - Gap classification (structural/functional/expected/surplus) as evaluation template
 - Gaps auto-generate child Work items
-- **Gate:** Can we do a delivery intake entirely inside Forge?
+- **Gate:** Can we do a delivery intake entirely inside Compose?
 
-**Phase 2 exit:** The full cycle — spec → build → evaluate → gaps → new work items — is tracked and linked inside Forge.
+**Phase 2 exit:** The full cycle — spec → build → evaluate → gaps → new work items — is tracked and linked inside Compose.
 
 ---
 
@@ -187,7 +187,7 @@ Specs produce deliveries. Deliveries are evaluated against specs. The chain shou
 
 ### 3.1 Functional Gaps from Base44 Evaluation
 
-These become Work items tracked inside Forge (after Phase 1 enables that):
+These become Work items tracked inside Compose (after Phase 1 enables that):
 
 - Keyboard navigation (command palette, tree nav, shortcuts)
 - Scope field UI
@@ -229,54 +229,54 @@ Link Work items to real code changes without manual entry.
 
 - Commits, branches, file changes → evidence on Work items
 - Auto-detect activity in registered projects
-- **Gate:** Forge's own git activity surfaces on its Work items
+- **Gate:** Compose's own git activity surfaces on its Work items
 
 ### 4.2 Agent Connector (Read-Only)
 
 See what sessions are doing.
 
-- Expose Claude Code session activity to Forge
+- Expose Claude Code session activity to Compose
 - Map sessions to Work items
 - **Gate:** See active sessions and what they're working on
 
 ### 4.3 Agent Connector (Read-Write)
 
-Direct sessions from Forge.
+Direct sessions from Compose.
 
 - Assign work to agents
-- Context briefings from Forge
+- Context briefings from Compose
 - Policy enforcement (gate/flag/skip)
-- **Gate:** Direct a Claude Code session from inside Forge
+- **Gate:** Direct a Claude Code session from inside Compose
 
-**Phase 4 exit:** Full bootstrap complete. All work — thinking, deciding, building, evaluating — happens in Forge. No more out-of-band coordination.
+**Phase 4 exit:** Full bootstrap complete. All work — thinking, deciding, building, evaluating — happens in Compose. No more out-of-band coordination.
 
 ---
 
 ## Phase 5: Standalone App (make it installable)
 
-Forge becomes a standalone tool you install and run, not a dev project you `npm run dev`.
+Compose becomes a standalone tool you install and run, not a dev project you `npm run dev`.
 
 Reference implementation: coder-config's deployment architecture.
 
 ### 5.1 macOS LaunchAgent
 
-Run Forge as a background service that starts on login and survives crashes.
+Run Compose as a background service that starts on login and survives crashes.
 
 - Generate `.plist` for `~/Library/LaunchAgents/` with `KeepAlive: true`, `RunAtLoad: true`
-- `forge ui install` / `forge ui uninstall` commands
-- Logs to `~/.forge/forge.log`
+- `compose ui install` / `compose ui uninstall` commands
+- Logs to `~/.compose/compose.log`
 - `process.exit(0)` triggers launchd restart with new code
-- **Gate:** `forge ui install` → Forge runs on login, restarts on crash, no terminal needed
+- **Gate:** `compose ui install` → Compose runs on login, restarts on crash, no terminal needed
 
 ### 5.2 Version-Aware Restart
 
-Detect when Forge's code has been updated and restart to pick up changes.
+Detect when Compose's code has been updated and restart to pick up changes.
 
 - Server stores startup version, `/api/version` compares against on-disk version
 - `needsRestart` flag when versions diverge
 - UI shows update banner, user clicks to restart
 - `/api/restart` → `process.exit(0)` → supervisor/launchd restarts with new code
-- **Gate:** Update Forge code, UI shows "restart to update", one click picks up changes
+- **Gate:** Update Compose code, UI shows "restart to update", one click picks up changes
 
 ### 5.3 Suspend/Resume Watchdog
 
@@ -285,29 +285,29 @@ Detect system sleep and restart cleanly on wake.
 - Heartbeat interval (5s), detect gaps > 30s as suspend
 - On resume: exit and restart to reset WebSocket state, reconnect terminals
 - Prevents stale connections and zombie PTY sessions after laptop sleep
-- **Gate:** Close laptop, open it, Forge recovers automatically
+- **Gate:** Close laptop, open it, Compose recovers automatically
 
 ### 5.4 CLI + Package Distribution
 
-Ship as an installable package (`npm install -g forge` or similar).
+Ship as an installable package (`npm install -g compose` or similar).
 
-- CLI entry point: `forge ui`, `forge ui status`, `forge ui stop`
+- CLI entry point: `compose ui`, `compose ui status`, `compose ui stop`
 - Pre-built UI assets (no Vite in production)
 - Serve static dist/ instead of proxying to Vite
 - npm/Homebrew distribution
-- **Gate:** `npm install -g forge && forge ui` → working app, no clone needed
+- **Gate:** `npm install -g compose && compose ui` → working app, no clone needed
 
-**Phase 5 exit:** Forge is a standalone tool anyone can install, run, and forget about. It starts on login, survives crashes and sleep, updates itself, and needs no dev environment.
+**Phase 5 exit:** Compose is a standalone tool anyone can install, run, and forget about. It starts on login, survives crashes and sleep, updates itself, and needs no dev environment.
 
 ---
 
 ## Phase 6: Lifecycle Engine
 
-The `/forge` skill becomes the product. Seven layers: user preferences → lifecycle state machine → artifact awareness → policy enforcement runtime → gate UI → session-lifecycle binding → iteration orchestration. Layer 3 (policy runtime) is the core new build — everything else extends Phases 3-5 infrastructure.
+The `/compose` skill becomes the product. Seven layers: user preferences → lifecycle state machine → artifact awareness → policy enforcement runtime → gate UI → session-lifecycle binding → iteration orchestration. Layer 3 (policy runtime) is the core new build — everything else extends Phases 3-5 infrastructure.
 
 See: **[Lifecycle Engine Roadmap](2026-02-15-lifecycle-engine-roadmap.md)**
 
-**Phase 6 exit:** Forge enforces the `/forge` lifecycle structurally. Gates block, policies inherit, iterations are orchestrated, artifacts are managed. The process runs through Forge, not alongside it.
+**Phase 6 exit:** Compose enforces the `/compose` lifecycle structurally. Gates block, policies inherit, iterations are orchestrated, artifacts are managed. The process runs through Compose, not alongside it.
 
 ---
 

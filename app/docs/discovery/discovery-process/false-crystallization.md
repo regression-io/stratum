@@ -16,7 +16,7 @@ We reviewed the Work primitive definition. It has clean sub-constructs, tables, 
 
 The crystallization model says "each phase transition crystallizes — what was fluid becomes fixed." But it's missing the concept of what *tests* the crystallization. Without that test, you get **false crystallization** — docs that look solid but aren't.
 
-## What this means for Forge
+## What this means for Compose
 
 Discovery needs a concept we're tentatively calling **validation pressure** — the thing that distinguishes "we wrote it down" from "we tried it and it held."
 
@@ -39,7 +39,7 @@ Each transition "crystallizes." But now we see two kinds:
 - **Tested crystallization** — the definition survived pressure. It held when used.
 - **Untested crystallization** — the definition was written but not challenged. It might be right, might not.
 
-Forge should be able to distinguish these. A Work item's status might say "complete" but its crystallization might be untested. That's a different kind of confidence than "complete and validated."
+Compose should be able to distinguish these. A Work item's status might say "complete" but its crystallization might be untested. That's a different kind of confidence than "complete and validated."
 
 ## Update: tentative is universal, not discovery-specific
 
@@ -55,7 +55,7 @@ This means the status lifecycle has a gap. "Complete" doesn't distinguish betwee
 
 ## Open questions
 
-- Is validation pressure something Forge tracks explicitly, or is it just good practice?
+- Is validation pressure something Compose tracks explicitly, or is it just good practice?
 - Does this map to the existing verification phase, or is it something that happens *within* every phase?
 - How does the AI know the difference between tested and untested crystallization?
 - Is this related to Why-factual? (The evidence chain that justifies a definition.)

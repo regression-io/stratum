@@ -95,7 +95,7 @@ function AppSidebar({
   const toggleTheme = React.useCallback(() => {
     const next = !isDark;
     document.documentElement.classList.toggle('dark', next);
-    localStorage.setItem('forge:theme', next ? 'dark' : 'light');
+    localStorage.setItem('compose:theme', next ? 'dark' : 'light');
     setIsDark(next);
   }, [isDark]);
 
@@ -104,7 +104,7 @@ function AppSidebar({
       {/* Project header */}
       <div className="p-3 pb-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-sidebar-foreground">Forge</h2>
+          <h2 className="text-sm font-semibold text-sidebar-foreground">Compose</h2>
           <div className="flex items-center gap-1.5">
             {!connected && (
               <span className="text-[10px] text-destructive">disconnected</span>

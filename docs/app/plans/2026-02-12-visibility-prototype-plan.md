@@ -214,7 +214,7 @@ Replace generic layout modes (dense/spatial/timeline) with purpose-built views t
 
 ### Tasks
 - [ ] Session diff logic in `VisionSurface.jsx`:
-  - Read `forge:visionLastSeen` from localStorage on mount
+  - Read `compose:visionLastSeen` from localStorage on mount
   - Compute `newItemIds` set: items where `updatedAt > lastSeen`
   - Update `lastSeen` to `Date.now()` after a 3s delay (let animations play)
   - Pass `newItemIds` through ViewContainer to views to ItemCard
@@ -294,7 +294,7 @@ Replace generic layout modes (dense/spatial/timeline) with purpose-built views t
 - [ ] Add risk card styles (faint red/amber tint)
 - [ ] Add view transition classes (crossfade or FLIP, per Step 4 decision)
 - [ ] Audit all new components against design system tokens:
-  - Surfaces: `--forge-base`, `--forge-raised`, `--forge-overlay`
+  - Surfaces: `--compose-base`, `--compose-raised`, `--compose-overlay`
   - Text: `--ink-primary` through `--ink-muted`
   - Borders: `--border-standard`, `--border-emphasis`
   - Accents: `--ember`, `--indigo`, `--magenta`

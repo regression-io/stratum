@@ -12,7 +12,7 @@ import ProductGraph from './ProductGraph.jsx';
  * Communicates with the main window via BroadcastChannel.
  */
 
-const CHANNEL_NAME = 'forge-popout';
+const CHANNEL_NAME = 'compose-popout';
 
 function displayName(path) {
   if (path === 'vision://surface') return 'Vision Tracker';
@@ -69,7 +69,7 @@ export default function PopoutView({ path }) {
 
   // Set document title
   useEffect(() => {
-    document.title = displayName(path) + ' — Forge';
+    document.title = displayName(path) + ' — Compose';
   }, [path]);
 
   // BroadcastChannel: announce mount/unmount, listen for dock-back

@@ -47,7 +47,7 @@ With the fundamentals in place, produced the full design stack in sequence:
 3. **PRD** — full requirements built on the three primitives. Feature areas map to primitives: Work Hierarchy, Policy System, Session Management, UI Views.
 4. **Taxonomy** — the invariant/variant split. Formalized: the system is one mechanism everywhere. Phases differ only in defaults, not in structure.
 5. **UI-BRIEF** — behavioral spec for an external builder. Described what users can do, not which libraries to use.
-6. **Process docs** — delivery-intake and spec-writing. Meta: processes for the process of building Forge.
+6. **Process docs** — delivery-intake and spec-writing. Meta: processes for the process of building Compose.
 
 ### Key decisions
 
@@ -62,15 +62,15 @@ After the design stack was complete, the instinct was: build the UI. Sent the UI
 
 Evaluated it using our own delivery-intake process. The gap analysis was thorough: 2 structural gaps (Base44 SDK dependency, hardcoded data shapes), 10 functional gaps (no keyboard nav, no `informs` deps, no artifact editor, no grouping), 5 expected omissions, 5 surplus features we didn't ask for.
 
-Then started the integration work — coding a persistence layer (Express + markdown-in-folders), writing a forgeClient to replace the Base44 SDK. Everything was progressing linearly: design → spec → build → wire.
+Then started the integration work — coding a persistence layer (Express + markdown-in-folders), writing a composeClient to replace the Base44 SDK. Everything was progressing linearly: design → spec → build → wire.
 
 ### The step back: "we're building this wrong"
 
-Midway through integration, stopped. The realization: we were building Forge the traditional way — infrastructure piece by piece, features one at a time, agent interaction deferred to "Phase 4." But Forge's entire thesis is that an AI agent is a co-builder. Why was the agent the last thing we'd add?
+Midway through integration, stopped. The realization: we were building Compose the traditional way — infrastructure piece by piece, features one at a time, agent interaction deferred to "Phase 4." But Compose's entire thesis is that an AI agent is a co-builder. Why was the agent the last thing we'd add?
 
-The POC was useful as validation — it proved the UI concepts worked, the data model was sound, the behavioral spec produced a reasonable delivery. But the POC was also a trap. It created a gravity well: "we have a working UI, let's just keep building on it." The risk was building a task tracker that works fine but doesn't embody the agent-primary architecture that makes Forge different from every other project management tool.
+The POC was useful as validation — it proved the UI concepts worked, the data model was sound, the behavioral spec produced a reasonable delivery. But the POC was also a trap. It created a gravity well: "we have a working UI, let's just keep building on it." The risk was building a task tracker that works fine but doesn't embody the agent-primary architecture that makes Compose different from every other project management tool.
 
-**The pivot:** Instead of building up to the agent, start with the agent. Embed Claude Code in the UI immediately. Two prerequisites only: persistence (so data survives) and the terminal (so the agent can work). Everything else — onboarding, templates, evaluation workflows, new views — gets built from inside Forge by the agent itself.
+**The pivot:** Instead of building up to the agent, start with the agent. Embed Claude Code in the UI immediately. Two prerequisites only: persistence (so data survives) and the terminal (so the agent can work). Everything else — onboarding, templates, evaluation workflows, new views — gets built from inside Compose by the agent itself.
 
 This became the [Agent-Primary Architecture Decision](../decisions/2026-02-11-agent-primary-architecture.md). The POC wasn't wasted — it validated the design and gave us a UI shell to embed the terminal into. But the build order flipped: agent first, features second.
 
@@ -80,13 +80,13 @@ Two process violations caught by human attention:
 1. Started wiring UI before the external delivery arrived (dependency not checked)
 2. Skipped delivery evaluation to jump straight to integration (process doc not followed)
 
-Both would have produced code that needed rewriting. Both caught manually. Both are exactly what Forge's policy system would automate.
+Both would have produced code that needed rewriting. Both caught manually. Both are exactly what Compose's policy system would automate.
 
 ### The architecture pivot
 
 Late in the session, realized the bootstrap was backwards. Original plan: build infrastructure, then agent connector as Phase 4. New plan: embed the agent first, use it to build everything else.
 
-**Agent-primary architecture:** The terminal is the primary write interface. The structured UI is the primary read interface. Both backed by `.forge/` persistence.
+**Agent-primary architecture:** The terminal is the primary write interface. The structured UI is the primary read interface. Both backed by `.compose/` persistence.
 
 ### What was produced
 
@@ -99,8 +99,8 @@ docs/
   evaluations/base44-ui-eval.md, session-meta-review.md, bootstrap-progress.md
   plans/integration-roadmap.md, persistence-connector-plan.md, bootstrap-questions.md
 
-coder-forge/server/     — Express + persistence layer (coded, not tested)
-coder-forge/src/api/    — forgeClient.js (coded, not wired)
+coder-compose/server/     — Express + persistence layer (coded, not tested)
+coder-compose/src/api/    — composeClient.js (coded, not wired)
 ```
 
 ## What we learned
@@ -109,8 +109,8 @@ coder-forge/src/api/    — forgeClient.js (coded, not wired)
 2. **Process docs are agent instructions.** delivery-intake.md worked perfectly as an evaluation protocol — followed step by step, produced structured output.
 3. **Gates catch real problems.** Both failures were "let me just skip ahead" moments. The system needs friction at exactly those points.
 4. **POCs validate but also create gravity.** The Base44 UI proved the design was sound. It also created pressure to "just keep building on it" instead of questioning the build order. Validation and commitment are different things.
-5. **Build order matters more than build quality.** The persistence layer and forgeClient were well-coded. But coding them before the agent was embedded meant building Forge the way you'd build any app — linearly, feature by feature. The agent-first pivot changed *what we build next*, not *what we'd eventually build*.
-6. **Self-hosting is the test.** The session itself was the use case. Every pain point ("I can't track this decision," "where did we leave off?") maps directly to a Forge feature.
+5. **Build order matters more than build quality.** The persistence layer and composeClient were well-coded. But coding them before the agent was embedded meant building Compose the way you'd build any app — linearly, feature by feature. The agent-first pivot changed *what we build next*, not *what we'd eventually build*.
+6. **Self-hosting is the test.** The session itself was the use case. Every pain point ("I can't track this decision," "where did we leave off?") maps directly to a Compose feature.
 
 ## Mood
 

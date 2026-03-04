@@ -9,7 +9,7 @@
 
 ## What is this?
 
-Defining how the discovery phase works in Forge — the process by which loose thinking becomes structured enough to transition to requirements.
+Defining how the discovery phase works in Compose — the process by which loose thinking becomes structured enough to transition to requirements.
 
 This is recursive: we're using discovery to define discovery.
 
@@ -210,7 +210,7 @@ Market research, user data, competitive analysis — these exist as raw material
 
 Human challenge: Who and Why (as personal motivation) aren't working dimensions. Users don't engage with them day-to-day, and they carry privacy concerns — commercial devs won't document org politics or personal uncertainty.
 
-**What users actually work with:** What and How. That's where Forge adds real-time value.
+**What users actually work with:** What and How. That's where Compose adds real-time value.
 
 **Who** is not axiomatic. It's onboarding context at best. In practice:
 - Solo dev + AI: Who is constant ("me + Claude"). Zero information.
@@ -221,7 +221,7 @@ Human challenge: Who and Why (as personal motivation) aren't working dimensions.
 - **Personal Why** (conviction, org pressure, assigned task) — onboarding calibration. Useful at setup to understand starting conditions. Not operational. Privacy-sensitive.
 - **Factual Why** (knowledge reasoning) — "why does this decision hold?" "what evidence supports this approach?" "what assumptions does this rest on?" This is the reasoning chain, and it's **huge** operationally. It's what makes the AI useful — it can reason about justifications and flag when they break down.
 
-**How** was previously dismissed ("emerges from What+Who+Evidence, it's a design-phase decision"). But if What and How are the actual working pair that users engage with, How deserves elevation. It covers approach, method, constraints, and is where Forge tailors itself to the user's actual work.
+**How** was previously dismissed ("emerges from What+Who+Evidence, it's a design-phase decision"). But if What and How are the actual working pair that users engage with, How deserves elevation. It covers approach, method, constraints, and is where Compose tailors itself to the user's actual work.
 
 ### Current position (revised)
 
@@ -252,11 +252,11 @@ Knowledge layer:  Discovery / reasoning loop
 The UI is about What and How. The intelligence is in the knowledge layer underneath. The user doesn't need to fill in "Why" fields or "Who" fields — the system reasons about those internally and surfaces them when relevant.
 
 **Key design implications:**
-- Forge tailors itself to What and How, not Who and Why. A developer tracking a React app gets React-relevant patterns. The tailoring follows the work, not the person.
+- Compose tailors itself to What and How, not Who and Why. A developer tracking a React app gets React-relevant patterns. The tailoring follows the work, not the person.
 - The knowledge layer is where `informs` dependencies, evidence tracking, and assumption management live. It's the AI's primary value-add.
 - Why doesn't need ceremony. It can be obvious, trivial, or "because the user said so." It just needs to be traceable when someone asks.
 
-**The use case listings** (Thread 1, the 28 activities, the role spectrum, the motivation spectrum) are design research — they helped US understand the problem space. They are not features Forge presents to users or dimensions it tracks at runtime.
+**The use case listings** (Thread 1, the 28 activities, the role spectrum, the motivation spectrum) are design research — they helped US understand the problem space. They are not features Compose presents to users or dimensions it tracks at runtime.
 
 ---
 
@@ -289,7 +289,7 @@ During this discovery session, a UX friction surfaced: the agent writes to docs 
 - V2: Multiple tabs in canvas
 - V3+: Canvas components beyond markdown — diagrams, structured data views, work hierarchy tree, whatever's needed
 
-**Insight this surfaces about discovery in Forge:**
+**Insight this surfaces about discovery in Compose:**
 - The **terminal** (conversation) is the process — steering, questioning, deciding
 - The **canvas** (document) is the artifact — accumulated understanding
 - Both visible simultaneously = the artifact evolves in front of you, not behind the scenes
@@ -321,12 +321,12 @@ During this discovery session, a UX friction surfaced: the agent writes to docs 
 **Discovery process itself:**
 - When is discovery "done"? What signals transition to requirements?
 - What are the valid outputs of discovery? (Document, questions, direction, kill decision?)
-- How does Forge represent a discovery conversation?
+- How does Compose represent a discovery conversation?
 - How much structure should discovery have?
 - Can discovery loop internally?
 
 **Onboarding:**
-- What does onboarding actually look like? Minimal — what does Forge need to know to start being useful?
+- What does onboarding actually look like? Minimal — what does Compose need to know to start being useful?
 
 ---
 

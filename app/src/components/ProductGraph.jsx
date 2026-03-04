@@ -2,7 +2,7 @@ import React from 'react';
 import GraphRenderer from './GraphRenderer.jsx';
 
 /**
- * ProductGraph — the Forge product ontology rendered via GraphRenderer.
+ * ProductGraph — the Compose product ontology rendered via GraphRenderer.
  * Colors mapped from constants.js TYPE_COLORS.
  * Includes the 6-phase development pipeline as a grouped row.
  */
@@ -110,7 +110,7 @@ export default function ProductGraph() {
       graphKey="product"
       nodes={nodes}
       edges={edges}
-      title="Forge Product Ontology"
+      title="Compose Product Ontology"
       subtitle="10 entity types · 6 phases · 5 edge types · Discovery orthogonal"
     />
   );

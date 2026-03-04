@@ -1,5 +1,5 @@
 /**
- * CodexConnector — wraps OpenAI Codex for Forge's agent connector interface.
+ * CodexConnector — wraps OpenAI Codex for Compose's agent connector interface.
  *
  * Two capabilities:
  *   run(prompt, opts)    — Execute: spawn Codex CLI, stream typed messages

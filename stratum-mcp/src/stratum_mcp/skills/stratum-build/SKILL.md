@@ -88,10 +88,10 @@ Phase 5 is NOT done until all five steps complete. Phase 5 steps 3-5 self-termin
 
 ### Phase 1: Explore
 
-**Agent:** `forge-explorer` (2-3 instances in parallel for codebase understanding)
+**Agent:** `compose-explorer` (2-3 instances in parallel for codebase understanding)
 
 - Create `.specify/<feature-name>/` folder
-- Launch 2-3 `forge-explorer` agents in parallel, each targeting a different aspect:
+- Launch 2-3 `compose-explorer` agents in parallel, each targeting a different aspect:
   - "Find features similar to [feature] and trace their implementation"
   - "Map the architecture and abstractions for [area]"
   - "Analyze the current implementation of [related feature]"
@@ -121,9 +121,9 @@ Target 300-500 words — enough to be useful, not so long it's ignored.
 
 ### Phase 3: Write Plan
 
-**Agent:** `forge-architect` (2-3 instances with competing mandates)
+**Agent:** `compose-architect` (2-3 instances with competing mandates)
 
-Launch 2-3 `forge-architect` agents in parallel:
+Launch 2-3 `compose-architect` agents in parallel:
 - **Minimal changes** — smallest possible change, maximum reuse
 - **Clean architecture** — maintainability first, clear boundaries
 - **Pragmatic balance** — 80/20 approach
@@ -215,10 +215,10 @@ Skip for backend-only changes with no UI surface.
 
 **Step 4: Review ralph loop**
 
-**Agent:** `forge-reviewer` (confidence-scored review, only report findings >= 80)
+**Agent:** `compose-reviewer` (confidence-scored review, only report findings >= 80)
 
 ```
-/ralph-loop "Launch forge-reviewer agent to review implementation against
+/ralph-loop "Launch compose-reviewer agent to review implementation against
 .specify/<feature-name>/plan.md and .specify/<feature-name>/tasks/.
 Fix all issues with confidence >= 80.
 Output <promise>REVIEW CLEAN</promise> when no actionable findings remain."
@@ -305,7 +305,7 @@ contracts:
 functions:
   explore:
     mode: compute
-    intent: "Explore the codebase with forge-explorer agents and surface patterns relevant to the feature."
+    intent: "Explore the codebase with compose-explorer agents and surface patterns relevant to the feature."
     input: {description: {type: string}}
     output: ExploreResult
     ensure:
@@ -486,9 +486,9 @@ When `/stratum-build` is invoked, **always scan `.specify/<feature-name>/` first
 
 | Agent/Skill | When to Invoke |
 |---|---|
-| **`forge-explorer`** | Phase 1 (2-3 in parallel), Phase 3 (targeted research for plan accuracy) |
-| **`forge-architect`** | Phase 3 (2-3 with competing mandates: minimal, clean, pragmatic) |
-| **`forge-reviewer`** | Phase 5 step 4 (confidence-scored review, only report >= 80) |
+| **`compose-explorer`** | Phase 1 (2-3 in parallel), Phase 3 (targeted research for plan accuracy) |
+| **`compose-architect`** | Phase 3 (2-3 with competing mandates: minimal, clean, pragmatic) |
+| **`compose-reviewer`** | Phase 5 step 4 (confidence-scored review, only report >= 80) |
 | `superpowers:test-driven-development` | Phase 5 step 2 (inline TDD per task) |
 | `superpowers:receiving-code-review` | Phase 5 step 4 (process review feedback) |
 | `superpowers:dispatching-parallel-agents` | Phase 5 step 2 (when parallel tasks can run concurrently) |

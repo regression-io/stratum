@@ -1,4 +1,4 @@
-# Forge: UI Development Brief
+# Compose: UI Development Brief
 
 **Date:** 2026-02-11
 **Audience:** UI development team
@@ -7,9 +7,9 @@
 
 ---
 
-## What is Forge?
+## What is Compose?
 
-Forge is a mission control system for AI-driven software development. It gives a developer a visual dashboard to plan, track, and eventually direct AI coding agents across projects of any scale.
+Compose is a mission control system for AI-driven software development. It gives a developer a visual dashboard to plan, track, and eventually direct AI coding agents across projects of any scale.
 
 Think of it as: **a project management tool where the workers are AI agents**. The developer is the flight director. The dashboard is mission control.
 
@@ -289,4 +289,4 @@ These features are in the PRD and the schema supports them. Do not build UI for 
 - [ ] Dashboard answers "where are we" in <10 seconds for a project with 50+ work items
 - [ ] Creating a work item takes <3 seconds
 - [ ] Data model includes Policy and Session entities (empty, not exposed in UI)
-- [ ] Forge's own Phase 2 development can be planned and tracked inside Forge
+- [ ] Compose's own Phase 2 development can be planned and tracked inside Compose

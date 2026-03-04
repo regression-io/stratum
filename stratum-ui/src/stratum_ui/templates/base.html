@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}stratum-ui{% endblock %}</title>
+  {% if refresh_s %}<meta http-equiv="refresh" content="{{ refresh_s }}">{% endif %}
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+      font-size: 13px;
+      background: #0e1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    nav {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    nav .brand { font-size: 14px; font-weight: 600; color: #58a6ff; text-decoration: none; }
+    nav a { color: #8b949e; text-decoration: none; }
+    nav a:hover { color: #c9d1d9; }
+    nav .spacer { flex: 1; }
+    nav .project-dir { color: #484f58; font-size: 11px; }
+
+    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+    h1 { font-size: 16px; font-weight: 600; color: #e6edf3; margin-bottom: 16px; }
+    h2 { font-size: 14px; font-weight: 600; color: #e6edf3; margin-bottom: 12px; }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-complete  { background: #1a4731; color: #3fb950; }
+    .badge-skipped   { background: #21262d; color: #8b949e; }
+    .badge-failed    { background: #3d1f1f; color: #f85149; }
+    .badge-rejected  { background: #3d1f1f; color: #f85149; }
+    .badge-gate-pending  { background: #2d2a00; color: #d29922; }
+    .badge-gate-approved { background: #1a4731; color: #3fb950; }
+    .badge-gate-rejected { background: #3d1f1f; color: #f85149; }
+    .badge-corrupt   { background: #3d1f1f; color: #f85149; }
+    .badge-running   { background: #0d2241; color: #58a6ff; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    thead { background: #161b22; }
+    th { padding: 10px 14px; text-align: left; color: #8b949e; font-weight: 500;
+         border-bottom: 1px solid #30363d; }
+    td { padding: 10px 14px; border-bottom: 1px solid #21262d; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #161b22; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .empty { color: #484f58; font-style: italic; padding: 24px 0; }
+
+    .run-id { font-size: 11px; color: #8b949e; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 6px 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .detail-grid dt { color: #8b949e; }
+    .detail-grid dd { color: #e6edf3; word-break: break-all; }
+
+    .phase-list { display: flex; flex-direction: column; gap: 8px; }
+    .phase-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .phase-name { font-weight: 600; color: #e6edf3; }
+    .phase-result {
+      background: #0e1117;
+      border: 1px solid #21262d;
+      border-radius: 4px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      white-space: pre;
+      font-size: 12px;
+      color: #c9d1d9;
+      max-height: 300px;
+    }
+    .phase-error { color: #f85149; font-size: 12px; }
+
+    .refresh-note { color: #484f58; font-size: 11px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="brand" href="/">stratum-ui</a>
+    <a href="/">Runs</a>
+    <a href="/gates">Gates</a>
+    <a href="/editor">Editor</a>
+    <span class="spacer"></span>
+    <span class="project-dir">{{ project_dir }}</span>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

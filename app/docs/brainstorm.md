@@ -1,4 +1,4 @@
-# Forge: AI Development Mission Control
+# Compose: AI Development Mission Control
 
 **Date:** 2026-02-11
 **Status:** BRAINSTORM
@@ -180,7 +180,7 @@ The human can always intervene at any level, but the system doesn't require inte
 ### Still Unresolved
 
 - How does the MCP server API surface look? (Phase 2)
-- Naming: "Forge" is a working name. Keep it?
+- Naming: "Compose" is a working name. Keep it?
 - How does this relate to Claude Code's built-in Tasks? (Replace, complement, wrap?)
 - Conversation distillation: how exactly does transcript → structured Work items work?
 - Memory system: where does persistent cross-session knowledge live in the data model?
@@ -190,7 +190,7 @@ The human can always intervene at any level, but the system doesn't require inte
 ## Next Steps
 
 1. ~~Design the UI: what views does the dashboard need?~~ → [UI-BRIEF](UI-BRIEF.md)
-2. ~~Scope the MVP: what's the minimum viable Forge?~~ → [Integration Roadmap](plans/2026-02-11-integration-roadmap.md)
-3. **Persistence connector** — replace Base44 SDK, make Forge self-hosting
+2. ~~Scope the MVP: what's the minimum viable Compose?~~ → [Integration Roadmap](plans/2026-02-11-integration-roadmap.md)
+3. **Persistence connector** — replace Base44 SDK, make Compose self-hosting
 4. Define the integration surface: MCP tools, hooks, context injection format (Phase 2)
 5. Design conversation distillation and memory system

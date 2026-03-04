@@ -2,7 +2,7 @@ import React, { useState, useMemo, useContext, useCallback } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { TYPE_COLORS } from './constants.js';
 import { VisionChangesContext } from './VisionTracker.jsx';
-import { withForgeToken } from '@/lib/forge-api.js';
+import { withComposeToken } from '@/lib/compose-api.js';
 
 const STATUS_BG = {
   planned: 'rgba(100,116,139,0.2)',
@@ -179,7 +179,7 @@ function ItemRow({ item, items, connections, onDrillIn, onAction, depth = 0, def
     try {
       await fetch('http://localhost:3002/api/terminal/inject', {
         method: 'POST',
-        headers: withForgeToken({ 'Content-Type': 'application/json' }),
+        headers: withComposeToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ text }),
       });
       // Focus the terminal

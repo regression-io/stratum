@@ -2,12 +2,12 @@
 
 **Date:** 2026-02-11
 **Type:** Progress tracking + process gap analysis
-**Purpose:** Simulate what Forge would track, done manually. Identify where our actual process diverges from what Forge would enforce.
+**Purpose:** Simulate what Compose would track, done manually. Identify where our actual process diverges from what Compose would enforce.
 **Related:** [Integration Roadmap](../plans/2026-02-11-integration-roadmap.md), [Persistence Connector Plan](../plans/2026-02-11-persistence-connector-plan.md), [UI Additions Brief](../specs/2026-02-11-ui-additions-brief.md)
 
 ---
 
-## Work Item Hierarchy (as Forge would track it)
+## Work Item Hierarchy (as Compose would track it)
 
 ```
 w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
@@ -45,7 +45,7 @@ w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
 │   │   Acceptance criteria:
 │   │     [?] Server starts without errors
 │   │     [?] CRUD operations work via curl
-│   │     [?] .forge/ files are human-readable markdown
+│   │     [?] .compose/ files are human-readable markdown
 │   │   ⚠️ NOT VERIFIED — written but never tested
 │   │
 │   ├── w-0.3.4: UI additions delivery                     [COMPLETE]
@@ -74,18 +74,18 @@ w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
 │       Import swap, AuthContext stub, vite proxy, package.json
 │       Gate: Can we create Work items and see them after restart?
 │
-└── ── EARLY HANDOFF: Forge tracks its own work from here ──
+└── ── EARLY HANDOFF: Compose tracks its own work from here ──
 ```
 
 ---
 
 ## What Actually Happened (chronological)
 
-| # | Action | Forge Phase | Process Followed? |
+| # | Action | Compose Phase | Process Followed? |
 |---|--------|-------------|-------------------|
 | 1 | Plan written and approved | Design → Planning | ✅ Yes |
 | 2 | Server + persistence layer coded | Implementation | ⚠️ Partial — written but not tested |
-| 3 | forgeClient.js coded | Implementation | ✅ Yes |
+| 3 | composeClient.js coded | Implementation | ✅ Yes |
 | 4 | Started swapping UI imports | Implementation | ❌ **Gate failure** — UI wasn't ready |
 | 5 | User caught it, reverted | — | ✅ Recovery |
 | 6 | UI additions delivered externally | External delivery | ✅ Happened |
@@ -101,7 +101,7 @@ w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
 
 **What happened:** Plan was approved. Agent immediately started implementing everything — including the UI wiring (import swaps, AuthContext, vite config) — without checking whether the UI it was wiring to was the final version.
 
-**What Forge would enforce:** `w-0.3.8: Wire connector to UI` would have `blocked_by: w-0.3.4 (UI delivery)`. The status of w-0.3.4 was not `complete`, so w-0.3.8 should not have started.
+**What Compose would enforce:** `w-0.3.8: Wire connector to UI` would have `blocked_by: w-0.3.4 (UI delivery)`. The status of w-0.3.4 was not `complete`, so w-0.3.8 should not have started.
 
 **Root cause:** Plan approval was treated as execution trigger for ALL steps. No per-step dependency check.
 
@@ -111,7 +111,7 @@ w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
 
 **What happened:** UI additions were delivered. Agent proposed immediately auditing shape + updating connector + wiring — skipping the delivery-intake evaluation that our own process doc defines.
 
-**What Forge would enforce:** `w-0.3.5: Evaluate UI additions` would be `blocked_by: w-0.3.4` and would `block: w-0.3.6`. The evaluation step is mandatory before integration work begins.
+**What Compose would enforce:** `w-0.3.5: Evaluate UI additions` would be `blocked_by: w-0.3.4` and would `block: w-0.3.6`. The evaluation step is mandatory before integration work begins.
 
 **Root cause:** Implementation bias. The agent sees code changes and wants to write code. The evaluation step feels like overhead when you can "just look at the diffs."
 
@@ -123,7 +123,7 @@ w-bootstrap: Bootstrap Phase 0                              [IN_PROGRESS]
 
 The persistence connector plan was designed against the **original** Base44 UI shape. The UI has since been updated with:
 
-| New Field/Concept | In Plan? | In Server? | In forgeClient? |
+| New Field/Concept | In Plan? | In Server? | In composeClient? |
 |-------------------|----------|------------|-----------------|
 | `type` (task/decision/evaluation/...) | ✅ In connector plan | ❌ Not in create/update | ❌ Not handled |
 | `phase` (discovery/requirements/...) | ✅ In connector plan | ❌ Not in create/update | ❌ Not handled |
@@ -142,13 +142,13 @@ This table is incomplete — it's based on what we know from the diff notificati
 
 ### The problem
 
-The current UI has no onboarding. Open Forge → empty Dashboard → "Create Work Item." This assumes you already know:
+The current UI has no onboarding. Open Compose → empty Dashboard → "Create Work Item." This assumes you already know:
 - What you're building
 - How you want to work (which gates, which policies)
 - What phase you're in
 - What your project structure looks like
 
-But Forge's entire thesis is that **thinking precedes doing.** The tool that structures thinking can't skip its own first-thinking moment.
+But Compose's entire thesis is that **thinking precedes doing.** The tool that structures thinking can't skip its own first-thinking moment.
 
 ### What should happen instead
 
@@ -168,7 +168,7 @@ The first experience should be a **guided conversation** — part chat, part str
 
 ### Why this is fundamental, not cosmetic
 
-Without onboarding, the "early handoff" moment from the roadmap doesn't work. The gate says: "Can we create Work items and see them after restart?" But the real question is: **can Forge host a planning session from the beginning?** Not "can it store data" but "can it guide the thinking that produces the data."
+Without onboarding, the "early handoff" moment from the roadmap doesn't work. The gate says: "Can we create Work items and see them after restart?" But the real question is: **can Compose host a planning session from the beginning?** Not "can it store data" but "can it guide the thinking that produces the data."
 
 The current UI answers the storage question. It doesn't answer the thinking question.
 
@@ -179,7 +179,7 @@ The connector (server + persistence) is infrastructure — needed regardless of 
 - The gate/policy defaults chosen during onboarding affect how everything downstream behaves
 - The first thing the connector stores should be the output of onboarding, not an empty project created from a blank form
 
-### Forge concepts this maps to
+### Compose concepts this maps to
 
 - **Project templates** — Onboarding produces a project scaffold with phase structure, default policies, initial work items
 - **Conversational intake** — Chat-style interaction that produces structured data (this is a connector pattern: conversation → domain objects)
@@ -188,7 +188,7 @@ The connector (server + persistence) is infrastructure — needed regardless of 
 
 ---
 
-## Process Observations for Forge
+## Process Observations for Compose
 
 ### What worked
 
@@ -204,7 +204,7 @@ The connector (server + persistence) is infrastructure — needed regardless of 
 
 2. **Delivery evaluation is not optional.** Every external delivery — whether from Base44, an AI agent, or a user's manual edits — should trigger the delivery-intake process before integration work begins. This should be a gate-mode policy.
 
-3. **Shape drift tracking.** When a plan references a data model and the data model evolves, the plan becomes stale. Forge should surface "plan references stale schema" as a propagation indicator (the `informs` dependency pattern).
+3. **Shape drift tracking.** When a plan references a data model and the data model evolves, the plan becomes stale. Compose should surface "plan references stale schema" as a propagation indicator (the `informs` dependency pattern).
 
 4. **Implementation bias mitigation.** Agents (and humans) want to write code. The process needs friction at the right points — not to slow things down, but to prevent wasted work. The two failures above both would have resulted in code that needed rewriting.
 
@@ -216,9 +216,9 @@ The connector (server + persistence) is infrastructure — needed regardless of 
 
 During this session, the bootstrap approach was fundamentally reframed. See [Agent-Primary Architecture Decision](../decisions/2026-02-11-agent-primary-architecture.md).
 
-**Key insight:** The minimum bootstrap isn't "build infrastructure, then use it." It's "embed an agent that can build anything, then use that." The agent panel + persistence wiring are the only two hard prerequisites. Everything else is built from inside Forge using those two capabilities.
+**Key insight:** The minimum bootstrap isn't "build infrastructure, then use it." It's "embed an agent that can build anything, then use that." The agent panel + persistence wiring are the only two hard prerequisites. Everything else is built from inside Compose using those two capabilities.
 
-**Product framing:** Forge is the first truly agentic IDE — planning to deployment covered agentically. The structured UI is the cockpit (read + quick-write). The agent panel is the copilot (conversation + complex creation + self-modification).
+**Product framing:** Compose is the first truly agentic IDE — planning to deployment covered agentically. The structured UI is the cockpit (read + quick-write). The agent panel is the copilot (conversation + complex creation + self-modification).
 
 ---
 
@@ -231,12 +231,12 @@ DONE                                    NEXT
 ✅ Base44 delivery + evaluation            (trivial — code exists, just connect)
 ✅ UI additions spec + delivery
 ✅ Server + persistence coded           ② Embed agent panel in UI
-✅ forgeClient coded                       (the real design question)
+✅ composeClient coded                       (the real design question)
 ✅ Agent-primary decision                  See: bootstrap-questions.md
                                            Blocked by: Q1 + Q2
 
                                         ③ Everything else — built from
-                                           inside Forge using ① + ②
+                                           inside Compose using ① + ②
 ```
 
 **Open questions before ②:** [bootstrap-questions.md](../plans/2026-02-11-bootstrap-questions.md)
@@ -245,10 +245,10 @@ DONE                                    NEXT
 
 ## The Meta Point (third time)
 
-We've now experienced three levels of what Forge automates:
+We've now experienced three levels of what Compose automates:
 
 1. **Process enforcement** — Gate failures caught by human attention, not by system structure.
 2. **Decision capture** — Architectural pivots happening in chat, manually written to docs after the fact.
 3. **Brainstorming → action** — This conversation produced a decision, open questions, and a revised plan. All manually extracted and filed.
 
-The agent panel solves all three. The conversation IS the brainstorm. The agent captures decisions as they're made. The process docs ARE the enforcement mechanism. And the agent can build whatever Forge needs next — including improving how it does all of this.
+The agent panel solves all three. The conversation IS the brainstorm. The agent captures decisions as they're made. The process docs ARE the enforcement mechanism. And the agent can build whatever Compose needs next — including improving how it does all of this.

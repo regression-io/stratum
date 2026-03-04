@@ -2,7 +2,7 @@
 
 **Purpose:** How to write specs that produce usable deliveries from external builders (human devs, AI agents, platforms).
 
-**Learned from:** UI-BRIEF iteration during Forge planning (2026-02-11)
+**Learned from:** UI-BRIEF iteration during Compose planning (2026-02-11)
 
 ---
 
@@ -75,7 +75,7 @@ Every design doc and plan must include a numbered list of design decisions as ch
 
 ---
 
-## How Forge Should Handle This
+## How Compose Should Handle This
 
 ### Specs as Artifacts
 
@@ -91,8 +91,8 @@ The full cycle:
 5. Gaps become child Work items
 6. Iterate until acceptance criteria are met
 
-This is the same cycle whether the builder is an external platform, an AI agent, or a human developer. Forge doesn't care who builds — it tracks what was requested, what was delivered, and what's left.
+This is the same cycle whether the builder is an external platform, an AI agent, or a human developer. Compose doesn't care who builds — it tracks what was requested, what was delivered, and what's left.
 
 ### Template Support
 
-Forge should support spec templates — the recommended structure above as a starting point when creating a new spec artifact. Not enforced, just offered.
+Compose should support spec templates — the recommended structure above as a starting point when creating a new spec artifact. Not enforced, just offered.

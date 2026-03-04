@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stratum"
+version = "0.1.0"
+description = "Stratum — execution runtime for AI-driven development (meta-package: stratum-py + stratum-mcp)"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+authors = [{name = "Stratum", email = "stratum@regression.io"}]
+keywords = ["llm", "ai", "mcp", "claude-code", "structured-outputs"]
+dependencies = [
+    "stratum-py>=0.1.1",
+    "stratum-mcp[serve]>=0.1.7",
+]
+
+[project.scripts]
+stratum = "stratum_meta.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/regression-io/stratum"
+Repository = "https://github.com/regression-io/stratum"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stratum_meta"]

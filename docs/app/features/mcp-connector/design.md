@@ -21,7 +21,7 @@ This doc captures those decisions formally so they don't live only in chat histo
 
 ## Adoption Decisions
 
-### Decision 1: Add a FastMCP server for Forge tracker state (Phase 4)
+### Decision 1: Add a FastMCP server for Compose tracker state (Phase 4)
 
 **What wt-tools showed:** Their `wt_mcp_server.py` uses [FastMCP](https://github.com/jlowin/fastmcp) — a high-level Python wrapper over the MCP JSON-RPC protocol — to expose agent state as MCP tools. The server reads from local JSON files (`.claude/loop-state.json`, `.claude/activity.json`) with no daemon, no database, no external service.
 
@@ -34,9 +34,9 @@ This doc captures those decisions formally so they don't live only in chat histo
 | `get_ralph_status` | Autonomous loop state (current task, iteration, exit criteria) |
 | `get_team_status` | Cross-machine agent activity via git-branch sync |
 
-**Forge's equivalent:** We have richer tracker state than wt-tools — 123+ items, 141 connections, phase/status/confidence metadata, session accumulator. None of it is currently accessible to agents via MCP. Agents have to read raw markdown or make REST calls (which requires knowing the API).
+**Compose's equivalent:** We have richer tracker state than wt-tools — 123+ items, 141 connections, phase/status/confidence metadata, session accumulator. None of it is currently accessible to agents via MCP. Agents have to read raw markdown or make REST calls (which requires knowing the API).
 
-**Decision:** Build a Forge MCP server (`server/forge-mcp.js` or a Python sidecar) that exposes:
+**Decision:** Build a Compose MCP server (`server/compose-mcp.js` or a Python sidecar) that exposes:
 
 | Tool | What it returns |
 |------|-----------------|
@@ -46,11 +46,11 @@ This doc captures those decisions formally so they don't live only in chat histo
 | `get_phase_summary` | Item counts by status for a given phase |
 | `get_blocked_items` | Items blocked by non-complete dependencies |
 
-This makes Forge's tracker a first-class context source for any agent running in this project — not just agents that know to call `GET /api/vision/items`.
+This makes Compose's tracker a first-class context source for any agent running in this project — not just agents that know to call `GET /api/vision/items`.
 
 **What we're NOT adopting from wt-tools:**
-- Git-branch team sync — Forge is single-machine, single-developer
-- Cross-worktree agent messaging — Forge manages a single worktree's lifecycle
+- Git-branch team sync — Compose is single-machine, single-developer
+- Cross-worktree agent messaging — Compose manages a single worktree's lifecycle
 - Activity JSON files — we have SDK hooks + SSE; no need for file-based polling
 
 **Acceptance criteria:**
@@ -68,7 +68,7 @@ This makes Forge's tracker a first-class context source for any agent running in
 
 **What wt-tools showed:** Their `activity-track.sh` hook skips execution if the target file was updated less than 10 seconds ago. This is because Bash loops fire `PreToolUse` for every iteration — without throttling, you get hundreds of hook calls per session.
 
-**Forge's current state:** `agent-hooks.js` POSTs to api-server (3001) on every `PostToolUse` event with no coalescing. A Bash loop running 50 iterations generates 50 individual HTTP requests to api-server. Each triggers vision broadcast, SessionManager accumulation, and potentially a Haiku batch flush.
+**Compose's current state:** `agent-hooks.js` POSTs to api-server (3001) on every `PostToolUse` event with no coalescing. A Bash loop running 50 iterations generates 50 individual HTTP requests to api-server. Each triggers vision broadcast, SessionManager accumulation, and potentially a Haiku batch flush.
 
 **Decision:** Add a per-tool coalesce window in `agent-hooks.js`. If the same tool fires again within 5 seconds and the file path / command is identical, skip the POST. Distinct tool uses (different files, different commands) still POST immediately.
 
@@ -84,9 +84,9 @@ This makes Forge's tracker a first-class context source for any agent running in
 
 **What wt-tools showed:** Their Ralph Loop stores its state in a flat JSON file at `.claude/loop-state.json`. The schema is minimal: task list, current index, iteration count, exit criteria, last result, started/updated timestamps. No external process, no database. The agent reads it on startup, updates it after each task, and the loop driver just checks it.
 
-**Forge's planned Ralph loops** (roadmap item 23, iteration orchestration) have been under-specified architecturally. wt-tools proves the file-based approach works reliably in production — they ran 12-change benchmarks with 24+ productive iterations using this pattern.
+**Compose's planned Ralph loops** (roadmap item 23, iteration orchestration) have been under-specified architecturally. wt-tools proves the file-based approach works reliably in production — they ran 12-change benchmarks with 24+ productive iterations using this pattern.
 
-**Decision:** Adopt `.claude/loop-state.json` as Forge's Ralph Loop primitive. Schema:
+**Decision:** Adopt `.claude/loop-state.json` as Compose's Ralph Loop primitive. Schema:
 
 ```json
 {
@@ -111,11 +111,11 @@ This makes Forge's tracker a first-class context source for any agent running in
 The SDK's `resume` option (which we now have wired in agent-server) handles session continuity between iterations without additional infrastructure.
 
 **What we're NOT adopting:**
-- wt-tools' `wt-loop` CLI — Forge's loop will be driven by the forge skill, not a separate binary
-- Their per-worktree isolation (git worktrees) — Forge uses session tracking, not branch isolation
+- wt-tools' `wt-loop` CLI — Compose's loop will be driven by the compose skill, not a separate binary
+- Their per-worktree isolation (git worktrees) — Compose uses session tracking, not branch isolation
 
 **Acceptance criteria:**
-- [ ] Forge skill creates `.claude/loop-state.json` when starting a Ralph loop phase
+- [ ] Compose skill creates `.claude/loop-state.json` when starting a Ralph loop phase
 - [ ] Agent reads state on session start (via SessionStart hook or system prompt injection)
 - [ ] Agent updates state after each task via a Write tool call or hook
 - [ ] Loop driver detects completion by reading `tasks[*].status === 'complete'` or iteration limit
@@ -135,7 +135,7 @@ Run B reduced memory noise from 37% to 0% (good), but code map coverage regresse
 
 **The failure mode:** Memories are injected as system-reminder context. When memory is wrong or stale, the agent confidently reproduces the wrong behavior. This is worse than starting from zero.
 
-**Decision for Forge:** When Forge adds memory features (Phase 5 or later), track two distinct metrics separately:
+**Decision for Compose:** When Compose adds memory features (Phase 5 or later), track two distinct metrics separately:
 
 | Metric | Measures |
 |--------|----------|
@@ -155,13 +155,13 @@ Don't ship memory features without a benchmark harness. wt-tools ran 6 versions 
 
 ## Ecosystem Intelligence
 
-From wt-tools' Related Projects table, updated with star counts and relevance to Forge:
+From wt-tools' Related Projects table, updated with star counts and relevance to Compose:
 
 ### Closest competitors (worktree + agent management)
 
-| Project | Stars | Overlap with Forge | Notes |
+| Project | Stars | Overlap with Compose | Notes |
 |---------|-------|--------------------|-------|
-| [claude-squad](https://github.com/smtg-ai/claude-squad) | 6k | High — tmux+worktree, multi-agent TUI | What Forge was before today's SDK migration. Go. |
+| [claude-squad](https://github.com/smtg-ai/claude-squad) | 6k | High — tmux+worktree, multi-agent TUI | What Compose was before today's SDK migration. Go. |
 | [ccpm](https://github.com/automazeio/ccpm) | 7k | Medium — GitHub Issues as PM + agent swarm | Lifecycle-adjacent. External task source vs. internal tracker. |
 | [automaker](https://github.com/AutoMaker-Org/automaker) | 3k | Medium — Electron Kanban + worktree agents | GUI + workflow, Electron (not native web) |
 | [wt-tools](https://github.com/tatargabor/wt-tools) | — | High — full stack reference | Solo dev, well-maintained, Python GUI |
@@ -170,7 +170,7 @@ From wt-tools' Related Projects table, updated with star counts and relevance to
 
 | Project | Stars | Relevance |
 |---------|-------|-----------|
-| [wshobson/agents](https://github.com/wshobson/agents) | 28k | Community plugin ecosystem — 112 agents, 146 skills. Forge's skill architecture should stay compatible. |
+| [wshobson/agents](https://github.com/wshobson/agents) | 28k | Community plugin ecosystem — 112 agents, 146 skills. Compose's skill architecture should stay compatible. |
 | [claude-flow](https://github.com/ruvnet/claude-flow) | 14k | Enterprise agent swarm, 87+ MCP tools. Reference for MCP tool design. |
 | [ralph-orchestrator](https://github.com/mikeyobrien/ralph-orchestrator) | 2k | Rust autonomous loop. Reference for Ralph Loop primitives. |
 
@@ -180,11 +180,11 @@ From wt-tools' Related Projects table, updated with star counts and relevance to
 |---------|-------|-----------|
 | [crystal](https://github.com/stravu/crystal) | — | Desktop app for Claude/Codex. Track for competitive awareness. |
 | [ccmanager](https://github.com/kbwo/ccmanager) | — | Multi-agent session manager. |
-| [ClaudeBar](https://github.com/tddworks/ClaudeBar) | 570 | macOS menu bar API usage. Usage bar idea for Forge header. |
+| [ClaudeBar](https://github.com/tddworks/ClaudeBar) | 570 | macOS menu bar API usage. Usage bar idea for Compose header. |
 
 ### Key observation
 
-**`wshobson/agents` at 28k stars** is the gravity center of the community ecosystem. When Forge gets to Phase 5 (Standalone / Plugin packaging), compatibility with that agent/skill format will matter for adoption. Worth understanding their packaging format before designing Forge's own.
+**`wshobson/agents` at 28k stars** is the gravity center of the community ecosystem. When Compose gets to Phase 5 (Standalone / Plugin packaging), compatibility with that agent/skill format will matter for adoption. Worth understanding their packaging format before designing Compose's own.
 
 ---
 
@@ -193,10 +193,10 @@ From wt-tools' Related Projects table, updated with star counts and relevance to
 | wt-tools feature | Why not |
 |------------------|---------|
 | Shell-script hooks | Replaced by SDK in-process hooks (cleaner, typed, no jq) |
-| Python GUI (PySide6) | Forge's web UI is better — real-time SSE, richer data, no desktop process |
+| Python GUI (PySide6) | Compose's web UI is better — real-time SSE, richer data, no desktop process |
 | Git-branch team sync | Single developer, single machine |
 | Per-worktree activity.json | We have SDK hooks + VisionServer SSE broadcast |
-| OpenSpec skill hierarchy | Forge's lifecycle phases serve the same purpose; no duplication needed |
+| OpenSpec skill hierarchy | Compose's lifecycle phases serve the same purpose; no duplication needed |
 
 ---
 
@@ -205,7 +205,7 @@ From wt-tools' Related Projects table, updated with star counts and relevance to
 Phase 4 items (near-term, before Phase 6):
 
 1. **Hook throttling** — 1–2 hour change in `agent-hooks.js`. Low risk, measurable improvement.
-2. ~~**MCP server**~~ — **Done.** `server/forge-mcp.js`, stdio transport, registered in `.mcp.json`.
+2. ~~**MCP server**~~ — **Done.** `server/compose-mcp.js`, stdio transport, registered in `.mcp.json`.
 3. **MCP query expressiveness** — add `fields` and `statuses[]` parameters to `get_vision_items`. See Decision 5.
 
 Phase 6 items (lifecycle engine):
@@ -224,7 +224,7 @@ Phase 6 items (lifecycle engine):
 
 The structural recommendation: expose MCP tools as a **filesystem of composable TypeScript modules** agents can read on-demand, rather than a monolithic switch-statement server that loads all definitions upfront.
 
-**The scale at which this bites Forge:** Not yet — 5 tools, structured JSON payloads, single-developer localhost. But the design principle applies now: **make existing tools more expressive rather than adding narrowly-scoped tools**. Each new tool that could instead be a parameter on an existing tool avoids a proliferation problem.
+**The scale at which this bites Compose:** Not yet — 5 tools, structured JSON payloads, single-developer localhost. But the design principle applies now: **make existing tools more expressive rather than adding narrowly-scoped tools**. Each new tool that could instead be a parameter on an existing tool avoids a proliferation problem.
 
 **Decisions:**
 
@@ -232,7 +232,7 @@ The structural recommendation: expose MCP tools as a **filesystem of composable 
 
 2. **No new tools for pre-aggregated queries** — if a future use case calls for "items in phase X that are blocked and have confidence < 2," that's a filter combination, not a new tool. Extend `get_vision_items` filter logic instead.
 
-3. **Filesystem-of-modules as Phase 5 target** — if tool count grows past ~20, restructure `forge-mcp.js` as individual files in `server/mcp/<category>/`. The switch statement doesn't scale, and the discovery pattern (agents `ls` the directory) is intrinsically more extensible.
+3. **Filesystem-of-modules as Phase 5 target** — if tool count grows past ~20, restructure `compose-mcp.js` as individual files in `server/mcp/<category>/`. The switch statement doesn't scale, and the discovery pattern (agents `ls` the directory) is intrinsically more extensible.
 
 4. **Orchestration-as-skill** — when a ralph loop runs successfully, the sequence of MCP calls + transforms is a reusable pattern. Phase 5 skill packaging should consider capturing successful loop traces as generatable skills. (Long-term, no immediate action.)
 
@@ -258,31 +258,31 @@ The article names three competing MCP tiers:
 
 | Tier | Pattern | Token cost model |
 |---|---|---|
-| 1 | Dynamic Tool Search (Claude Code, forge-mcp.js) | Medium — filtered subset per task |
+| 1 | Dynamic Tool Search (Claude Code, compose-mcp.js) | Medium — filtered subset per task |
 | 2 | Code Mode — server-side sandbox | Fixed — 2 tools regardless of API size |
 | 3 | CLI passthrough | Variable — self-documenting, broader attack surface |
 
-**Where forge-mcp.js currently sits:** Tier 1. Correct for 5 tools and a 124-item tracker.
+**Where compose-mcp.js currently sits:** Tier 1. Correct for 5 tools and a 124-item tracker.
 
 **Decisions:**
 
 1. **Token budget cap: 2,000 tokens for all tool definitions combined.** Baseline measured 2026-02-24: ~519 tokens for 5 tools. Measure before adding any new tool. If a new capability can be expressed as a parameter on an existing tool (Decision 5), prefer that. Budget is the guard rail against proliferation.
 
-2. **Write operations via typed tools, not sandboxed code execution.** Cloudflare's `execute(jsCode)` approach is justified by multi-tenancy and 2,500+ endpoints — neither applies to Forge. When write operations are needed, add simple typed tools: `update_item(id, fields)`, `create_connection(fromId, toId, type)`. 2-3 tools, typed inputs, no sandbox. Agents that already have Bash access can also use `vision-track.mjs` directly — there is no write gap right now.
+2. **Write operations via typed tools, not sandboxed code execution.** Cloudflare's `execute(jsCode)` approach is justified by multi-tenancy and 2,500+ endpoints — neither applies to Compose. When write operations are needed, add simple typed tools: `update_item(id, fields)`, `create_connection(fromId, toId, type)`. 2-3 tools, typed inputs, no sandbox. Agents that already have Bash access can also use `vision-track.mjs` directly — there is no write gap right now.
 
-3. **The two-tool endgame is not Forge's target.** The correct takeaway from Cloudflare is the budget cap principle, not the architecture. Forge's write surface is small enough that typed tools are always the right answer.
+3. **The two-tool endgame is not Compose's target.** The correct takeaway from Cloudflare is the budget cap principle, not the architecture. Compose's write surface is small enough that typed tools are always the right answer.
 
 **Acceptance criteria for token budget cap:**
-- [x] Baseline token count for current 5-tool `tools/list` response recorded in `forge-mcp.js` (~519 tokens)
+- [x] Baseline token count for current 5-tool `tools/list` response recorded in `compose-mcp.js` (~519 tokens)
 - [ ] 2,000-token soft cap documented — new tools require justification
 - [ ] Write tools (`update_item`, `create_connection`) added as typed tools when needed, not as code execution
 
-**Not applicable to Forge:** OAuth 2.1, V8 Worker isolates, sandboxed `execute()`, multi-tenant MCP portals. Single-user, localhost, small write surface.
+**Not applicable to Compose:** OAuth 2.1, V8 Worker isolates, sandboxed `execute()`, multi-tenant MCP portals. Single-user, localhost, small write surface.
 
 ---
 
 ## Open Questions
 
 - ~~**MCP server language:** Python (FastMCP) vs. Node.js?~~ **Resolved:** Node.js with `@modelcontextprotocol/sdk` — keeps stack homogeneous, comparable ergonomics to FastMCP.
-- ~~**MCP server port:** Dedicated port or stdio?~~ **Resolved:** stdio transport. Claude Code launches `server/forge-mcp.js` on-demand; registered in `.mcp.json`. No port management, no supervisor changes.
+- ~~**MCP server port:** Dedicated port or stdio?~~ **Resolved:** stdio transport. Claude Code launches `server/compose-mcp.js` on-demand; registered in `.mcp.json`. No port management, no supervisor changes.
 - **wshobson/agents format:** Before Phase 5 packaging, understand their skill format to assess compatibility cost.

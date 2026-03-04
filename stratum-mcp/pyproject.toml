@@ -25,6 +25,12 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.optional-dependencies]
+serve = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+]
+
 [project.scripts]
 stratum-mcp = "stratum_mcp.server:main"
 

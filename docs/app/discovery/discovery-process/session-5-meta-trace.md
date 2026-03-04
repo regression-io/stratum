@@ -152,8 +152,8 @@ This is the distillation problem (Gap 3) in action: knowledge generated in conve
 
 ### 27. Crystallize (one-pager)
 **Move:** "do we have our product vision statement?" → "write a one-pager"
-**What happened:** The scattered discovery docs needed consolidation. Wrote forge-one-pager.md — the full vision on one page: what it is, the problem, how it works, features, architecture, who it's for, what it's NOT.
-**Output:** docs/forge-one-pager.md
+**What happened:** The scattered discovery docs needed consolidation. Wrote compose-one-pager.md — the full vision on one page: what it is, the problem, how it works, features, architecture, who it's for, what it's NOT.
+**Output:** docs/compose-one-pager.md
 
 ### 28. Phase transition (vision → requirements)
 **Move:** "how do we get there from here? is the vision enough?"

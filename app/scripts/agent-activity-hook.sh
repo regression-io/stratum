@@ -1,8 +1,8 @@
 #!/bin/bash
-# agent-activity-hook.sh — PostToolUse hook that forwards tool activity to Forge server.
+# agent-activity-hook.sh — PostToolUse hook that forwards tool activity to Compose server.
 #
 # Receives JSON on stdin from Claude Code with tool_name, tool_input, tool_response.
-# POSTs a compact summary to the Forge server which broadcasts it via WebSocket
+# POSTs a compact summary to the Compose server which broadcasts it via WebSocket
 # to the Vision Tracker's agent activity feed.
 #
 # Runs quickly — curl with 1s timeout, backgrounded, non-blocking.

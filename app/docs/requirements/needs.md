@@ -16,7 +16,7 @@ Everything reduces to:
 - **Execute** — direct agents, assign work, monitor progress, collect results (the doing side)
 - **What** — the things being seen, changed, evaluated, and executed
 
-"See where we are" is a cross-cutting need that applies to everything — but it's one facet of See. "Change" is equally fundamental — we don't just observe, we create and evolve. "Evaluate" is the reasoning verb — deliberately testing claims to update certainty. "Execute" is the action verb — Forge doesn't do the work itself, it directs agents who do.
+"See where we are" is a cross-cutting need that applies to everything — but it's one facet of See. "Change" is equally fundamental — we don't just observe, we create and evolve. "Evaluate" is the reasoning verb — deliberately testing claims to update certainty. "Execute" is the action verb — Compose doesn't do the work itself, it directs agents who do.
 
 All four verbs force the question: see WHAT? Change WHAT? Evaluate WHAT? Execute WHAT? Which defines the things.
 
@@ -60,7 +60,7 @@ What does "evaluate" mean in practice?
 
 ## What (the ontology)
 
-Four concepts. Everything in Forge is made of these.
+Four concepts. Everything in Compose is made of these.
 
 ### Items
 
@@ -198,9 +198,9 @@ Transitions between phases are overdetermined — multiple signals converge:
 
 All five happened in our sessions. The criteria aren't exclusive — they co-occur. Processes are the transition mechanism: you *discover* your way from vision to requirements. The process IS the transition.
 
-### What this means for Forge
+### What this means for Compose
 
-Forge can't enforce a linear phase sequence. It needs to:
+Compose can't enforce a linear phase sequence. It needs to:
 - Track the macro phase (where is the center of gravity?)
 - Allow items to exist at any phase regardless of the macro phase
 - Recognize transitions through signals, not declarations

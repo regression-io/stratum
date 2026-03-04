@@ -12,7 +12,7 @@ All findings from design review + SDK contract verification.
 
 | Source | Design/Blueprint Assumption | Reality | Correction |
 |--------|----------------------------|---------|------------|
-| Source code | MCP tools can stream output | MCP is request/response (`forge-mcp.js:299–331`) | `collectStream()` helper; return single text blob |
+| Source code | MCP tools can stream output | MCP is request/response (`compose-mcp.js:299–331`) | `collectStream()` helper; return single text blob |
 | Source code | `agent-mcp.js` needs `requireSensitiveToken` | stdio MCP has no HTTP request object | No auth in MCP server |
 | Source code | `interrupt()` uses `.return()` | SDK has `.interrupt()` abort signal; `.return()` only closes generator, not request | Use `.interrupt()` in `ClaudeSDKConnector` |
 | SDK types `SessionCreateData` | `session.create({ model, variant })` | `session.create()` only accepts `{ parentID?, title? }` | Model goes in `session.prompt()`, not `session.create()` |
@@ -53,7 +53,7 @@ pipelines/
 Base class. JS duck typing — no abstract enforcement, just contract documentation.
 
 ```
-Pattern ref: forge-mcp.js (structural), agent-server.js:176–195 (async generator consumption)
+Pattern ref: compose-mcp.js (structural), agent-server.js:176–195 (async generator consumption)
 
 Class: AgentConnector
 Fields:
@@ -159,7 +159,7 @@ run(prompt, { providerID, modelID, schema, cwd } = {}):
   — if schema: inject schema into prompt:
       prompt = `${prompt}\n\nRespond with valid JSON only, matching this schema:\n${JSON.stringify(schema, null, 2)}`
   — client = await getClient()
-  — session = await client.session.create({ title: `forge-${Date.now()}` })
+  — session = await client.session.create({ title: `compose-${Date.now()}` })
       ↑ session.create only accepts { parentID?, title? } — NO model here
   — #sessionId = session.id
   — yield { type: 'system', subtype: 'init', agent: 'opencode', model: effectiveModel }
@@ -236,7 +236,7 @@ No other overrides. Auth is a setup precondition (`opencode auth login`), not a 
 
 ### `server/agent-mcp.js` (NEW)
 
-Pattern: `server/forge-mcp.js` exactly. Same imports, Server + StdioServerTransport, same handler structure, same return format.
+Pattern: `server/compose-mcp.js` exactly. Same imports, Server + StdioServerTransport, same handler structure, same return format.
 
 **Unified schema handling:** Both `claude_run` and `codex_run` always call `collectStream()` → get text → optionally `JSON.parse()` if `args.schema` was provided. No branching between streaming and structured modes at the MCP layer.
 
@@ -290,7 +290,7 @@ CallToolRequestSchema handler (async):
     }
     return { content: [{ type: 'text', text: output }] }
 
-Startup: same as forge-mcp.js:337–338 — StdioServerTransport, await server.connect(transport)
+Startup: same as compose-mcp.js:337–338 — StdioServerTransport, await server.connect(transport)
 ```
 
 Token budget: 2 tools, concise descriptions ≈ 130 tokens. Within 2,000-token cap.
@@ -299,7 +299,7 @@ Token budget: 2 tools, concise descriptions ≈ 130 tokens. Within 2,000-token c
 
 ### `.mcp.json` (EDIT)
 
-Add after the `"forge"` entry:
+Add after the `"compose"` entry:
 ```json
 "agents": {
   "command": "node",

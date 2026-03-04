@@ -9,13 +9,13 @@
 
 ## Wave 1: Entry Scripts + Roadmap (highest frequency)
 
-These scripts run on every `/forge` and `/roadmap` invocation. Highest token savings per session.
+These scripts run on every `/compose` and `/roadmap` invocation. Highest token savings per session.
 
-### Task 1.1: Create `scripts/forge/` directory and shared helpers
+### Task 1.1: Create `scripts/compose/` directory and shared helpers
 
-**Files:** `scripts/forge/common.sh` (new)
+**Files:** `scripts/compose/common.sh` (new)
 
-- [ ] Create `scripts/forge/` directory
+- [ ] Create `scripts/compose/` directory
 - [ ] Write `common.sh` with shared functions:
   - `json_string()` — safely escape a string for JSON output
   - `json_bool()` — convert test result to `true`/`false`
@@ -26,7 +26,7 @@ These scripts run on every `/forge` and `/roadmap` invocation. Highest token sav
 
 ### Task 1.2: Build `scan-feature.sh`
 
-**Files:** `scripts/forge/scan-feature.sh` (new)
+**Files:** `scripts/compose/scan-feature.sh` (new)
 
 **Input:** `scan-feature.sh <feature-code> [--consume]`
 
@@ -54,7 +54,7 @@ These scripts run on every `/forge` and `/roadmap` invocation. Highest token sav
 
 ### Task 1.3: Build `roadmap-status.sh`
 
-**Files:** `scripts/forge/roadmap-status.sh` (new)
+**Files:** `scripts/compose/roadmap-status.sh` (new)
 
 **Input:** `roadmap-status.sh [--source <path>]`
 
@@ -75,9 +75,9 @@ These scripts run on every `/forge` and `/roadmap` invocation. Highest token sav
 - [ ] Compute `next_recommended`: first unblocked PLANNED item
 - [ ] Output JSON to stdout
 
-### Task 1.4: Rewrite forge skill entry section
+### Task 1.4: Rewrite compose skill entry section
 
-**Files:** `~/.claude/skills/forge/SKILL.md` (existing)
+**Files:** `~/.claude/skills/compose/SKILL.md` (existing)
 
 - [ ] Replace "Entry: Scan First, Then Decide" section (~25 lines) with script invocation (~10 lines)
 - [ ] Replace "Phase Selection" table (~15 lines) with "interpret JSON output" guidance (~5 lines)
@@ -110,17 +110,17 @@ These scripts run on every `/forge` and `/roadmap` invocation. Highest token sav
   - Assert source discovery finds CLAUDE.md roadmap section
 - [ ] All tests use `jq` to validate JSON structure
 
-**Acceptance:** `scan-feature.sh` and `roadmap-status.sh` produce correct JSON for all fixtures. Forge and roadmap skills are shorter. No behavioral regression.
+**Acceptance:** `scan-feature.sh` and `roadmap-status.sh` produce correct JSON for all fixtures. Compose and roadmap skills are shorter. No behavioral regression.
 
 ---
 
 ## Wave 2: Blueprint Pipeline (Phase 4-5 scripts)
 
-These scripts support the blueprint creation and verification phases — the most verbose prose in the forge skill.
+These scripts support the blueprint creation and verification phases — the most verbose prose in the compose skill.
 
 ### Task 2.1: Build `extract-spec-refs.sh`
 
-**Files:** `scripts/forge/extract-spec-refs.sh` (new)
+**Files:** `scripts/compose/extract-spec-refs.sh` (new)
 
 **Input:** `extract-spec-refs.sh <markdown-path>`
 
@@ -138,7 +138,7 @@ These scripts support the blueprint creation and verification phases — the mos
 
 ### Task 2.2: Build `verify-refs.sh`
 
-**Files:** `scripts/forge/verify-refs.sh` (new)
+**Files:** `scripts/compose/verify-refs.sh` (new)
 
 **Input:** `verify-refs.sh <markdown-path>`
 
@@ -153,7 +153,7 @@ These scripts support the blueprint creation and verification phases — the mos
 
 ### Task 2.3: Build `check-overlaps.sh`
 
-**Files:** `scripts/forge/check-overlaps.sh` (new)
+**Files:** `scripts/compose/check-overlaps.sh` (new)
 
 **Input:** `check-overlaps.sh <feature-code>`
 
@@ -165,14 +165,14 @@ These scripts support the blueprint creation and verification phases — the mos
 - [ ] Output JSON: `{overlaps: [{feature, shared_files, shared_count}]}`
 - [ ] Empty `overlaps` array if no conflicts
 
-### Task 2.4: Rewrite forge Phases 4-5
+### Task 2.4: Rewrite compose Phases 4-5
 
-**Files:** `~/.claude/skills/forge/SKILL.md` (existing)
+**Files:** `~/.claude/skills/compose/SKILL.md` (existing)
 
 - [ ] Phase 4: Replace "Check for overlapping in-flight features" prose with `check-overlaps.sh` call
 - [ ] Phase 4: Replace "identify critical source files" prose with `extract-spec-refs.sh` call
 - [ ] Phase 5: Replace the entire 15-line verification procedure with `verify-refs.sh` call + "if any stale/missing, loop back to Phase 4"
-- [ ] Keep agent orchestration prose (forge-explorer launch, forge-architect mandates)
+- [ ] Keep agent orchestration prose (compose-explorer launch, compose-architect mandates)
 - [ ] Keep gate descriptions
 
 ### Task 2.5: Rewrite implement-blueprint skill
@@ -195,7 +195,7 @@ These scripts support the blueprint creation and verification phases — the mos
 - [ ] Write `test/scripts/test-extract-spec-refs.sh`
 - [ ] Write `test/scripts/test-check-overlaps.sh`
 
-**Acceptance:** `verify-refs.sh` correctly identifies stale references in fixture. `check-overlaps.sh` detects shared files between fixture blueprints. Forge skill Phases 4-5 are shorter. No behavioral regression.
+**Acceptance:** `verify-refs.sh` correctly identifies stale references in fixture. `check-overlaps.sh` detects shared files between fixture blueprints. Compose skill Phases 4-5 are shorter. No behavioral regression.
 
 ---
 
@@ -203,7 +203,7 @@ These scripts support the blueprint creation and verification phases — the mos
 
 ### Task 3.1: Build `gather-triage.sh`
 
-**Files:** `scripts/forge/gather-triage.sh` (new)
+**Files:** `scripts/compose/gather-triage.sh` (new)
 
 **Input:** `gather-triage.sh [--test <test-path>] [--error <error-message>] [--file <suspect-file>]`
 
@@ -215,7 +215,7 @@ These scripts support the blueprint creation and verification phases — the mos
 
 ### Task 3.2: Build `spec-reality-diff.sh`
 
-**Files:** `scripts/forge/spec-reality-diff.sh` (new)
+**Files:** `scripts/compose/spec-reality-diff.sh` (new)
 
 **Input:** `spec-reality-diff.sh <spec-path>`
 
@@ -269,18 +269,18 @@ These scripts support the blueprint creation and verification phases — the mos
 ### Task 4.3: Final skill audit
 
 - [ ] Re-count lines in all modified skills
-- [ ] Verify forge skill is under 200 lines
+- [ ] Verify compose skill is under 200 lines
 - [ ] Verify no procedure prose remains that should be a script
 - [ ] Verify all scripts referenced in skills actually exist
-- [ ] Run full `/forge` lifecycle on a test feature to confirm no regression
+- [ ] Run full `/compose` lifecycle on a test feature to confirm no regression
 
 ### Task 4.4: Update documentation
 
-- [ ] Add "Script Architecture" section to CLAUDE.md describing the `scripts/forge/` convention
+- [ ] Add "Script Architecture" section to CLAUDE.md describing the `scripts/compose/` convention
 - [ ] Update CHANGELOG.md with the script extraction work
-- [ ] Add `scripts/forge/README.md` with usage examples for each script
+- [ ] Add `scripts/compose/README.md` with usage examples for each script
 
-**Acceptance:** All tests pass. All skills under target line counts. `/forge` lifecycle works end-to-end. Documentation updated.
+**Acceptance:** All tests pass. All skills under target line counts. `/compose` lifecycle works end-to-end. Documentation updated.
 
 ---
 
@@ -301,5 +301,5 @@ Waves 1-3 are each independently shippable. Each wave produces working scripts +
 |---|---|---|
 | Script language | Bash vs Node.js | **Bash** for file operations (lighter, no startup cost). Node only if JSON assembly gets complex enough to warrant it. |
 | `jq` requirement | Hard require vs fallback to `node -e` | **Hard require** with install hint. `jq` is the standard tool for JSON in shell. |
-| Script location | `scripts/forge/` (project) vs `~/.claude/scripts/` (global) | **Project** (`scripts/forge/`). Scripts reference project-specific paths. |
+| Script location | `scripts/compose/` (project) vs `~/.claude/scripts/` (global) | **Project** (`scripts/compose/`). Scripts reference project-specific paths. |
 | Test framework | Plain bash assertions vs bats-core | **Plain bash**. No external dependency. `[ "$actual" = "$expected" ] || fail` is sufficient. |

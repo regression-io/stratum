@@ -1,4 +1,4 @@
-# Forge: Product Requirements Document
+# Compose: Product Requirements Document
 
 **Date:** 2026-02-11
 **Status:** LIVING DRAFT — evolves as use cases are collected and the product is built
@@ -8,7 +8,7 @@
 
 ## Vision
 
-Forge is a mission control system for AI-driven software development. It gives developers a visual command center to plan, track, and direct AI agents building software — replacing scattered markdown files, mental models, and context-switching with structured, visual, policy-driven project management.
+Compose is a mission control system for AI-driven software development. It gives developers a visual command center to plan, track, and direct AI agents building software — replacing scattered markdown files, mental models, and context-switching with structured, visual, policy-driven project management.
 
 ## Target User
 
@@ -186,7 +186,7 @@ Proof that work was done correctly.
 Work across multiple repositories and projects.
 
 **7.1 Project registry**
-- Register multiple projects/repos in a single Forge instance
+- Register multiple projects/repos in a single Compose instance
 - Each project has its own default policies and scope
 
 **7.2 Cross-project work**
@@ -200,7 +200,7 @@ Work across multiple repositories and projects.
 
 ### 8. Connectors
 
-Forge is a hub, not an island. Connectors allow importing from, exporting to, and syncing with external systems. Forge should never require users to abandon existing tools — it orchestrates across them.
+Compose is a hub, not an island. Connectors allow importing from, exporting to, and syncing with external systems. Compose should never require users to abandon existing tools — it orchestrates across them.
 
 **8.1 Source document connectors (import/link)**
 - **Markdown files** — Import or link existing plan files, design specs, READMEs as artifacts on work items. Watch for changes.
@@ -209,24 +209,24 @@ Forge is a hub, not an island. Connectors allow importing from, exporting to, an
 - **Google Docs** — Link documents as artifacts on work items.
 - **Confluence** — Import pages as artifacts.
 - **Notion** — Import pages/databases as work items or artifacts.
-- General: any connector imports into Forge's native Work model. Source format doesn't affect internal structure.
+- General: any connector imports into Compose's native Work model. Source format doesn't affect internal structure.
 
 **8.2 PM system connectors (bidirectional sync)**
-- **GitHub Issues/Projects** — Sync work items ↔ issues. Status changes propagate both directions. Labels, milestones, assignees map to Forge equivalents.
-- **JIRA** — Sync work items ↔ JIRA issues. Map JIRA workflows to Forge status lifecycle.
+- **GitHub Issues/Projects** — Sync work items ↔ issues. Status changes propagate both directions. Labels, milestones, assignees map to Compose equivalents.
+- **JIRA** — Sync work items ↔ JIRA issues. Map JIRA workflows to Compose status lifecycle.
 - **Linear** — Sync work items ↔ Linear issues. Map Linear states and labels.
 - **Local filesystem** — Export/import work items as structured files (JSON/YAML) for version control or backup.
-- General: Forge is the orchestration layer. External PM systems can be the execution layer for teams that already use them.
+- General: Compose is the orchestration layer. External PM systems can be the execution layer for teams that already use them.
 
 **8.3 AI agent connectors**
 - **Claude Code** — MCP server + hooks + context injection (primary, Phase 2+)
 - **GitHub Copilot Workspace** — Work item sync for Copilot-driven sessions
 - **Devin** — Task assignment via Devin's API
 - **Cursor** — Context file generation for Cursor sessions
-- General: any agent that can read a context file or call an API can be a Forge session.
+- General: any agent that can read a context file or call an API can be a Compose session.
 
 **8.4 Connector principles**
-- Forge's internal model is always the source of truth for structure and policies
+- Compose's internal model is always the source of truth for structure and policies
 - External systems are sources of truth for their own data (content, comments, reactions)
 - Sync is configurable: one-way import, one-way export, or bidirectional
 - Sync frequency is configurable: on-demand, periodic, or real-time (webhooks)
@@ -247,34 +247,34 @@ Forge is a hub, not an island. Connectors allow importing from, exporting to, an
 
 ### Workflow B: Start a Claude Code session
 1. Developer opens Claude Code
-2. Forge presents available work (unblocked, unassigned items)
+2. Compose presents available work (unblocked, unassigned items)
 3. Developer (or Claude) claims a work item
-4. Forge generates context briefing: what to do, acceptance criteria, scope, policies
+4. Compose generates context briefing: what to do, acceptance criteria, scope, policies
 5. Claude works within the boundaries
 6. Claude reports progress and evidence
-7. On completion, Forge evaluates policies and transitions status
+7. On completion, Compose evaluates policies and transitions status
 
 ### Workflow C: Monitor parallel work
 1. Three Claude sessions are running on different tasks
-2. Developer opens Forge dashboard
+2. Developer opens Compose dashboard
 3. Sees all three sessions, what they're working on, progress
 4. One session hits a gate (needs approval to cross a scope boundary)
 5. Developer reviews and approves in the UI
 6. Session proceeds
-7. Another session completes; Forge auto-checks criteria and moves to complete
+7. Another session completes; Compose auto-checks criteria and moves to complete
 
 ### Workflow D: Respond to a flagged issue
 1. A session proceeds on a task (flag mode for scope)
 2. It touches a file outside the defined scope
-3. Forge flags this in the notification queue
+3. Compose flags this in the notification queue
 4. Developer reviews: was this justified or a mistake?
 5. Developer either acknowledges (no action) or intervenes (revert, reassign, tighten policy)
 
-### Workflow E: Dogfood — use Forge to build Forge
-1. Forge's own development is tracked in Forge
-2. Features, phases, tasks for Forge are work items in Forge
-3. Policies enforce Forge's own conventions
-4. Claude Code sessions building Forge are managed by Forge
+### Workflow E: Dogfood — use Compose to build Compose
+1. Compose's own development is tracked in Compose
+2. Features, phases, tasks for Compose are work items in Compose
+3. Policies enforce Compose's own conventions
+4. Claude Code sessions building Compose are managed by Compose
 5. The product validates itself through use
 
 ---
@@ -285,7 +285,7 @@ Forge is a hub, not an island. Connectors allow importing from, exporting to, an
 - **Big picture clarity**: Opening the dashboard answers "where are we" in <10 seconds
 - **Parallel safety**: Multiple agent sessions never conflict or duplicate work
 - **Policy compliance**: Agents stay within defined boundaries >95% of the time
-- **Self-hosting**: Forge is used to manage its own development within 2 weeks of first prototype
+- **Self-hosting**: Compose is used to manage its own development within 2 weeks of first prototype
 
 ---
 
@@ -293,7 +293,7 @@ Forge is a hub, not an island. Connectors allow importing from, exporting to, an
 
 The full PRD describes the complete product (scope A). Delivery is phased so each increment is usable and dogfoods the next. The data model and API surface are designed for A from day one — phases are additive, not transformative.
 
-### Phase 1: Visual Planning (dogfood: Forge manages its own planning)
+### Phase 1: Visual Planning (dogfood: Compose manages its own planning)
 
 **Scope:** Work hierarchy + artifacts + visual dashboard. Policies and Sessions exist in the data model but are not active in the UI.
 
@@ -310,9 +310,9 @@ The full PRD describes the complete product (scope A). Delivery is phased so eac
 
 **Use cases covered:** UC-1 (where are we), UC-4 (decomposition — manual only), UC-5 (cross-project tracking), UC-6 (planning loop)
 
-**Dogfood gate:** Forge's own Phase 2 planning is managed inside Forge.
+**Dogfood gate:** Compose's own Phase 2 planning is managed inside Compose.
 
-### Phase 2: Session Management (dogfood: Claude Code claims work from Forge)
+### Phase 2: Session Management (dogfood: Claude Code claims work from Compose)
 
 **Scope:** Session identity, assignment, context briefing. Claude Code integration via MCP server.
 
@@ -327,9 +327,9 @@ The full PRD describes the complete product (scope A). Delivery is phased so eac
 
 **Use cases covered:** UC-2 (session assignment), UC-7 (context recovery)
 
-**Dogfood gate:** Claude Code sessions building Forge get their assignments from Forge.
+**Dogfood gate:** Claude Code sessions building Compose get their assignments from Compose.
 
-### Phase 3: Policy Enforcement (dogfood: Forge enforces its own conventions)
+### Phase 3: Policy Enforcement (dogfood: Compose enforces its own conventions)
 
 **Scope:** 3-mode dials go live. Gates, flags, verification.
 
@@ -345,9 +345,9 @@ The full PRD describes the complete product (scope A). Delivery is phased so eac
 
 **Use cases covered:** UC-3 (agent guardrails)
 
-**Dogfood gate:** Forge policies enforce scope and verification on its own tasks.
+**Dogfood gate:** Compose policies enforce scope and verification on its own tasks.
 
-### Phase 4: Live Coordination (dogfood: parallel agents building Forge simultaneously)
+### Phase 4: Live Coordination (dogfood: parallel agents building Compose simultaneously)
 
 **Scope:** Real-time monitoring, parallel session coordination, evidence collection.
 
@@ -359,7 +359,7 @@ The full PRD describes the complete product (scope A). Delivery is phased so eac
 - Session history and audit trail
 - Hooks integration (pre-commit, post-tool enforcement)
 
-**Dogfood gate:** 3+ parallel Claude Code sessions building Forge features simultaneously, managed entirely within Forge.
+**Dogfood gate:** 3+ parallel Claude Code sessions building Compose features simultaneously, managed entirely within Compose.
 
 ---
 

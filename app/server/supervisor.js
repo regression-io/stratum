@@ -1,5 +1,5 @@
 /**
- * Process supervisor for Forge.
+ * Process supervisor for Compose.
  * Manages three independent processes:
  *   1. API server (port 3001) — Express + file-watcher + vision
  *   2. Agent server (port 3002) — SDK streaming, structured messages (Tier 1, immortal)
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const PID_FILE = path.join(PROJECT_ROOT, '.forge-supervisor.pid');
+const PID_FILE = path.join(PROJECT_ROOT, '.compose-supervisor.pid');
 
 const PROCESSES = [
   {
@@ -50,13 +50,13 @@ const GIVE_UP_AFTER = 60_000; // stop retrying after 1 min of continuous failure
 
 let stopping = false;
 
-function ensureForgeApiToken() {
-  if (!process.env.FORGE_API_TOKEN) {
-    process.env.FORGE_API_TOKEN = crypto.randomBytes(24).toString('hex');
-    console.log('[supervisor] Generated FORGE_API_TOKEN for this session');
+function ensureComposeApiToken() {
+  if (!process.env.COMPOSE_API_TOKEN) {
+    process.env.COMPOSE_API_TOKEN = crypto.randomBytes(24).toString('hex');
+    console.log('[supervisor] Generated COMPOSE_API_TOKEN for this session');
   }
   // Expose the same token to Vite client code.
-  process.env.VITE_FORGE_API_TOKEN = process.env.FORGE_API_TOKEN;
+  process.env.VITE_COMPOSE_API_TOKEN = process.env.COMPOSE_API_TOKEN;
   // Expose AGENT_PORT so AgentStream.jsx can reach the right port
   process.env.VITE_AGENT_PORT = process.env.AGENT_PORT || '3002';
 }
@@ -93,7 +93,7 @@ function removePidFile() {
 
 // Kill old supervisor before anything else
 killExistingSupervisor();
-ensureForgeApiToken();
+ensureComposeApiToken();
 
 // Kill anything listening on our ports (stale children from old supervisor)
 function freePort(port, childPid) {

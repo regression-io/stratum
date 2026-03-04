@@ -6,7 +6,7 @@ Stratum MCP server for Claude Code. Structured execution, typed contracts, postc
 
 ```bash
 pip install stratum-mcp
-stratum-mcp setup
+stratum-mcp install
 ```
 
 `setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code and it's active.

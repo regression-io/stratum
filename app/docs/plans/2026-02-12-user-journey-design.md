@@ -6,7 +6,7 @@
 
 ## The Intended Experience
 
-User says "Build me X." Forge decomposes, asks the right questions, makes decisions (or prompts the user to make them), designs, plans, and directs agents to build it. One prompt in, working product out.
+User says "Build me X." Compose decomposes, asks the right questions, makes decisions (or prompts the user to make them), designs, plans, and directs agents to build it. One prompt in, working product out.
 
 The user's primary interaction is **steering**, not driving. They see what's happening, intervene when they want to, and let the pipeline run when they don't.
 
@@ -20,11 +20,11 @@ The user types a prompt in the terminal. This is the only required input.
 > Build me a task management app with Google auth and real-time sync
 ```
 
-Forge intercepts this (or the agent reads it) and begins decomposition. The Vision Surface opens automatically.
+Compose intercepts this (or the agent reads it) and begins decomposition. The Vision Surface opens automatically.
 
 **What the user sees:** Terminal shows the agent thinking. Vision Surface shows items appearing in real time as the agent decomposes the goal.
 
-### 2. Discovery: Forge Asks, User Steers
+### 2. Discovery: Compose Asks, User Steers
 
 The agent identifies ambiguities and surfaces them as **decision chips** — contextual UI elements that appear at the moment a decision is needed.
 
@@ -102,7 +102,7 @@ The user's primary control. Sets the default for how much autonomy the agent has
 
 | Mode | Behavior | When to use |
 |------|----------|-------------|
-| **Gate** | Agent stops at every decision point. User approves each step. | Exploring unfamiliar territory. Learning what Forge does. |
+| **Gate** | Agent stops at every decision point. User approves each step. | Exploring unfamiliar territory. Learning what Compose does. |
 | **Flag** | Agent proceeds with reasonable defaults. User gets notifications. | Normal operation. Trust the agent, review the output. |
 | **Skip** | Agent proceeds silently. Decisions logged but not surfaced. | Well-understood domains. "Just build it." |
 

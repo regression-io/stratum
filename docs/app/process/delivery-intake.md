@@ -76,9 +76,9 @@ Each gap (structural or functional) becomes a work item with:
 
 ---
 
-## How Forge Should Handle This
+## How Compose Should Handle This
 
-This manual process maps directly to Forge workflows:
+This manual process maps directly to Compose workflows:
 
 ### As a Work Item Type
 
@@ -90,7 +90,7 @@ A delivery intake is a Work item in `review` status with:
 
 ### As a Reusable Pattern
 
-Forge should support "evaluation templates" — a standard set of acceptance criteria categories (structural, functional, expected, surplus) that can be applied to any delivery review. This isn't a special feature; it's a work item pattern with structured children.
+Compose should support "evaluation templates" — a standard set of acceptance criteria categories (structural, functional, expected, surplus) that can be applied to any delivery review. This isn't a special feature; it's a work item pattern with structured children.
 
 ### Policy Implications
 
@@ -100,12 +100,12 @@ The gap classification maps to policies:
 - **Expected gaps** = skip (no action needed, already accounted for)
 - **Surplus** = flag (needs a keep/strip/ignore decision)
 
-### What Forge Automates
+### What Compose Automates
 
-In later phases, Forge can:
+In later phases, Compose can:
 - Auto-generate the gap classification by comparing delivery evidence against acceptance criteria
 - Auto-create child work items from identified gaps
 - Apply the unblocking order based on dependency analysis
 - Track which gaps are structural (blocking) vs. functional (parallel-workable)
 
-For now, we do this manually. The process doc is the spec for what Forge eventually does.
+For now, we do this manually. The process doc is the spec for what Compose eventually does.

@@ -6,7 +6,7 @@ import ChatInput from './agent/ChatInput.jsx';
  * AgentStream — structured SDK message stream + chat input.
  *
  * Replaces Terminal.jsx. Connects to agent-server via SSE (port 3002/3003),
- * renders typed SDK messages, and dispatches the same forge:agent-status
+ * renders typed SDK messages, and dispatches the same compose:agent-status
  * CustomEvent that AgentPanel.jsx listens for — so the sidebar needs zero changes.
  *
  * Singleton pattern (module-level _state) mirrors Terminal.jsx so that Vite HMR
@@ -14,7 +14,7 @@ import ChatInput from './agent/ChatInput.jsx';
  */
 
 const AGENT_PORT = parseInt(import.meta.env.VITE_AGENT_PORT || '3002', 10);
-const SESSION_STORAGE_KEY = 'forge-agent-session';
+const SESSION_STORAGE_KEY = 'compose-agent-session';
 const MAX_MESSAGES = 500;
 const MAX_ACTIVITY_LOG = 8;
 const IDLE_DEBOUNCE_MS = 2000;
@@ -119,7 +119,7 @@ function setAgentStatus(status, tool, category) {
   };
 
   if (_state.onAgentStatusChange) _state.onAgentStatusChange({ ...payload });
-  window.dispatchEvent(new CustomEvent('forge:agent-status', { detail: payload }));
+  window.dispatchEvent(new CustomEvent('compose:agent-status', { detail: payload }));
 }
 
 function processMessage(msg) {
@@ -216,7 +216,7 @@ function scheduleReconnect() {
 // REST helpers — send to agent-server
 // ---------------------------------------------------------------------------
 
-const FORGE_TOKEN = import.meta.env.VITE_FORGE_API_TOKEN;
+const COMPOSE_TOKEN = import.meta.env.VITE_COMPOSE_API_TOKEN;
 
 async function postAgent(path, body) {
   const res = await fetch(
@@ -225,7 +225,7 @@ async function postAgent(path, body) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-forge-token': FORGE_TOKEN || '',
+        'x-compose-token': COMPOSE_TOKEN || '',
       },
       body: JSON.stringify(body),
     }

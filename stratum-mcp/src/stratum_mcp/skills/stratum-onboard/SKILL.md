@@ -9,7 +9,7 @@ Read an unfamiliar codebase and populate `MEMORY.md` with project-specific patte
 
 ## When to Use
 
-- Right after `stratum-mcp setup` on an existing project
+- Right after `stratum-mcp install` on an existing project
 - When joining a new codebase and wanting Stratum skills to be immediately useful
 - When `MEMORY.md` is empty or missing and you've already run several sessions
 
@@ -162,23 +162,22 @@ flows:
         depends_on: [s2, s3]
 ```
 
-## Writing MEMORY.md
+## Memory
 
-After the flow completes, write the entries to `.claude/memory/MEMORY.md` (create the directory and file if missing). Format:
+**Before writing the spec:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). If entries already exist, note what's been captured so the flow focuses on gaps rather than duplicating known patterns.
+
+**After `stratum_audit`:** The `write_memory` step produces the entries — write them to `.claude/memory/MEMORY.md` (create directory and file if missing). Tag each entry with the skill it applies to and add a session marker:
 
 ```markdown
 <!-- stratum-onboard: <date> -->
 [stratum-feature] <entry>
-[stratum-feature] <entry>
-[stratum-debug] <entry>
 [stratum-debug] <entry>
 [stratum-refactor] <entry>
 [stratum-review] <entry>
 [stratum-test] <entry>
-[stratum-test] <entry>
 ```
 
-Only write entries that would change what a skill does on this project. Aim for 8–15 entries total.
+Only write entries that would change what a skill does on this project. Aim for 8–15 entries total. Skip generic observations true of all codebases.
 
 ## Narration Pattern
 

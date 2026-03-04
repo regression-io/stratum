@@ -1088,7 +1088,7 @@ export class VisionServer {
       }
     } catch { /* journal dir might not exist */ }
 
-    const prompt = `You are writing a developer journal entry for the Forge project.
+    const prompt = `You are writing a developer journal entry for the Compose project.
 Read the transcript at: ${transcriptPath}
 Write a journal entry at docs/journal/${today}-session-${sessionNum}-<slug>.md following the exact format of existing entries in docs/journal/. Use first person plural ("we"). Be honest about failures.
 Session data:

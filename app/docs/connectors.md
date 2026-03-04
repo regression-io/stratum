@@ -1,4 +1,4 @@
-# Forge: Connector Architecture
+# Compose: Connector Architecture
 
 **Date:** 2026-02-11
 **Status:** SKELETON — to be expanded as connectors are designed and built
@@ -8,7 +8,7 @@
 
 ## Principle
 
-Forge's core knows about domain objects: Work, Policy, Session, dependencies, artifacts, evidence. Connectors translate between domain objects and external systems. No connector has special access to internals. All connectors consume the same interface.
+Compose's core knows about domain objects: Work, Policy, Session, dependencies, artifacts, evidence. Connectors translate between domain objects and external systems. No connector has special access to internals. All connectors consume the same interface.
 
 ---
 
@@ -18,7 +18,7 @@ Forge's core knows about domain objects: Work, Policy, Session, dependencies, ar
 
 **Direction:** Bidirectional (read/write domain objects)
 
-**Forge domain → Storage:**
+**Compose domain → Storage:**
 - CRUD for Work, Dependency, Project, Policy, Session
 - Query: filter, sort, search across entities
 - History: track changes over time
@@ -33,7 +33,7 @@ Forge's core knows about domain objects: Work, Policy, Session, dependencies, ar
 
 **Direction:** Bidirectional
 
-**Forge → Agent (outbound):**
+**Compose → Agent (outbound):**
 
 | Domain Object | What the agent receives |
 |---------------|----------------------|
@@ -43,20 +43,20 @@ Forge's core knows about domain objects: Work, Policy, Session, dependencies, ar
 | Acceptance criteria | What "done" looks like, verifiable conditions |
 | Memory | Persistent knowledge relevant to this work |
 
-**Agent → Forge (inbound):**
+**Agent → Compose (inbound):**
 
-| Agent activity | What Forge receives |
+| Agent activity | What Compose receives |
 |---------------|-------------------|
 | Progress | Files changed, status updates, partial completions |
 | Evidence | Commits, test results, logs |
 | Session transcript | Raw conversation for distillation |
 | Completion | Work item done, criteria self-assessed |
 
-**The connector's job:** Translate Forge domain objects into the agent's native format, and translate agent activity back into Forge domain objects.
+**The connector's job:** Translate Compose domain objects into the agent's native format, and translate agent activity back into Compose domain objects.
 
 #### Claude Code connector (specific)
 
-| Forge concept | Claude Code native format |
+| Compose concept | Claude Code native format |
 |---------------|--------------------------|
 | Briefing | CLAUDE.md, memory files, context injection |
 | Policies | Hooks (pre-commit, post-tool), scope rules |
@@ -82,8 +82,8 @@ Forge's core knows about domain objects: Work, Policy, Session, dependencies, ar
 
 **Direction:** Bidirectional (read domain objects, write user actions)
 
-**Forge → UI:** Render Work items, hierarchy, dependencies, artifacts, status
-**UI → Forge:** Create, update, delete Work items, change status, add artifacts
+**Compose → UI:** Render Work items, hierarchy, dependencies, artifacts, status
+**UI → Compose:** Create, update, delete Work items, change status, add artifacts
 
 The current Base44 React app is a UI connector. It could be replaced by a CLI, a TUI, a different web framework, or a mobile app — all consuming the same domain interface.
 
@@ -93,7 +93,7 @@ The current Base44 React app is a UI connector. It could be replaced by a CLI, a
 
 **Direction:** Primarily inbound
 
-| Source | What it produces in Forge |
+| Source | What it produces in Compose |
 |--------|--------------------------|
 | Markdown files | Artifacts on Work items |
 | GitHub Issues/PRs | Work items or artifacts, evidence from commits |
@@ -106,7 +106,7 @@ The current Base44 React app is a UI connector. It could be replaced by a CLI, a
 
 **Direction:** Bidirectional
 
-| System | Forge → External | External → Forge |
+| System | Compose → External | External → Compose |
 |--------|------------------|------------------|
 | GitHub Issues/Projects | Work items → Issues, status → labels | Issues → Work items, comments → artifacts |
 | Linear | Work items → Issues, status → state | Issues → Work items |
@@ -133,8 +133,8 @@ Connector {
   health()
 
   // Data flow
-  push(domain_objects)    // Forge → external
-  pull()                  // external → Forge
+  push(domain_objects)    // Compose → external
+  pull()                  // external → Compose
   subscribe(event_type)   // real-time updates
 }
 ```
@@ -149,4 +149,4 @@ This is a skeleton. The actual interface will be designed when the first non-per
 - How granular is the push/pull? (Whole entities? Deltas? Field-level?)
 - How does auth work per connector? (Stored in Project settings? Environment variables?)
 - Should connectors be plugins (dynamic loading) or compiled-in?
-- How does the Claude Code connector handle multiple concurrent sessions against the same Forge instance?
+- How does the Claude Code connector handle multiple concurrent sessions against the same Compose instance?

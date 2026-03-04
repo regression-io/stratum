@@ -126,11 +126,11 @@ Ready to implement when you are. Or redirect me if the approach isn't right.
 
 ## Memory
 
-**Before writing the spec:** Read the project's `MEMORY.md`. Find any lines tagged `[stratum-feature]`. These encode patterns like module boundaries, test conventions, or constraints that prior sessions discovered — incorporate them into the design step's context.
+**Before writing the spec:** Read the project's `MEMORY.md`. Find any lines tagged `[stratum-plan]` or `[stratum-feature]`. `[stratum-plan]` entries encode design decisions and constraints from previous planning sessions; `[stratum-feature]` entries encode implementation patterns worth anticipating in the design. Incorporate both into the design step's context.
 
-**After the plan is approved and implemented** (via `/stratum-feature`): If the design step surfaced a non-obvious constraint or trade-off, append to `MEMORY.md`:
+**After the plan is approved and implemented** (via `/stratum-feature`): If the design step surfaced a non-obvious constraint or trade-off that would change a future planning decision, append to `MEMORY.md`:
 
 ```
-[stratum-feature] rate limiting belongs in middleware, not route handlers — existing pattern at routes/auth.py
-[stratum-feature] new modules must be registered in app/registry.py or they won't be discovered
+[stratum-plan] rate limiting belongs in middleware, not route handlers — confirmed during planning
+[stratum-plan] new modules must be registered in app/registry.py — discovered as a design blocker
 ```

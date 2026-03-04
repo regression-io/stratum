@@ -31,7 +31,7 @@ The Vision Surface is not a project tracker. It is a **live render surface for a
 - **CRUD, filtering, status management** are commodity. Build them, but don't over-invest. They're the substrate, not the product.
 - **Animation, real-time updates, visual feedback** are the product. Every agent action should have a visible, immediate, animated response on the surface.
 - **The feedback loop** (agent → surface → human → agent) at sub-second latency is the core differentiator. Every feature should tighten this loop.
-- **Connectors to JIRA/Linear** remain valid for teams that want external tracking. Forge is the live view; the external tool is the record of truth for non-agent stakeholders.
+- **Connectors to JIRA/Linear** remain valid for teams that want external tracking. Compose is the live view; the external tool is the record of truth for non-agent stakeholders.
 
 ### What this means for type proliferation
 
@@ -39,7 +39,7 @@ Stop adding item types. The PRD says Work is one primitive with user-defined lab
 
 ## Rejected Alternative
 
-**Use JIRA as the tracker, build Forge only as an agent-native overlay.** Rejected because the latency and animation capabilities require owning the render pipeline. A connector-based approach caps the feedback loop at JIRA's API speed and UI conventions.
+**Use JIRA as the tracker, build Compose only as an agent-native overlay.** Rejected because the latency and animation capabilities require owning the render pipeline. A connector-based approach caps the feedback loop at JIRA's API speed and UI conventions.
 
 ## Consequences
 

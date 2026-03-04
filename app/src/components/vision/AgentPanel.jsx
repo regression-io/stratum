@@ -61,8 +61,8 @@ function AgentPanel({ agentActivity, agentErrors, sessionState }) {
   // Listen for OSC-sourced agent status from Terminal
   React.useEffect(() => {
     const handler = (e) => setAgentState(e.detail);
-    window.addEventListener('forge:agent-status', handler);
-    return () => window.removeEventListener('forge:agent-status', handler);
+    window.addEventListener('compose:agent-status', handler);
+    return () => window.removeEventListener('compose:agent-status', handler);
   }, []);
 
   // Tick elapsed time while agent is working

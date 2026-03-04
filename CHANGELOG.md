@@ -40,7 +40,7 @@
 
 **Skills (ten total)**
 
-- `/forge` — full feature lifecycle skill; emits `.stratum.yaml`, drives spec-kit phases through `stratum_plan` loop
+- `/compose` — full feature lifecycle skill; emits `.stratum.yaml`, drives spec-kit phases through `stratum_plan` loop
 - `/stratum-speckit` — bridge skill; drives spec-kit phases through Stratum, emits compiled flow
 - `/stratum-build` — compiles `tasks/` → `.stratum.yaml` and drives execution via `stratum_plan` loop
 - Memory sections added to all skills — read project `MEMORY.md` before writing spec; write new patterns after `stratum_audit`
@@ -58,11 +58,11 @@
 - `PostToolUseFailure` hook — `memory.ingest()` failures as observation memory
 - Skills use `memory.search()` instead of `MEMORY.md` when lite backend configured (`pip install smartmemory[lite]`)
 
-**Track 3 — Forge + Stratum + spec-kit**
+**Track 3 — Compose + Stratum + spec-kit**
 
 - Task→step compiler — `tasks/*.md` acceptance criteria → `.stratum.yaml` `ensure` expressions
-- Forge skill adopts spec-kit artifact format — design phases produce `spec.md`, `plan.md`, `tasks/` under `.specify/`
-- Forge web app (Vision Surface) integration:
+- Compose skill adopts spec-kit artifact format — design phases produce `spec.md`, `plan.md`, `tasks/` under `.specify/`
+- Compose web app (Vision Surface) integration:
   - Startup seed from `.specify/` — work items created from spec-kit directories on load, updated on file change
   - Live stratum flow sync — 15s poller maps bound flows to Vision items; detects `running`, `blocked` (retries exhausted = ensure violations), `paused`; clears stale violation evidence on recovery
   - Audit trace surfaced in item evidence panel — `stratum_audit` trace stored in `evidence.stratumTrace`; item transitions to `complete` on flow completion
@@ -91,11 +91,11 @@
 - `ensure` expressions evaluated by the server against Claude Code's reported output (Python expressions, dunder-blocked, SimpleNamespace-wrapped for dict access)
 - `$.input.<field>` and `$.steps.<id>.output[.<field>]` reference resolution for chaining step outputs
 - Kahn's topological sort on explicit `depends_on` + implicit `$.steps.*` ref dependencies
-- `stratum-mcp setup` — one-command project configuration: writes `.claude/mcp.json` (MCP server registration), appends execution model block to `CLAUDE.md`, and installs seven Claude Code skills to `~/.claude/skills/`; idempotent, finds project root via `.git` or `CLAUDE.md`
+- `stratum-mcp install` — one-command project configuration: writes `.claude/mcp.json` (MCP server registration), appends execution model block to `CLAUDE.md`, and installs seven Claude Code skills to `~/.claude/skills/`; idempotent, finds project root via `.git` or `CLAUDE.md`
 - Nine Claude Code skills installed by `setup`: `stratum-onboard` (read codebase cold, write `MEMORY.md` from scratch), `stratum-plan` (design feature, present for review — no implementation), `stratum-review` (three-pass code review), `stratum-feature` (read → design → implement → test), `stratum-debug` (hypothesis formation and elimination), `stratum-refactor` (extraction order planning, no broken intermediate states), `stratum-migrate` (rewrite bare LLM calls as `@infer` + `@contract`), `stratum-test` (write test suite for existing code — golden flows, error-path harness), `stratum-learn` (extract patterns from session transcripts into `MEMORY.md`)
 - Each skill contains a spec template Claude adapts internally — YAML never shown to the user; Claude narrates in plain English
 - All skills include a `## Memory` section: read project `MEMORY.md` before writing spec (incorporate `[stratum-<skill>]` tagged patterns); write new patterns after `stratum_audit`
-- CLI triple-mode: `stratum-mcp setup`, `stratum-mcp validate <file>`, stdio MCP transport
+- CLI triple-mode: `stratum-mcp install`, `stratum-mcp validate <file>`, stdio MCP transport
 - 66 passing tests across contracts, invariants, and integration suites
 
 **Dependencies:** `mcp>=1.0`, `jsonschema>=4.20`, `pyyaml>=6.0` — no stratum library dependency

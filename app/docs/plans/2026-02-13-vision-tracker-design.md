@@ -9,7 +9,7 @@
 
 ## Problem
 
-Forge has no single source of truth for its roadmap. Work is scattered across:
+Compose has no single source of truth for its roadmap. Work is scattered across:
 
 - CLAUDE.md (bootstrap list — stale)
 - User journey design doc (priorities — narrative only)
@@ -56,7 +56,7 @@ Tracker holds the structured data. A CLI command generates a markdown snapshot o
 
 Option A fails on enforcement — SmartMemory's ROADMAP.md works because one human keeps it updated, not because the format self-enforces. Option C is the worst — double maintenance. Option B works if the data model is rich enough. Option D adds the portability/git-history escape hatch on top of B.
 
-The key insight: if the tracker is the agent's **work queue** (forge-loop reads it to pick the next task), the agent has self-interest in keeping it current. That's enforcement through usage, not discipline.
+The key insight: if the tracker is the agent's **work queue** (compose-loop reads it to pick the next task), the agent has self-interest in keeping it current. That's enforcement through usage, not discipline.
 
 ## Design Decisions
 
@@ -66,9 +66,9 @@ Approve each independently. Rejected items get reworked, not dropped.
 - [ ] **D2: New fields** — priority, effort, planLink, successMetric, semanticId on every item.
 - [ ] **D3: New entity types** — `feature` and `initiative` added to valid types.
 - [ ] **D4: Typed edges** — `blocks`, `informs`, `implements`, `supports` replace untyped connections.
-- [ ] **D5: Forge-loop reads tracker as work queue** — Agent queries API for next unblocked high-priority item.
+- [ ] **D5: Compose-loop reads tracker as work queue** — Agent queries API for next unblocked high-priority item.
 - [ ] **D6: Default sort** — Discovery: most recent first. Execution: priority descending.
-- [ ] **D7: Semantic IDs** — `FORGE-VT-1` style human-readable IDs alongside UUIDs.
+- [ ] **D7: Semantic IDs** — `COMPOSE-VT-1` style human-readable IDs alongside UUIDs.
 - [ ] **D8: Markdown export** — `vision-track.mjs export --format roadmap` generates SmartMemory-style roadmap.
 - [ ] **D9: Migration is backward compatible** — Existing items get defaults, nothing breaks.
 
@@ -82,7 +82,7 @@ Add to every tracker item:
 
 | Field | Type | Default | Purpose |
 |---|---|---|---|
-| `semanticId` | string | auto-generated | Human-readable ID: `FORGE-VT-1` |
+| `semanticId` | string | auto-generated | Human-readable ID: `COMPOSE-VT-1` |
 | `priority` | enum: `high`, `medium`, `low` | `medium` | Work ordering |
 | `effort` | string | `""` | Freeform estimate: "3-5 days", "2h" |
 | `planLink` | string (file path) | `""` | Path to design/plan doc |
@@ -116,9 +116,9 @@ Current connections are untyped. Add edge types:
 
 Edge type stored on connection objects. Existing untyped connections default to `informs`. Views render edges with distinct visual styles (already designed in Session 12 ontology).
 
-### Forge-Loop Integration
+### Compose-Loop Integration
 
-The forge-loop skill updates to use the tracker as its work queue:
+The compose-loop skill updates to use the tracker as its work queue:
 
 ```
 1. Query:   GET /api/vision/items?status=planned&priority=high
@@ -163,21 +163,21 @@ User can override. Sort preference remembered per mode (session state, same as c
 `vision-track.mjs export --format roadmap` generates:
 
 ```markdown
-# Forge Roadmap
+# Compose Roadmap
 **Generated:** 2026-02-13  **Items:** 45  **Active:** 3  **Blocked:** 1
 
 ---
 
 ## Active Development
 
-### Feature: Vision Tracker as Primary Roadmap (FORGE-VT-1)
+### Feature: Vision Tracker as Primary Roadmap (COMPOSE-VT-1)
 **Status:** 🚧 IN_PROGRESS  **Priority:** ⚡ HIGH  **Effort:** 3-5 days
 **Depends On:** —
-**Blocks:** FORGE-BRD-1 (Breadcrumbs-to-Vision bridge)
+**Blocks:** COMPOSE-BRD-1 (Breadcrumbs-to-Vision bridge)
 **Plan:** docs/plans/2026-02-13-vision-tracker-design.md
 **Success Metric:** Agent reads tracker as work queue; no manual ROADMAP.md
 
-Enrich tracker data model, make it the work queue for forge-loop,
+Enrich tracker data model, make it the work queue for compose-loop,
 generate ROADMAP.md as a view.
 
 ---
@@ -233,7 +233,7 @@ No breaking changes. All existing views, API calls, and CLI commands continue wo
 | No feature/initiative types | Flat hierarchy | Tree: initiative → feature → task |
 | Agent reads handoff for next work | Manual, stale | Agent queries tracker API for unblocked high-priority items |
 | No roadmap doc | CLAUDE.md bootstrap list | Generated from tracker on demand |
-| No semantic IDs | UUIDs only | `FORGE-VT-1` style IDs for humans |
+| No semantic IDs | UUIDs only | `COMPOSE-VT-1` style IDs for humans |
 | Discovery sort | Alphabetical/manual | Most recent first by default |
 
 ---

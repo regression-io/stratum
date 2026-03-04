@@ -1,12 +1,15 @@
 """Flow controller: plan state management, $ reference resolution, ensure compilation."""
 from __future__ import annotations
 
+import copy
+import json
 import os
 import time
 import types
 import uuid
 import dataclasses
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from jsonschema import Draft202012Validator
@@ -214,6 +217,7 @@ class StepRecord:
 class FlowState:
     flow_id: str
     flow_name: str
+    raw_spec: str                    # original YAML — used to reconstruct state after restart
     spec: IRSpec
     ordered_steps: list[IRStepDef]
     inputs: dict[str, Any]           # flow-level inputs
@@ -223,9 +227,141 @@ class FlowState:
     dispatched_at: dict[str, float]  # when each step was sent to Claude Code
     flow_start: float
     current_idx: int = 0
+    checkpoints: dict[str, Any] = field(default_factory=dict)  # label → snapshot
 
 
-def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any]) -> FlowState:
+# ---------------------------------------------------------------------------
+# Flow persistence — ~/.stratum/flows/{flow_id}.json
+# ---------------------------------------------------------------------------
+
+_FLOWS_DIR = Path.home() / ".stratum" / "flows"
+
+
+def persist_flow(state: FlowState) -> None:
+    """Write flow state to ~/.stratum/flows/{flow_id}.json."""
+    _FLOWS_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "flow_id":      state.flow_id,
+        "flow_name":    state.flow_name,
+        "raw_spec":     state.raw_spec,
+        "inputs":       state.inputs,
+        "step_outputs": state.step_outputs,
+        "records":      [dataclasses.asdict(r) for r in state.records],
+        "attempts":     state.attempts,
+        "current_idx":  state.current_idx,
+        "checkpoints":  state.checkpoints,
+    }
+    (_FLOWS_DIR / f"{state.flow_id}.json").write_text(json.dumps(payload, indent=2))
+
+
+def restore_flow(flow_id: str) -> "FlowState | None":
+    """
+    Reconstruct a FlowState from disk after an MCP server restart.
+
+    Returns ``None`` if no persistence file exists or if it cannot be parsed.
+    Timing fields (``flow_start``, ``dispatched_at``) are reset to the current
+    monotonic time — step durations will be inaccurate for the resumed step but
+    all other state is faithfully restored.
+    """
+    from .spec import parse_and_validate  # local import avoids circular at module level
+
+    path = _FLOWS_DIR / f"{flow_id}.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    try:
+        spec = parse_and_validate(payload["raw_spec"])
+    except Exception:
+        return None
+    flow_def = spec.flows.get(payload["flow_name"])
+    if flow_def is None:
+        return None
+    ordered = _topological_sort(flow_def)
+    records = [
+        StepRecord(
+            step_id=r["step_id"],
+            function_name=r["function_name"],
+            attempts=r["attempts"],
+            duration_ms=r["duration_ms"],
+        )
+        for r in payload.get("records", [])
+    ]
+    return FlowState(
+        flow_id=payload["flow_id"],
+        flow_name=payload["flow_name"],
+        raw_spec=payload["raw_spec"],
+        spec=spec,
+        ordered_steps=ordered,
+        inputs=payload["inputs"],
+        step_outputs=payload["step_outputs"],
+        records=records,
+        attempts=payload.get("attempts", {}),
+        dispatched_at={},           # timing reset after restart
+        flow_start=time.monotonic(),
+        current_idx=payload["current_idx"],
+        checkpoints=payload.get("checkpoints", {}),
+    )
+
+
+def delete_persisted_flow(flow_id: str) -> None:
+    """Remove the persistence file for a completed flow."""
+    try:
+        (_FLOWS_DIR / f"{flow_id}.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Checkpoints — named snapshots of mutable flow state
+# ---------------------------------------------------------------------------
+
+def commit_checkpoint(state: FlowState, label: str) -> None:
+    """
+    Snapshot current mutable state under ``label``.
+
+    Stores step_outputs, attempts, records, and current_idx.
+    Overwrites any existing checkpoint with the same label.
+    Persists the updated flow to disk.
+    """
+    state.checkpoints[label] = {
+        "step_outputs": copy.deepcopy(state.step_outputs),
+        "attempts":     dict(state.attempts),
+        "records":      [dataclasses.asdict(r) for r in state.records],
+        "current_idx":  state.current_idx,
+    }
+    persist_flow(state)
+
+
+def revert_checkpoint(state: FlowState, label: str) -> bool:
+    """
+    Roll back mutable state to the snapshot stored under ``label``.
+
+    Returns True on success, False if the label does not exist.
+    Persists the reverted flow to disk on success.
+    """
+    snap = state.checkpoints.get(label)
+    if snap is None:
+        return False
+    state.step_outputs = copy.deepcopy(snap["step_outputs"])
+    state.attempts     = dict(snap["attempts"])
+    state.records      = [
+        StepRecord(
+            step_id=r["step_id"],
+            function_name=r["function_name"],
+            attempts=r["attempts"],
+            duration_ms=r["duration_ms"],
+        )
+        for r in snap["records"]
+    ]
+    state.current_idx  = snap["current_idx"]
+    persist_flow(state)
+    return True
+
+
+def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any], raw_spec: str = "") -> FlowState:
     """Create flow execution state. Raises MCPExecutionError if flow not found."""
     flow_def = spec.flows.get(flow_name)
     if flow_def is None:
@@ -234,6 +370,7 @@ def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any]) -> F
     return FlowState(
         flow_id=str(uuid.uuid4()),
         flow_name=flow_name,
+        raw_spec=raw_spec,
         spec=spec,
         ordered_steps=ordered,
         inputs=inputs,

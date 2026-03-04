@@ -60,7 +60,7 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
-        // Forge-specific semantic colors
+        // Compose-specific semantic colors
         success: 'hsl(var(--success))',
         warning: 'hsl(var(--warning))',
         artifact: 'hsl(var(--artifact))',

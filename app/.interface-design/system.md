@@ -1,7 +1,7 @@
-# Forge Design System
+# Compose Design System
 
 ## Intent
-Forge is an agentic IDE — a place where anyone, from vibe coders to senior engineers, shapes software through conversation with AI. Newbie-friendly by default, expert-powerful on demand.
+Compose is an agentic IDE — a place where anyone, from vibe coders to senior engineers, shapes software through conversation with AI. Newbie-friendly by default, expert-powerful on demand.
 
 **Feel:** A warm workshop. Capable and inviting. Power without intimidation. Like sitting next to a skilled collaborator who makes you feel like you belong.
 
@@ -14,11 +14,11 @@ The conversational surface. Not a terminal — a place where you talk and things
 ## Palette
 
 ### Surfaces (warm carbon, increasing elevation = warmer)
-- `--forge-void`: #0a0a10 — deepest background, the space behind everything
-- `--forge-base`: #0f0e14 — primary canvas
-- `--forge-raised`: #16141e — cards, panels, one step up
-- `--forge-overlay`: #1e1b28 — dropdowns, modals, floating
-- `--forge-inset`: #0c0b11 — inputs, wells, recessed surfaces
+- `--compose-void`: #0a0a10 — deepest background, the space behind everything
+- `--compose-base`: #0f0e14 — primary canvas
+- `--compose-raised`: #16141e — cards, panels, one step up
+- `--compose-overlay`: #1e1b28 — dropdowns, modals, floating
+- `--compose-inset`: #0c0b11 — inputs, wells, recessed surfaces
 
 ### Text (warm cream hierarchy)
 - `--ink-primary`: #ede9e0 — default text, warm not white
@@ -59,7 +59,7 @@ The conversational surface. Not a terminal — a place where you talk and things
 - Major: 32px, 48px (between distinct areas)
 
 ## Depth Strategy
-Borders only. No shadows. Warm rgba borders at low opacity. Surfaces differentiate through color shift, not shadow. This keeps the forge feel — solid, grounded, not floating.
+Borders only. No shadows. Warm rgba borders at low opacity. Surfaces differentiate through color shift, not shadow. This keeps the compose feel — solid, grounded, not floating.
 
 ## Border Radius
 - Small: 6px (inputs, buttons)

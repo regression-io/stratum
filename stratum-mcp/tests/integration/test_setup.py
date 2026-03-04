@@ -1,9 +1,9 @@
-"""Tests for `stratum-mcp setup` CLI command."""
+"""Tests for `stratum-mcp install` CLI command."""
 import json
 import pytest
 from pathlib import Path
 
-from stratum_mcp.server import _cmd_setup, _CLAUDE_MD_MARKER, _CLAUDE_MD_BLOCK
+from stratum_mcp.server import _cmd_setup, _CLAUDE_MD_MARKER, _CLAUDE_MD_BLOCK, _HOOK_SCRIPTS
 
 
 def _run_setup(tmp_path: Path) -> None:
@@ -212,3 +212,83 @@ def test_setup_skill_idempotent(tmp_path, capsys):
     for skill in EXPECTED_SKILLS:
         content = (SKILLS_HOME / skill / "SKILL.md").read_text()
         assert content.count(f"name: {skill}") == 1
+
+
+# ---------------------------------------------------------------------------
+# Hooks (T2-M2/M3/M4)
+# ---------------------------------------------------------------------------
+
+def test_setup_installs_all_hook_scripts(tmp_path, capsys):
+    _run_setup(tmp_path)
+    hooks_dir = tmp_path / ".claude" / "hooks"
+    for script_name in _HOOK_SCRIPTS.values():
+        assert (hooks_dir / script_name).exists(), f"Missing hook: {script_name}"
+
+
+def test_setup_hook_scripts_are_executable(tmp_path, capsys):
+    _run_setup(tmp_path)
+    hooks_dir = tmp_path / ".claude" / "hooks"
+    import stat
+    for script_name in _HOOK_SCRIPTS.values():
+        path = hooks_dir / script_name
+        mode = path.stat().st_mode
+        assert mode & stat.S_IXUSR, f"{script_name} is not user-executable"
+
+
+def test_setup_registers_hooks_in_settings_json(tmp_path, capsys):
+    _run_setup(tmp_path)
+    settings_file = tmp_path / ".claude" / "settings.json"
+    assert settings_file.exists()
+    settings = json.loads(settings_file.read_text())
+    hooks = settings.get("hooks", {})
+    for event, script_name in _HOOK_SCRIPTS.items():
+        assert event in hooks, f"Missing hook event: {event}"
+        commands = [
+            h.get("command", "")
+            for entry in hooks[event]
+            for h in entry.get("hooks", [])
+        ]
+        assert any(script_name in cmd for cmd in commands), \
+            f"settings.json hooks.{event} missing {script_name}"
+
+
+def test_setup_hooks_merge_with_existing_settings(tmp_path):
+    settings_file = tmp_path / ".claude" / "settings.json"
+    (tmp_path / ".claude").mkdir(parents=True)
+    existing = {"permissions": {"allow": ["Bash(pytest:*)"]}}
+    settings_file.write_text(json.dumps(existing))
+
+    _run_setup(tmp_path)
+
+    settings = json.loads(settings_file.read_text())
+    # Original key preserved
+    assert settings["permissions"]["allow"] == ["Bash(pytest:*)"]
+    # Hooks added
+    assert "hooks" in settings
+
+
+def test_setup_hooks_idempotent(tmp_path, capsys):
+    _run_setup(tmp_path)
+    _run_setup(tmp_path)
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    hooks = settings.get("hooks", {})
+    for event, script_name in _HOOK_SCRIPTS.items():
+        commands = [
+            h.get("command", "")
+            for entry in hooks.get(event, [])
+            for h in entry.get("hooks", [])
+        ]
+        matching = [c for c in commands if script_name in c]
+        assert len(matching) == 1, \
+            f"hooks.{event} has {len(matching)} entries for {script_name} (expected 1)"
+
+
+def test_setup_reports_installed_not_updated_on_first_run(tmp_path, capsys):
+    """P3: first install must log 'installed', not 'updated'."""
+    _run_setup(tmp_path)
+    out = capsys.readouterr().out
+    for script_name in _HOOK_SCRIPTS.values():
+        assert f".claude/hooks/{script_name}: installed" in out, \
+            f"Expected 'installed' for {script_name}, got: {out}"
+        assert f".claude/hooks/{script_name}: updated" not in out

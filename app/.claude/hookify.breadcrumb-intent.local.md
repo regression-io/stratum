@@ -12,7 +12,7 @@ conditions:
 **Breadcrumb check.** Before this batch of edits, did you write a one-line intent breadcrumb?
 
 ```bash
-echo "$(date -Iseconds) | <WHY you are making these changes>" >> .forge/breadcrumbs.log
+echo "$(date -Iseconds) | <WHY you are making these changes>" >> .compose/breadcrumbs.log
 ```
 
 The breadcrumb captures intent, not files. Good: "Adding theme toggle to header". Bad: "Editing App.jsx".

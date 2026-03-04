@@ -124,3 +124,12 @@ class StabilityAssertionError(StratumError):
         super().__init__(
             f"Stability assertion failed: required {threshold:.0%}, got {actual_agreement:.0%}"
         )
+
+
+class StratumWarning(UserWarning):
+    """
+    Emitted for configuration choices that are valid but may not behave as expected.
+
+    Example: arbitrary `ensure` expressions used with a non-Claude connector
+    will not be evaluated — only named assertions are portable across connectors.
+    """

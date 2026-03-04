@@ -1,4 +1,4 @@
-# Forge Product Realignment
+# Compose Product Realignment
 
 > Supersedes the flat item model in the Vision Surface prototype.
 > Derived from: SmartMemory ROADMAP (battle-tested structure) + feature-development skill (battle-tested lifecycle).

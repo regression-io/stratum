@@ -1,4 +1,4 @@
-# Feature Map: What Forge Does
+# Feature Map: What Compose Does
 
 **Date:** 2026-02-11
 **Parent:** [Level 2 Brainstorm](level-2-brainstorm.md)
@@ -8,7 +8,7 @@
 
 ## Purpose
 
-This maps what Forge does for the user at a high level. Constructs (primitives, dimensions, confidence, modes) are the internals. Features are what the user experiences. Gaps belong in feature context, not floating.
+This maps what Compose does for the user at a high level. Constructs (primitives, dimensions, confidence, modes) are the internals. Features are what the user experiences. Gaps belong in feature context, not floating.
 
 ## Vision alignment
 
@@ -16,7 +16,7 @@ See [Vision Statement](vision-statement.md). The core product is the **structure
 
 | Feature | Role in vision | Priority |
 |---------|---------------|----------|
-| **F0: Context** | Core pipeline — gather what Forge needs to reason | **Core** |
+| **F0: Context** | Core pipeline — gather what Compose needs to reason | **Core** |
 | **F4: Plan & Decompose** | Core pipeline — decomposes goal into executable work | **Core** |
 | **F5: Execute with Agents** | Core pipeline — agents build what was planned | **Core** |
 | **F3: Distill & Decide** | Core pipeline — convergence engine, decision points | **Core** |
@@ -66,14 +66,14 @@ Everything is based on context (F0). Context implies knowledge management. Knowl
 
 ### F0: Context
 
-**What it does:** Gather what Forge needs before it can decompose. The front door of every pipeline run. Scales from zero (greenfield) to deep (resume, refactor).
+**What it does:** Gather what Compose needs before it can decompose. The front door of every pipeline run. Scales from zero (greenfield) to deep (resume, refactor).
 
-**Autonomous** (Forge gathers itself):
+**Autonomous** (Compose gathers itself):
 - Code context: codebase structure, tech stack, patterns, conventions. Read the code.
 
 **Opportunistic** (use if available, work without it):
-- Project context: prior decisions, directions, history. Available if Forge has been used before.
-- Work context: pipeline state, what's in progress/blocked/done. Available if Forge is tracking work.
+- Project context: prior decisions, directions, history. Available if Compose has been used before.
+- Work context: pipeline state, what's in progress/blocked/done. Available if Compose is tracking work.
 - Problem context beyond the prompt: richer intent. Available if the user elaborates.
 
 The pipeline works with just the prompt + code. Everything else makes it better. First use is weakest. Tenth use has accumulated reasoning. This is the persistence payoff — a bonus, not a gate.
@@ -247,7 +247,7 @@ F2 Capture Knowledge — records why decisions were made, evidence, rationale
 F6 See Everything — visibility into pipeline state, confidence, status
 ```
 
-The pipeline IS the product. F0 is the front door — every entry point passes through it. Discovery is how you get to a goal when you don't have one. F2 and F6 make the pipeline transparent and recoverable. F0 gets better over time as Forge accumulates project context.
+The pipeline IS the product. F0 is the front door — every entry point passes through it. Discovery is how you get to a goal when you don't have one. F2 and F6 make the pipeline transparent and recoverable. F0 gets better over time as Compose accumulates project context.
 
 ---
 

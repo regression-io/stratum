@@ -1,14 +1,14 @@
 # Requirements: First Buildable Piece
 
 **Phase:** Requirements (discovery → requirements for v1)
-**Source:** [Vision](../forge-one-pager.md), [Discovery docs](../discovery/discovery-process/)
+**Source:** [Vision](../compose-one-pager.md), [Discovery docs](../discovery/discovery-process/)
 **Status:** In progress
 
 ---
 
 ## Goal
 
-Build the first usable version of Forge — the thing that lets us use Forge to build Forge. Not the full product. The smallest piece that provides visual value beyond what the terminal alone gives us.
+Build the first usable version of Compose — the thing that lets us use Compose to build Compose. Not the full product. The smallest piece that provides visual value beyond what the terminal alone gives us.
 
 ## Requirement docs
 

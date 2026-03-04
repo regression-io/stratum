@@ -10,7 +10,7 @@
 
 ## UC-1: Where are we? (P1, P2)
 
-**The scenario:** Open Forge after a break. Need project state in seconds.
+**The scenario:** Open Compose after a break. Need project state in seconds.
 
 **What the model needs to show:**
 - Work hierarchy with status
@@ -169,7 +169,7 @@ Confidence model helps: everything produced in this session starts as unexamined
 
 **Does it fit?** The container fits. The confidence model is especially valuable here — the founder can SEE their idea going from "hunch" to "researched" to "prototyped." Or see it staying at "hunch" after weeks, which is a signal.
 
-**Gap?** Kill decisions. How does "this idea is dead" work? Status → parked? A new Work item (type: decision, outcome: kill)? The model supports both but hasn't specified which. Also — how does Forge distinguish "parked because we got busy" from "killed because the evidence says no"?
+**Gap?** Kill decisions. How does "this idea is dead" work? Status → parked? A new Work item (type: decision, outcome: kill)? The model supports both but hasn't specified which. Also — how does Compose distinguish "parked because we got busy" from "killed because the evidence says no"?
 
 ---
 
@@ -217,7 +217,7 @@ Confidence model helps: everything produced in this session starts as unexamined
 
 **Does it fit?** This is where the Bayesian model shines. The direction's posterior has been declining — research contradicts, prototype broke, assumption invalidated. The evidence trail makes the pivot *justified*, not emotional. And `informs` dependencies show what downstream work is affected.
 
-**Gap?** "Direction" isn't a first-class concept. It's an implicit property of a cluster of Work items. You can't point at a single item and say "this is the direction" — it's the parent initiative, or a decision, or just a shared assumption. How does Forge represent "the thing we're pivoting away from"?
+**Gap?** "Direction" isn't a first-class concept. It's an implicit property of a cluster of Work items. You can't point at a single item and say "this is the direction" — it's the parent initiative, or a decision, or just a shared assumption. How does Compose represent "the thing we're pivoting away from"?
 
 ---
 
@@ -233,7 +233,7 @@ Confidence model helps: everything produced in this session starts as unexamined
 
 **Does it fit?** Yes. Prototyping is a discovery mode that produces strong evidence. The Work item is the container. The evidence (what we learned) is the artifact. The confidence update flows up via `informs` to whatever question the prototype was answering.
 
-**Gap?** The throwaway nature. How does Forge distinguish "this is a prototype, don't ship it" from "this is implementation"? Label alone? Or is there something structural?
+**Gap?** The throwaway nature. How does Compose distinguish "this is a prototype, don't ship it" from "this is implementation"? Label alone? Or is there something structural?
 
 ---
 

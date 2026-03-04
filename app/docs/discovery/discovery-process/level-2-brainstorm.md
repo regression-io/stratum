@@ -11,7 +11,7 @@
 
 Level 1 defined the high-level constructs: three working dimensions (What, How, Why-factual), a knowledge layer underneath, and onboarding inputs (personal why, who, starting conditions).
 
-Level 2 goes one layer deeper: how do these dimensions manifest mechanically in Forge? What does the user touch? What does the AI reason about? How do the dimensions connect to the existing primitives (Work, Policy, Session)?
+Level 2 goes one layer deeper: how do these dimensions manifest mechanically in Compose? What does the user touch? What does the AI reason about? How do the dimensions connect to the existing primitives (Work, Policy, Session)?
 
 ---
 
@@ -42,12 +42,12 @@ The Work primitive *looks* well-defined on paper. But we haven't built anything 
 
 ## Cluster 2: What does "How" actually look like?
 
-How was elevated late in Level 1 and hasn't been designed at all. It covers approach, method, constraints — and is where Forge tailors itself to the user's actual work.
+How was elevated late in Level 1 and hasn't been designed at all. It covers approach, method, constraints — and is where Compose tailors itself to the user's actual work.
 
 **Key questions:**
 - Is How a property of a Work item? A separate entity? A label? A template selection?
 - How relates to approach, method, constraints. Are constraints just How, or are they their own thing?
-- How is where Forge *tailors* — a React project gets React patterns. What's the tailoring mechanism?
+- How is where Compose *tailors* — a React project gets React patterns. What's the tailoring mechanism?
 - How overlaps with Policies (gate/flag/skip are *how* decisions get made). Is the 3-mode dial part of How, or is it orthogonal?
 - When a user picks an approach (e.g., "we'll use markdown-in-folders for persistence"), where does that live? On the Work item? As a decision Work item that `informs` the implementation?
 
@@ -109,7 +109,7 @@ Level 1 said there's a knowledge layer underneath the working surface. The AI us
 **What we don't know:**
 - Whether the knowledge layer is a feature we build or an emergent property of good data structures
 - What the AI needs to be useful vs. what's aspirational
-- How much of this is "Claude Code is smart and has context" vs. "Forge provides structured knowledge the AI couldn't derive alone"
+- How much of this is "Claude Code is smart and has context" vs. "Compose provides structured knowledge the AI couldn't derive alone"
 
 ---
 
@@ -205,7 +205,7 @@ Or go wherever the conversation pulls.
 
 ## Insights surfaced during Level 2
 
-- [False Crystallization](false-crystallization.md) — Structure ≠ confidence. Writing a definition down doesn't validate it. Forge needs a concept of **validation pressure** to distinguish tested from untested crystallization.
+- [False Crystallization](false-crystallization.md) — Structure ≠ confidence. Writing a definition down doesn't validate it. Compose needs a concept of **validation pressure** to distinguish tested from untested crystallization.
 - [Confidence Model](confidence-model.md) — Qualitative Bayesian: prior (how it was created) + evidence updates (challenges, research, prototypes, failures) = posterior (current confidence). Rolls up from children. Orthogonal to status, applies everywhere.
 - [Discovery Modes](discovery-modes.md) — Discovery has three modes: conversational brainstorming, external knowledge discovery, and integration. They interleave, not sequential. Each contributes to confidence differently.
 - [Discovery Verbs](discovery-verbs.md) — The micro-moves within discovery modes (orient, steer, gather, challenge, etc.). Not useful to surface to the user — but the AI can use them to read the room and be a better partner. Intuited, not validated.
@@ -216,10 +216,10 @@ Or go wherever the conversation pulls.
 - [Discovery as Primitive](discovery-as-primitive.md) — Discovery isn't Work. It's the process that produces Work. 4th primitive alongside Work, Policy, Session. **Updated:** Discovery operates at every phase boundary — the connective tissue between levels of concreteness, not just a first phase.
 - [Crystallization Review](crystallization-review.md) — Honest 3-pass assessment of session 5 end-state. What's solid, what's untested, what's fragile.
 - [Session 5 Meta-Trace](session-5-meta-trace.md) — The process of this session itself, recorded as test data for how discovery works. Living doc.
-- [Onboarding Inputs](onboarding-inputs.md) — Collection point for things Forge needs to ask/know to calibrate itself. First candidate: structured vs. free-flow preference for discovery.
+- [Onboarding Inputs](onboarding-inputs.md) — Collection point for things Compose needs to ask/know to calibrate itself. First candidate: structured vs. free-flow preference for discovery.
 - [Counterfactuals: Session 6](counterfactuals-session-6.md) — 6 counterfactuals against the interaction surface analysis. 4+ landed. Model is less clean, more honest.
 - [Confidence Evaluation Process](confidence-evaluation-process.md) — How confidence scoring works in practice: the evaluation pattern, triggers/timing, process inference. First real use of the confidence model on itself.
-- [Vision Statement](vision-statement.md) — "Build me X" → Forge handles the rest. The structured implementation pipeline is the core product. Discovery is an optional on-ramp. What/How/Why/Confidence are reasoning infrastructure.
+- [Vision Statement](vision-statement.md) — "Build me X" → Compose handles the rest. The structured implementation pipeline is the core product. Discovery is an optional on-ramp. What/How/Why/Confidence are reasoning infrastructure.
 - [Rails Architecture](rails-architecture.md) — The core design question: how to keep AI implementation on track. Human process patterns + Claude Code patterns (CLAUDE.md, rules, skills, hooks, memory) → toward enforcement at every pipeline step.
 
 ---

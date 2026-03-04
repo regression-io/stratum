@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "forge": {
+    "compose": {
       "command": "node",
-      "args": ["server/forge-mcp.js"],
-      "description": "Forge tracker state — vision items, sessions, phase summaries, blocked items"
+      "args": ["server/compose-mcp.js"],
+      "description": "Compose tracker state — vision items, sessions, phase summaries, blocked items"
     },
     "smartmemory-memory": {
       "command": "uv",

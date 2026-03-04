@@ -12,7 +12,7 @@
 
 ### UC-1: Where are we? (returning after a break)
 
-Developer opens Forge after being away. Needs project state in <10 seconds.
+Developer opens Compose after being away. Needs project state in <10 seconds.
 
 **Entities:** Initiative (DOG), Features (DOG-T1..T5) with phase/status, Tasks within active Features
 **Edges:** Features `belongs_to` Initiative, Tasks `implements` Features
@@ -58,7 +58,7 @@ Session needs context: what's unblocked, highest priority, has enough context.
 
 Brainstorm → use cases → PRD → design with feedback loops.
 
-**Entities:** Initiative (Forge-v1), Features for each planning output. Ideas from brainstorming. Threads capturing deliberation. Decisions recording choices. Questions tracking unknowns.
+**Entities:** Initiative (Compose-v1), Features for each planning output. Ideas from brainstorming. Threads capturing deliberation. Decisions recording choices. Questions tracking unknowns.
 **Edges:** Ideas `informs` Features. Threads `informs` Decisions. Decisions `resolves` Questions. Discovery sessions `produces` everything.
 **Artifacts:** Attach to Features at their producing phase (brainstorm.md at design, PRD.md at design).
 **Verdict:** Covered. Planning is work; thinking artifacts are first-class.

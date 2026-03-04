@@ -73,12 +73,12 @@ That works. But nobody wrote that as a separate Work item at the time — it hap
 
 ## Test 3: This Discovery Session (Session 5)
 
-**What happened:** We're brainstorming how Forge's dimensions work. We defined Level 1 constructs (What, How, Why-factual), opened Level 2, wrote docs, caught the false crystallization insight.
+**What happened:** We're brainstorming how Compose's dimensions work. We defined Level 1 constructs (What, How, Why-factual), opened Level 2, wrote docs, caught the false crystallization insight.
 
 **Trying to model it:**
 
 ```
-Work: "Discovery: Forge dimensions"
+Work: "Discovery: Compose dimensions"
   Type: brainstorm
   Phase: discovery
   Status: in_progress

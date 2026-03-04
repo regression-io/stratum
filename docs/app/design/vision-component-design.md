@@ -76,10 +76,10 @@ Six approaches identified. Not mutually exclusive — a palette, not a menu.
 
 | # | Approach | How it works | Strength | Risk |
 |---|---|---|---|---|
-| 1 | **Scenario walkthrough** | Replay sessions 5-7 as if Forge existed. "I just had an idea" → what happens? "Connect this to that" → what do I see? Design emerges from concrete use. | Grounded in reality — we have lived data | May not generalize beyond the scenarios we walked |
+| 1 | **Scenario walkthrough** | Replay sessions 5-7 as if Compose existed. "I just had an idea" → what happens? "Connect this to that" → what do I see? Design emerges from concrete use. | Grounded in reality — we have lived data | May not generalize beyond the scenarios we walked |
 | 2 | **Interaction model first** | Start with the terminal/visual split. What does the terminal handle vs the visual surface? When does information flow between them? Design the seam first, then each side. | Nails the core architectural question — everything depends on this split | Abstract before concrete — might not know the right split without trying things |
 | 3 | **Visual language first** | Define the vocabulary: what does an idea look like vs a decision? What does confidence look like? What does a connection look like? Then compose into layouts. | Consistency from day one — visual primitives compose predictably | Might design atoms before knowing the molecule — premature optimization of aesthetics |
-| 4 | **Reference-driven** | Survey tools that do parts of this (Obsidian Canvas, Miro, Linear, Notion, etc.), pull patterns that work, adapt to Forge's needs. | Builds on proven patterns — don't reinvent what works | Cargo culting — none of these tools do exactly what Forge does, borrowed patterns may not fit |
+| 4 | **Reference-driven** | Survey tools that do parts of this (Obsidian Canvas, Miro, Linear, Notion, etc.), pull patterns that work, adapt to Compose's needs. | Builds on proven patterns — don't reinvent what works | Cargo culting — none of these tools do exactly what Compose does, borrowed patterns may not fit |
 | 5 | **Prototype-first** | Skip detailed design, build something rough, use it, iterate. Learn by doing. | Fastest to tangible — real feedback over theoretical design | Might cement bad patterns before thinking them through — refactoring costs |
 | 6 | **Slice-driven** | Pick one verb (e.g., See) and design it end-to-end: interaction model, visual language, terminal integration. Then the next verb. | Depth before breadth — buildable after each slice | Verbs might not compose well if designed independently |
 
@@ -91,7 +91,7 @@ The structure (knowing six tools exist and what each is good for) is for the AI 
 
 ### Industrializing the pipeline
 
-If Forge's thesis is a structured pipeline with specialized agents per phase, then we should model it: treat each phase as having its own agent, tools, and process. A design agent uses design tools. A coding agent writes code. This is lived data for the Execute verb — directing different agents to do different work at different phases.
+If Compose's thesis is a structured pipeline with specialized agents per phase, then we should model it: treat each phase as having its own agent, tools, and process. A design agent uses design tools. A coding agent writes code. This is lived data for the Execute verb — directing different agents to do different work at different phases.
 
 The practical tension: we don't have specialized agents wired up yet. The falsework for "agent orchestration" is the human + one AI doing everything. That's the next scaffolding to replace — but not until the first permanent pieces are in place.
 
@@ -116,9 +116,9 @@ Base44 does remarkably well on complex apps in a single shot. It works because i
 
 Where it falls apart: **iteration.** Small changes, tuning, refinement after the first shot. "Move this button." "Change this flow." "Make this feel different." The incremental work that turns a generated app into a good app.
 
-**What this means for Forge:**
+**What this means for Compose:**
 
-| | Base44 | Forge |
+| | Base44 | Compose |
 |---|---|---|
 | **First shot** | Excellent (constrained space) | Should match — skip mode = one prompt in, product out |
 | **Iteration** | Breaks down | This is the value — evaluate → adjust → re-evaluate |
@@ -127,9 +127,9 @@ Where it falls apart: **iteration.** Small changes, tuning, refinement after the
 | **Evaluation** | None — human eyeballs it | Counterfactuals, confidence, pressure testing |
 | **Constraints** | Component library (design rails) | Composition model CR1-CR7 (process rails) |
 
-Forge's differentiation isn't the first shot — it's everything after. The pipeline is iteration infrastructure. Base44 generates. Forge generates AND iterates AND remembers AND evaluates.
+Compose's differentiation isn't the first shot — it's everything after. The pipeline is iteration infrastructure. Base44 generates. Compose generates AND iterates AND remembers AND evaluates.
 
-**Beyond single constraints:** Base44 has one fixed constraint set (its component library). Forge has a general backbone — the composition model (CR1-CR7) — onto which domain-specific constraints get mapped. Frontend app? Map component libraries and design patterns. Backend service? Map API patterns and deployment. Any development space gets its own constraint set, but the backbone is the same: phases × things × verbs × processes × lenses. This is the invariant/variant split applied to the entire product. Not one constrained space — a framework for defining constrained spaces.
+**Beyond single constraints:** Base44 has one fixed constraint set (its component library). Compose has a general backbone — the composition model (CR1-CR7) — onto which domain-specific constraints get mapped. Frontend app? Map component libraries and design patterns. Backend service? Map API patterns and deployment. Any development space gets its own constraint set, but the backbone is the same: phases × things × verbs × processes × lenses. This is the invariant/variant split applied to the entire product. Not one constrained space — a framework for defining constrained spaces.
 
 **Caveat: this is a thesis, not a proven fact.** We haven't built it yet. The iteration advantage and the generalizable constraint framework are theoretical until proven. Proving this is the goal.
 
@@ -328,7 +328,7 @@ Variation D (inline cards in terminal conversation) is not feasible with a PTY-b
 
 ### Obsidian: borrow patterns, build our own
 
-Obsidian Canvas is great for manual canvas work. Forge's canvas is AI-driven — cards created by AI from conversation, live confidence updates, decision chips, terminal sync. Different animal. Borrow spatial UX patterns, build custom renderers.
+Obsidian Canvas is great for manual canvas work. Compose's canvas is AI-driven — cards created by AI from conversation, live confidence updates, decision chips, terminal sync. Different animal. Borrow spatial UX patterns, build custom renderers.
 
 ### Canvas renderers as React components
 

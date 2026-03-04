@@ -11,7 +11,7 @@ Picked up from Session 6's vision crystallization and moved into requirements. T
 
 ### Part 1: Rails and dogfooding
 
-The human raised a thread: people don't follow structured processes linearly. They jump back and forth across levels. Forge needs to maintain structure in the background and steer back. Then two refinements:
+The human raised a thread: people don't follow structured processes linearly. They jump back and forth across levels. Compose needs to maintain structure in the background and steer back. Then two refinements:
 
 1. **The rails are for the AI, not the human.** The AI uses them to know what's fixed vs transitory. The human works fluidly.
 2. **Phase transitions are amorphous.** Not sharp events — the AI should recognize when the bridge has been crossed, by output artifacts or confidence shifts.
@@ -81,7 +81,7 @@ The composition model became the requirements themselves: phases × things × ve
 
 5. **"Orthogonal" means "universal," not "independent."** Processes interleave. They're universal across phases, not independent of each other.
 
-6. **Execute is a verb.** The core promise is "Build me X." See/change/evaluate are about managing — execute is about doing. Forge directs agents; the agents do.
+6. **Execute is a verb.** The core promise is "Build me X." See/change/evaluate are about managing — execute is about doing. Compose directs agents; the agents do.
 
 7. **Phase affinity is LLM context, not a system behavior.** "You're in planning, so decomposition is likely" is guidance for the AI, not a product requirement.
 

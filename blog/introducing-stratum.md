@@ -250,7 +250,7 @@ Always, regardless of export configuration. OTel export to any OTLP endpoint shi
 
 **Track 1 — Python library:** `@infer`, `@compute`, `@contract`, `@flow`, `@refine`, `opaque[T]`, `await_human`, `stratum.parallel`, `quorum`, `stratum.debate`, `stratum.race`, full budget enforcement, structured retry, and OTel export.
 
-**Track 2 — Claude Code MCP server (`stratum-mcp`):** `.stratum.yaml` IR format, `stratum_plan` / `stratum_step_done` / `stratum_audit` / `stratum_validate`, one-command setup (`stratum-mcp setup`), four bundled Claude Code skills. Standalone package — no Track 1 library dependency.
+**Track 2 — Claude Code MCP server (`stratum-mcp`):** `.stratum.yaml` IR format, `stratum_plan` / `stratum_step_done` / `stratum_audit` / `stratum_validate`, one-command setup (`stratum-mcp install`), four bundled Claude Code skills. Standalone package — no Track 1 library dependency.
 
 ## What's Next
 

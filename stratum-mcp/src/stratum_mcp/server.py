@@ -692,11 +692,61 @@ def _cmd_validate(arg: str) -> None:
         sys.exit(1)
 
 
+def _cmd_serve(args: list[str]) -> None:
+    import argparse
+    from .serve import run_serve
+
+    parser = argparse.ArgumentParser(prog="stratum-mcp serve")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=7821)
+    parser.add_argument("--token", default=None)
+    parser.add_argument("--project-dir", default=".")
+    parser.add_argument("--tls-cert", default=None, metavar="PATH", help="TLS certificate file (PEM)")
+    parser.add_argument("--tls-key", default=None, metavar="PATH", help="TLS private key file (PEM)")
+    parsed = parser.parse_args(args)
+
+    host = parsed.host
+    token = parsed.token
+    # Security invariant: refuse non-loopback without token
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    if host not in loopback and not token:
+        print("ERROR: non-loopback --host requires --token. Refusing to start.", file=sys.stderr)
+        sys.exit(1)
+
+    run_serve(
+        host=host,
+        port=parsed.port,
+        token=token,
+        project_dir=Path(parsed.project_dir),
+        tls_cert=parsed.tls_cert,
+        tls_key=parsed.tls_key,
+    )
+
+
+def _cmd_help() -> None:
+    print("Usage: stratum-mcp <command> [options]")
+    print()
+    print("Commands:")
+    print("  install              Register MCP server and skills with Claude Code")
+    print("  uninstall            Remove MCP server registration and skills")
+    print("  serve                Start the JSON API server (stratum-mcp serve --help)")
+    print("  validate <file>      Validate a .stratum.yaml spec file")
+    print("  compile <dir>        Compile tasks/*.md files to .stratum.yaml")
+    print()
+    print("Run with no arguments to start the stdio MCP server (for Claude Code).")
+
+
 def main() -> None:
     """Entry point: CLI subcommands or stdio MCP server."""
     if len(sys.argv) >= 2:
         cmd = sys.argv[1]
-        if cmd == "setup":
+        if cmd in ("-h", "--help", "help"):
+            _cmd_help()
+            return
+        if cmd == "serve":
+            _cmd_serve(sys.argv[2:])
+            return
+        if cmd == "install":
             _cmd_setup()
             return
         if cmd == "uninstall":
@@ -709,6 +759,9 @@ def main() -> None:
         if cmd == "compile":
             _cmd_compile(sys.argv[2] if len(sys.argv) > 2 else "", sys.argv[3:])
             return
+        print(f"Unknown command: {cmd}", file=sys.stderr)
+        print("Run 'stratum-mcp --help' for usage.", file=sys.stderr)
+        sys.exit(1)
 
     mcp.run(transport="stdio")
 

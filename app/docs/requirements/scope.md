@@ -9,7 +9,7 @@
 
 ## Context
 
-We've been building Forge's vision using Claude Code in a terminal + a basic markdown canvas. It works but the value is in the conversation, not the UI. The UI adds almost nothing beyond file viewing.
+We've been building Compose's vision using Claude Code in a terminal + a basic markdown canvas. It works but the value is in the conversation, not the UI. The UI adds almost nothing beyond file viewing.
 
 The first buildable piece should provide **visual value that the terminal can't** — specifically, the visual structure needed to do what we've been doing (discovery, synthesis, tracking) but better.
 
@@ -114,8 +114,8 @@ The system must:
 ## Success criteria
 
 **The first buildable piece is successful if:**
-1. We can open Forge and see the discovery-process folder as a visual graph
+1. We can open Compose and see the discovery-process folder as a visual graph
 2. We can click a node and read the document
 3. We can see at a glance which docs are crystallized vs tentative vs open
 4. Claude Code can create/update docs and the map updates in real time
-5. We use Forge instead of raw terminal + file browser for the next session
+5. We use Compose instead of raw terminal + file browser for the next session

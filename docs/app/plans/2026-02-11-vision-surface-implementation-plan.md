@@ -2,7 +2,7 @@
 
 ## Context
 
-Forge has a two-panel layout: Terminal (xterm.js PTY) left, Canvas (markdown tab viewer) right. The Canvas needs to evolve into a multi-renderer shell so it can display the Vision Surface — an interactive card-based visualization showing ideas, decisions, questions, and their connections as they emerge from conversation.
+Compose has a two-panel layout: Terminal (xterm.js PTY) left, Canvas (markdown tab viewer) right. The Canvas needs to evolve into a multi-renderer shell so it can display the Vision Surface — an interactive card-based visualization showing ideas, decisions, questions, and their connections as they emerge from conversation.
 
 This is the first permanent piece of the jigsaw: a visual surface where the AI (and human) can see, create, and evaluate work items. The POC HTML (`poc/vision-surface.html`, `poc/vision-surface-variations.html`) proved the feel. Now we build it in React.
 
@@ -145,7 +145,7 @@ This is the first permanent piece of the jigsaw: a visual surface where the AI (
 
 ### Step 8: Polish + CSS
 - Add `--magenta: #a87cb8` and `--magenta-glow` to index.css
-- Visual review: all colors match design system (--forge-*, --ember, --ink-*, --border-*)
+- Visual review: all colors match design system (--compose-*, --ember, --ink-*, --border-*)
 - Ensure existing markdown canvas still renders correctly
 
 ## Key Decisions
@@ -155,7 +155,7 @@ This is the first permanent piece of the jigsaw: a visual surface where the AI (
 - **Full state broadcast** on every mutation — simpler than deltas, under 100 items expected
 - **`vision://surface` scheme** — reuses existing canvas open mechanism, no new API for agent to learn
 - **No new npm deps** — SVG for connections, CSS Grid for dense layout, uuid already available
-- **Design system colors from index.css** (--forge-*, --ember, etc.) — NOT the POC palette
+- **Design system colors from index.css** (--compose-*, --ember, etc.) — NOT the POC palette
 
 ## Verification
 

@@ -1,8 +1,8 @@
 #!/bin/bash
-# agent-error-hook.sh — PostToolUseFailure hook that forwards tool errors to Forge server.
+# agent-error-hook.sh — PostToolUseFailure hook that forwards tool errors to Compose server.
 #
 # Receives JSON on stdin from Claude Code with tool_name, tool_input, error.
-# POSTs to the Forge error endpoint for classification and UI display.
+# POSTs to the Compose error endpoint for classification and UI display.
 #
 # Fire-and-forget, non-blocking.
 

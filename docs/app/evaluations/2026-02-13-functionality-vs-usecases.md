@@ -83,7 +83,7 @@ The seed user from use-cases.md. All analysis below is from their perspective.
 
 **What's missing:**
 - **No session concept.** No identity, no assignment, no "who's working on what."
-- **No context briefing generation.** The developer manually writes session-context.md. Forge doesn't generate "here's what you need to know about this item."
+- **No context briefing generation.** The developer manually writes session-context.md. Compose doesn't generate "here's what you need to know about this item."
 - **No priority ordering.** `show-ready` lists everything unblocked but doesn't rank. The developer still picks manually.
 - **No scope boundaries on items.** Items don't know which files/dirs they affect. Session can't be scoped.
 
@@ -180,7 +180,7 @@ The seed user from use-cases.md. All analysis below is from their perspective.
 - **No automatic progress capture.** Status updates are manual (CLI calls).
 - **No briefing generation.** The new session reads breadcrumbs and session-context.md manually.
 
-**Verdict: 30% covered.** The building blocks exist (breadcrumbs, snapshot, session-context.md) but they're stitched together manually. The ICP recovers by reading files, not by asking Forge "what was happening."
+**Verdict: 30% covered.** The building blocks exist (breadcrumbs, snapshot, session-context.md) but they're stitched together manually. The ICP recovers by reading files, not by asking Compose "what was happening."
 
 ---
 
@@ -261,7 +261,7 @@ Weighted by daily frequency for the solo-dev-with-Claude-Code ICP:
 
 ### "I'm starting my day. What's the state of things?"
 
-1. Open Forge → Roadmap view loads with 4 features, 14 tracks
+1. Open Compose → Roadmap view loads with 4 features, 14 tracks
 2. Scan status colors — mostly planned (gray) and complete (green)
 3. Click into a feature → see tracks → see tasks within each phase
 4. Filter to "implementation" phase to see what's buildable
@@ -303,7 +303,7 @@ Weighted by daily frequency for the solo-dev-with-Claude-Code ICP:
 ### "My session crashed. I need to pick up where I left off"
 
 1. New session starts, reads `.claude/session-context.md`
-2. Read `.forge/breadcrumbs.log` for last intents
+2. Read `.compose/breadcrumbs.log` for last intents
 3. `vision-track list --status in_progress` to see what was active
 4. Look at git diff/status for uncommitted work
 5. Piece together what happened

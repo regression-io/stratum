@@ -8,7 +8,7 @@
 
 ## What happened
 
-No code was written. No bugs were fixed. No features were built. This was the first pure discovery session — a conversation about what Forge's conceptual model actually is, tested against real work we've done.
+No code was written. No bugs were fixed. No features were built. This was the first pure discovery session — a conversation about what Compose's conceptual model actually is, tested against real work we've done.
 
 We came in with Level 1 settled: three working dimensions (What, How, Why-factual) and a knowledge layer underneath. The task was to go one level deeper. What we got was a series of insights that reshaped the model.
 

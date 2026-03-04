@@ -8,11 +8,11 @@
 
 ## What happened
 
-Forge ran for the first time. The terminal embedded in the UI, Claude Code launched inside it. It worked — briefly. Then everything broke.
+Compose ran for the first time. The terminal embedded in the UI, Claude Code launched inside it. It worked — briefly. Then everything broke.
 
 ### The crash
 
-Running Claude Code inside the forge terminal produced a 400 error from the Anthropic API:
+Running Claude Code inside the compose terminal produced a 400 error from the Anthropic API:
 
 ```
 API Error: 400 {"type":"error","error":{"type":"invalid_request_error",
@@ -59,8 +59,8 @@ Two separate failures, likely causally linked:
 - A failed WebSocket write is now logged, not fatal
 
 **Observability** (`package.json`):
-- Server output tees to `/tmp/forge-server.log`
-- Can `tail -f /tmp/forge-server.log` in a separate terminal
+- Server output tees to `/tmp/compose-server.log`
+- Can `tail -f /tmp/compose-server.log` in a separate terminal
 - Added `dev:server` and `dev:client` as separate scripts for debugging
 
 **Process supervisor** (`server/supervisor.js`):
@@ -79,17 +79,17 @@ Two separate failures, likely causally linked:
 
 ### The self-monitoring question
 
-Raised the question: can Forge monitor itself? This maps to the roadmap:
+Raised the question: can Compose monitor itself? This maps to the roadmap:
 
 - **Level 1 — PTY output monitoring.** The server already sees all terminal output. Pattern-match for known error signatures (`API Error:`, stack traces) and surface them in the UI or logs.
 - **Level 2 — Claude Code structured output.** Use `--output-format stream-json` to get structured events (errors, tool use, thinking) instead of opaque terminal output.
-- **Level 3 — Agent SDK connector.** Host the agent directly via the Anthropic Agent SDK, bypassing the PTY. Forge becomes the orchestrator, not just a terminal wrapper.
+- **Level 3 — Agent SDK connector.** Host the agent directly via the Anthropic Agent SDK, bypassing the PTY. Compose becomes the orchestrator, not just a terminal wrapper.
 
 These map to Phase 4 of the roadmap (Agent Connector), but Level 1 could be done immediately.
 
 ### The developer journal decision
 
-Decided to capture the build process as a journal — the story of how Forge was built. This is raw material for the narrative, and also a test case for the kind of knowledge capture Forge is designed to automate.
+Decided to capture the build process as a journal — the story of how Compose was built. This is raw material for the narrative, and also a test case for the kind of knowledge capture Compose is designed to automate.
 
 Journal entries are written in real time from this point forward. Session 0 was reconstructed from existing docs.
 
@@ -119,9 +119,9 @@ NEW DOCS:
 
 3. **Self-healing > error prevention.** We can't prevent every crash. But we can make the system restart itself and reconnect. The supervisor + client reconnection pattern means a crash becomes a 2-second blip instead of "the app died."
 
-4. **The agent connector question is urgent.** Right now Claude Code inside the PTY is a black box. Forge can't see what the agent is doing, what errors it's hitting, or what state it's in. The agent connector (Phase 4 in the roadmap) needs to move earlier — at least the read-only version.
+4. **The agent connector question is urgent.** Right now Claude Code inside the PTY is a black box. Compose can't see what the agent is doing, what errors it's hitting, or what state it's in. The agent connector (Phase 4 in the roadmap) needs to move earlier — at least the read-only version.
 
-5. **Dogfooding pressure is real.** We're experiencing exactly what Forge is designed to solve: the crash, diagnosis, and fix happened across a conversation that produced decisions, code changes, and architectural insights — none of which are captured in a structured way. The journal is a manual approximation of what Forge's conversation distillation would automate.
+5. **Dogfooding pressure is real.** We're experiencing exactly what Compose is designed to solve: the crash, diagnosis, and fix happened across a conversation that produced decisions, code changes, and architectural insights — none of which are captured in a structured way. The journal is a manual approximation of what Compose's conversation distillation would automate.
 
 ## Open threads
 
@@ -132,4 +132,4 @@ NEW DOCS:
 
 ---
 
-*Next session: wire persistence, get the UI showing real data from `.forge/`.*
+*Next session: wire persistence, get the UI showing real data from `.compose/`.*

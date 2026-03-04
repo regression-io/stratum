@@ -1,7 +1,7 @@
 # Feature-Dev v2: Design Decisions
 
 **Status:** Complete — all 16 issues resolved.
-**Note:** The `feature-dev` skill was renamed to `forge` in v3 ([design](../skill-arch-upgrade/design.md)). This doc preserves the original naming for historical accuracy.
+**Note:** The `feature-dev` skill was renamed to `compose` in v3 ([design](../skill-arch-upgrade/design.md)). This doc preserves the original naming for historical accuracy.
 
 ## Context
 
@@ -40,7 +40,7 @@ The absence of `prd.md` or `architecture.md` *is* the documentation that those p
 | Plan writing & approval | Claude Code | `EnterPlanMode` writes to `docs/features/<slug>/plan.md` |
 | In-flight task tracking | Claude Code | `TaskCreate`/`TaskUpdate` (ephemeral, per-session) |
 | Raw session events | Claude Code | Session hooks → SessionManager |
-| Event accumulation & summaries | Forge | SessionManager, Haiku batches |
+| Event accumulation & summaries | Compose | SessionManager, Haiku batches |
 
 **Provenance preservation:** Claude Code's ephemeral artifacts get copied into the feature folder:
 
@@ -139,17 +139,17 @@ The agent always does the thinking. Gates are not "block until human talks" — 
 
 ## Decision 12: Execution Skill Guidance — Needs Own Discussion
 
-**Problem (#7):** Three execution skills (forge-loop, subagent-driven-development, executing-plans) with overlapping scope.
+**Problem (#7):** Three execution skills (compose-loop, subagent-driven-development, executing-plans) with overlapping scope.
 
 **Decision:** Add a decision table to Phase 7 as interim guidance:
 
 | Condition | Use |
 |---|---|
-| Inside Forge, touching 3+ files | `forge-loop` |
+| Inside Compose, touching 3+ files | `compose-loop` |
 | Independent tasks, parallelizable | `subagent-driven-development` |
 | Sequential tasks with dependencies | `executing-plans` |
 
-**Parked for deeper discussion:** The execution skill overlap may warrant a redesign rather than just guidance. Potentially consolidate into fewer skills or make forge-loop the Forge-aware wrapper around the generic skills.
+**Parked for deeper discussion:** The execution skill overlap may warrant a redesign rather than just guidance. Potentially consolidate into fewer skills or make compose-loop the Compose-aware wrapper around the generic skills.
 
 ## Decision 13: Artifact Versioning via Policy Setting
 
@@ -228,7 +228,7 @@ Next session starts → reconcile        ← Layer 4 (cross-session)
 
 These were identified but need their own conversations:
 
-1. **Execution skill redesign** (Decision 12) — forge-loop killed (was just a wrapper around superpowers skills). Remaining question: do subagent-driven-development and executing-plans overlap enough to consolidate?
+1. **Execution skill redesign** (Decision 12) — compose-loop killed (was just a wrapper around superpowers skills). Remaining question: do subagent-driven-development and executing-plans overlap enough to consolidate?
 2. **Parallel track strategy** (Decision 15) — git worktrees? Branch-per-feature? How do parallel features coordinate?
 3. **Feature naming** (Decision 1) — code names once roadmap and naming are stable.
 4. **Roadmap integration layers** (Decision 16) — which of the 4 layers to build, in what order, infrastructure needed. → Now addressed in [Lifecycle Engine Roadmap](../../plans/2026-02-15-lifecycle-engine-roadmap.md) Layers 1-2.
@@ -238,4 +238,4 @@ These were identified but need their own conversations:
 
 ## Productization
 
-The `/forge` skill (formerly `feature-dev`) is the process specification for Forge's lifecycle engine. The gap between skill (advisory) and product (structural enforcement) is documented in the [Lifecycle Engine Roadmap](../../plans/2026-02-15-lifecycle-engine-roadmap.md). Seven layers: user prefs → state machine → artifact awareness → policy runtime → gate UI → session binding → iteration orchestration → agent abstraction.
+The `/compose` skill (formerly `feature-dev`) is the process specification for Compose's lifecycle engine. The gap between skill (advisory) and product (structural enforcement) is documented in the [Lifecycle Engine Roadmap](../../plans/2026-02-15-lifecycle-engine-roadmap.md). Seven layers: user prefs → state machine → artifact awareness → policy runtime → gate UI → session binding → iteration orchestration → agent abstraction.

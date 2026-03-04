@@ -70,7 +70,7 @@ We said "Discovery isn't Work — it's a 4th primitive." But is it? Alternative:
 F1 Discover → F3 Distill → F2 Capture → F4 Plan → F5 Execute
 ```
 
-Real work is messier. In this session alone we discovered, distilled, captured, and looped back multiple times within minutes. The clean flow might be aspirational, not real. If it's aspirational, it's useful as a mental model. If it's prescriptive (Forge enforces this order), it's wrong.
+Real work is messier. In this session alone we discovered, distilled, captured, and looped back multiple times within minutes. The clean flow might be aspirational, not real. If it's aspirational, it's useful as a mental model. If it's prescriptive (Compose enforces this order), it's wrong.
 
 ### Bayesian confidence without teeth
 

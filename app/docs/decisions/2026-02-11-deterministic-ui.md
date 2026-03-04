@@ -2,14 +2,14 @@
 
 **Date:** 2026-02-11
 **Status:** DECIDED
-**Context:** Forge UI architecture — should views be fixed or LLM-generated?
+**Context:** Compose UI architecture — should views be fixed or LLM-generated?
 **Related:** [UI-BRIEF](../UI-BRIEF.md), [PRD](../PRD.md)
 
 ---
 
 ## Question
 
-How deterministic should Forge's UI be? Can it be dynamic based on what the LLM produces, or is the fixed view set sufficient?
+How deterministic should Compose's UI be? Can it be dynamic based on what the LLM produces, or is the fixed view set sufficient?
 
 ## Decision
 
@@ -31,13 +31,13 @@ The dynamic content layer needs three capabilities not yet in the spec:
 
 ### 1. Rich Markdown Artifacts (inline editing)
 
-Artifacts aren't just attached files — they're living documents created and edited inside Forge. Discussion summaries, design rationale, brainstorm notes, specs. The UI provides a deterministic editor; the content is dynamic.
+Artifacts aren't just attached files — they're living documents created and edited inside Compose. Discussion summaries, design rationale, brainstorm notes, specs. The UI provides a deterministic editor; the content is dynamic.
 
-This is how the LLM's output surfaces in Forge: as editable markdown artifacts on Work items.
+This is how the LLM's output surfaces in Compose: as editable markdown artifacts on Work items.
 
 ### 2. Conversation Distillation
 
-Sessions (human-AI, human-human) produce long transcripts. Forge distills these into structured outcomes:
+Sessions (human-AI, human-human) produce long transcripts. Compose distills these into structured outcomes:
 - Decisions made → become Work items (label: "decision") or update existing artifacts
 - Questions raised → become Work items (label: "decision", status: "planned")
 - Action items → become Work items (label: "task")
@@ -83,5 +83,5 @@ The UI-BRIEF's design principles hold:
 
 ## Rejected Alternatives
 
-- **Dynamic UI generation** — LLM generates or modifies views. Rejected: breaks predictability, adds latency, loses muscle memory. Makes Forge feel like a chatbot, not mission control.
-- **Fully static artifacts** — artifacts are only attached files. Rejected: forces content creation outside Forge, which means thinking happens out of band.
+- **Dynamic UI generation** — LLM generates or modifies views. Rejected: breaks predictability, adds latency, loses muscle memory. Makes Compose feel like a chatbot, not mission control.
+- **Fully static artifacts** — artifacts are only attached files. Rejected: forces content creation outside Compose, which means thinking happens out of band.

@@ -27,7 +27,7 @@ The bottleneck is steering. The human has no visibility into the thinking layer 
 
 ## The original goal
 
-Add a product/project management layer on top of vibe coding. Not replacing the coding agent — augmenting it with structure. The agent codes; Forge provides the rails.
+Add a product/project management layer on top of vibe coding. Not replacing the coding agent — augmenting it with structure. The agent codes; Compose provides the rails.
 
 Rails doesn't mean process enforcement (write a spec, get approval, write a design, get approval...). Rails means **visibility that enables steering.** You can see what's happening, so you can redirect when it drifts. Same way rails on a road don't slow you down — they keep you from going off the cliff.
 
@@ -66,7 +66,7 @@ His thesis: the model is the intelligence, the harness should stay out of the wa
 
 **Where the gap is:** His agent has no memory across sessions, no confidence tracking, no decision graph, no "where are we?" view, no governance model. When the developer already knows what to build, that's fine. When the goal is fuzzy, or the project is complex, or you need to trace why something was decided three sessions ago — there's nothing.
 
-That gap is Forge's value.
+That gap is Compose's value.
 
 ---
 

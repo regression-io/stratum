@@ -2,14 +2,14 @@
 
 **Date:** 2026-02-11
 **Status:** DECIDED
-**Context:** How does Forge support brainstorming, discussions, and decisions — not just task execution?
+**Context:** How does Compose support brainstorming, discussions, and decisions — not just task execution?
 **Related:** [Deterministic UI Decision](2026-02-11-deterministic-ui.md), [PRD](../PRD.md)
 
 ---
 
 ## Question
 
-How do brainstorming, discussions, and decision-making fit into Forge's model? Do we need new entity types, or can the existing model handle it?
+How do brainstorming, discussions, and decision-making fit into Compose's model? Do we need new entity types, or can the existing model handle it?
 
 ## Decision
 
@@ -38,7 +38,7 @@ The `informs` dependency type connects deliberation to execution:
 ## The Hierarchy
 
 ```
-Initiative: Forge Phase 1
+Initiative: Compose Phase 1
   Feature: UI Architecture
     Brainstorm: UI approach exploration
       artifacts: [brainstorm notes]
@@ -55,7 +55,7 @@ Initiative: Forge Phase 1
 
 ## Implications
 
-1. **Forge is a knowledge work tracker, not just a task tracker.** Thinking is work. Decisions are deliverables. If we only track tasks, we'll always do the thinking somewhere else.
+1. **Compose is a knowledge work tracker, not just a task tracker.** Thinking is work. Decisions are deliverables. If we only track tasks, we'll always do the thinking somewhere else.
 
 2. **The `informs` dependency type is critical.** It's how deliberation feeds execution. Without it, the knowledge graph is disconnected — decisions float without linking to the work they influence.
 
@@ -66,4 +66,4 @@ Initiative: Forge Phase 1
 ## Rejected Alternatives
 
 - **New entity types for Discussion/Decision** — adds complexity, requires schema changes, and the existing Work model already handles it. Labels are cheaper than entities.
-- **Discussions outside Forge** — the current state. Thinking happens in chat transcripts, meetings, docs — then outcomes are manually entered into Forge. This is the problem we're solving.
+- **Discussions outside Compose** — the current state. Thinking happens in chat transcripts, meetings, docs — then outcomes are manually entered into Compose. This is the problem we're solving.

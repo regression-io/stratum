@@ -156,7 +156,7 @@ This is a level confusion to watch for: product dimensions vs. process dimension
 
 2. **Timing matters.** Evaluate too early and you kill divergence. Evaluate too late and false crystallization sets in. The human's challenge instinct is the current timing mechanism. Can it be supported by the AI?
 
-3. **Processes are inferred, not designed.** We didn't plan the confidence evaluation process. We did it, then recognized it. This suggests Forge's process support should be recognition-first, not template-first. Watch what people do, name it, then support it.
+3. **Processes are inferred, not designed.** We didn't plan the confidence evaluation process. We did it, then recognized it. This suggests Compose's process support should be recognition-first, not template-first. Watch what people do, name it, then support it.
 
 4. **Product dimensions ≠ process dimensions.** How/When for Work items is different from How/When for the discovery process. Same words, different levels. The product tracks work. The process produces the work that gets tracked. Don't conflate them.
 

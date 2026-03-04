@@ -1,6 +1,6 @@
 # Self-Preservation: Don't Kill Your Own Session
 
-You are running inside Forge's embedded terminal. Your PTY process is a child of the Forge server. If the server restarts, you die. Act accordingly.
+You are running inside Compose's embedded terminal. Your PTY process is a child of the Compose server. If the server restarts, you die. Act accordingly.
 
 ## Never do these things
 

@@ -10,7 +10,7 @@ The answer: a DAG. Not a tree, not a hierarchy — a directed acyclic graph of 7
 
 The key insight was that the Initiative → Feature → Task tree is one *view* of the graph, not the graph itself. Ideas can float free. Threads can inform 5 Features across 3 Initiatives. A Question can block a Feature and also question an Initiative's scope. The graph holds everything; views filter it.
 
-Then we built a way to see it. GraphRenderer.jsx is a general-purpose Cytoscape DAG renderer styled like Forge — dark cards with colored borders, monospace fonts, the whole token palette. ProductGraph.jsx feeds it the ontology data. Six layout algorithms, zoom controls, a legend with entity toggles and edge style explanations. It lives in a `graph://` Canvas tab alongside markdown and Vision Surface.
+Then we built a way to see it. GraphRenderer.jsx is a general-purpose Cytoscape DAG renderer styled like Compose — dark cards with colored borders, monospace fonts, the whole token palette. ProductGraph.jsx feeds it the ontology data. Six layout algorithms, zoom controls, a legend with entity toggles and edge style explanations. It lives in a `graph://` Canvas tab alongside markdown and Vision Surface.
 
 We validated the ontology against 25 use cases — everything from "developer starts a new project" to "AI agent proposes killing a blocked feature" — and built 4 matrices: entity coverage, edge coverage, CR1-CR7 alignment, and completeness. Found 5 gaps, fixed 2 in-session: `belongs_to` needed to be explicitly many-to-many, and every entity needed a `confidence` field that's both lifecycle-derived and explicitly overridable. The user's "why not both?" killed a false dichotomy we were constructing.
 
@@ -21,7 +21,7 @@ Meanwhile, the Vision Surface got sort/group controls in list view and a connect
 ### New files
 - `docs/design/2026-02-13-product-realignment.md` — The graph-based data model (7 entities, 8 edges, DAG structure, Feature lifecycle, 3-mode dial, semantic IDs)
 - `docs/design/2026-02-13-ontology-validation.md` — 25 use cases, 4 matrices, 5 gaps analyzed
-- `src/components/GraphRenderer.jsx` — General-purpose Cytoscape DAG renderer with Forge styling
+- `src/components/GraphRenderer.jsx` — General-purpose Cytoscape DAG renderer with Compose styling
 - `src/components/ProductGraph.jsx` — Ontology data feeding GraphRenderer
 - `src/components/vision/ConnectionGraph.jsx` — Detail panel neighborhood sub-graph
 - `src/components/vision/GraphView.jsx` — Full DAG view in Vision Surface

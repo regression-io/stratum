@@ -47,7 +47,7 @@ Files (delete): `server/codex-server.js`, old `server/connectors/codex-connector
 
 Expose connectors as MCP tools. Zero HTTP/SSE surface added.
 
-- [ ] Create `server/agent-mcp.js` (stdio transport, same pattern as `forge-mcp.js`)
+- [ ] Create `server/agent-mcp.js` (stdio transport, same pattern as `compose-mcp.js`)
 - [ ] Register `claude_run` tool: accepts `prompt`, `schema?`, `modelID?`, `cwd?`; streams via `collectStream()` before returning
 - [ ] Register `codex_run` tool: same signature; delegates to `CodexConnector`
 - [ ] Both tool definitions total < 200 tokens combined
@@ -122,7 +122,7 @@ End-to-end validation per Phase A–C acceptance criteria in the design doc.
 - [ ] `CodexConnector` rejects `modelID: "gpt-4o"` with a clear error at construction
 - [ ] Stratum `review-fix` pipeline completes on a real feature with `result.clean == true`
 - [ ] `stratum_audit` trace logged and readable
-- [ ] Forge server starts cleanly with no dead-code warnings
+- [ ] Compose server starts cleanly with no dead-code warnings
 
 ---
 

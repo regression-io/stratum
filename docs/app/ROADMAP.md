@@ -1,6 +1,6 @@
-# Forge Roadmap
+# Compose Roadmap
 
-**Project:** Forge — structured implementation pipeline for AI-driven development
+**Project:** Compose — structured implementation pipeline for AI-driven development
 **Last updated:** 2026-02-26
 
 ## Related Documents
@@ -64,7 +64,7 @@ the same dependency window and delivery milestone as the connector work, not bec
 | 15 | Git/file connector — link work items to code changes, diff awareness | PLANNED |
 | 16 | Tab popout — dockable/undockable tabs to separate monitors *(UI extension)* | PLANNED |
 | 17 | Persistence evolution — event-sourced, markdown generation from tracker | PLANNED |
-| 18 | Agent connector (read-write) — direct sessions from Forge | **SUPERSEDED by 18a–18h** |
+| 18 | Agent connector (read-write) — direct sessions from Compose | **SUPERSEDED by 18a–18h** |
 
 Item 18 is fully replaced by Phase 4.5. It is not independently actionable. 18a–18h are the
 complete decomposition of what "agent connector (read-write)" meant at planning time.
@@ -98,7 +98,7 @@ See: [Architecture Foundation Plan](plans/2026-02-26-architecture-foundation-pla
 
 ## Phase 5: Standalone — PLANNED
 
-Forge as an installable tool: LaunchAgent, version-aware restart, CLI + npm distribution.
+Compose as an installable tool: LaunchAgent, version-aware restart, CLI + npm distribution.
 
 | # | Item | Status |
 |---|------|--------|
@@ -115,13 +115,13 @@ of 5.5 does not imply completion of 5; 19a (skill arch) and 19 (standalone) are 
 
 | # | Item | Status |
 |---|------|--------|
-| 19a | Agent-based skill architecture — forge-explorer, forge-architect, forge-reviewer agents; competing architecture proposals; confidence-scored review; rename feature-dev → forge | COMPLETE |
+| 19a | Agent-based skill architecture — compose-explorer, compose-architect, compose-reviewer agents; competing architecture proposals; confidence-scored review; rename feature-dev → compose | COMPLETE |
 
 ---
 
 ## Phase 6: Lifecycle Engine — PLANNED
 
-The `/forge` skill becomes the product. Seven layers from user preferences through iteration
+The `/compose` skill becomes the product. Seven layers from user preferences through iteration
 orchestration. See: [Lifecycle Engine Roadmap](plans/2026-02-15-lifecycle-engine-roadmap.md).
 
 | # | Item | Status |
@@ -132,7 +132,7 @@ orchestration. See: [Lifecycle Engine Roadmap](plans/2026-02-15-lifecycle-engine
 | 23 | Policy enforcement runtime — gate/flag/skip dials as structural enforcement, not prose | PLANNED |
 | 24 | Gate UI — interactive approve/revise/kill in Vision Surface, gate queue, trade-offs display | PLANNED |
 | 25 | Session-lifecycle binding — sessions tagged to features and phases, contextualized activity | PLANNED |
-| 26 | Iteration orchestration — ralph loops as Forge primitive, completion promise monitoring, exit criteria enforcement | PLANNED |
+| 26 | Iteration orchestration — ralph loops as Compose primitive, completion promise monitoring, exit criteria enforcement | PLANNED |
 
 ---
 
@@ -160,6 +160,6 @@ These milestones use sequential labels (D0–D3) that are independent of roadmap
 | Milestone | Description | Status |
 |-----------|-------------|--------|
 | D0: Bootstrap | Manual, out-of-band. Markdown files and chat transcripts. | COMPLETE |
-| D1: Self-tracking | Forge tracks its own work via Vision Surface (114+ items, 136+ connections). | COMPLETE |
+| D1: Self-tracking | Compose tracks its own work via Vision Surface (114+ items, 136+ connections). | COMPLETE |
 | D2: Self-aware | Agent monitoring feeds session activity into the tracker automatically. | ACTIVE |
-| D3: Self-directing | Lifecycle engine enforces the forge process structurally. All work happens in Forge. | PLANNED |
+| D3: Self-directing | Lifecycle engine enforces the compose process structurally. All work happens in Compose. | PLANNED |

@@ -11,7 +11,7 @@
 
 How do we keep AI-driven implementation on rails through the full lifecycle?
 
-This is not solved. LLMs drift, hallucinate, lose context, scope-creep, and can't self-assess quality. But humans have the same fundamental problem — imperfect execution — and have developed processes over decades to compensate. Can we learn from those processes and encode them into Forge's pipeline?
+This is not solved. LLMs drift, hallucinate, lose context, scope-creep, and can't self-assess quality. But humans have the same fundamental problem — imperfect execution — and have developed processes over decades to compensate. Can we learn from those processes and encode them into Compose's pipeline?
 
 This is not a feature. It's the architectural spine of the product. Without rails, "Build me X" is just a prompt to an LLM. With rails, it's a structured process that produces reliable output.
 
@@ -72,7 +72,7 @@ All of these reduce to:
 
 ---
 
-## What Forge already has (building blocks)
+## What Compose already has (building blocks)
 
 | Building block | Maps to | Status |
 |---|---|---|
@@ -93,66 +93,66 @@ The question isn't "what are the rails?" We know those from human processes. The
 
 ## What we can learn from Claude Code
 
-Claude Code is an AI coding agent that already runs in production. It has mechanisms for staying on track. What can Forge learn from them?
+Claude Code is an AI coding agent that already runs in production. It has mechanisms for staying on track. What can Compose learn from them?
 
 ### CLAUDE.md — persistent project instructions
 
 A markdown file that persists across sessions. Contains project context, conventions, architecture decisions, dos and don'ts. The AI reads it at session start.
 
-**What this teaches Forge:**
+**What this teaches Compose:**
 - Persistent context survives session boundaries. Without it, every session starts from zero.
 - The instructions are *declarative* — they describe the desired state, not step-by-step procedures.
 - They're human-authored and human-maintained. The AI follows them but doesn't write them (usually).
 - They're the simplest possible "rails" — a text file that says "here's how things work here."
 
-**Forge equivalent:** F0 (Context) already captures this. But the insight is: context isn't just retrieved knowledge. It's *instructions*. Prior decisions that constrain future work. "We decided to use X" isn't just history — it's a rail.
+**Compose equivalent:** F0 (Context) already captures this. But the insight is: context isn't just retrieved knowledge. It's *instructions*. Prior decisions that constrain future work. "We decided to use X" isn't just history — it's a rail.
 
 ### Rules (.claude/rules/) — scoped behavioral constraints
 
 Small markdown files that constrain AI behavior in specific contexts. "Discovery content goes to docs, not chat." "Write journal entries before session end." Narrower than CLAUDE.md, focused on specific situations.
 
-**What this teaches Forge:**
+**What this teaches Compose:**
 - Policies can be lightweight — a few lines of text, not a schema.
 - They're scoped — this rule applies in this context, not everywhere.
 - They're composable — multiple rules can be active simultaneously.
-- They map directly to Forge's Policy primitive (gate/flag/skip), but the implementation is just text files.
+- They map directly to Compose's Policy primitive (gate/flag/skip), but the implementation is just text files.
 
-**Forge equivalent:** Policies. But the insight is: policies might be simpler than we think. A policy could be "when decomposing a frontend feature, always include accessibility" — a text rule, not a data structure.
+**Compose equivalent:** Policies. But the insight is: policies might be simpler than we think. A policy could be "when decomposing a frontend feature, always include accessibility" — a text rule, not a data structure.
 
 ### Skills — reusable process templates
 
 Packaged sequences of steps for recurring tasks. `/commit`, `/flush`, `/review-pr`. Each skill defines a process: what to check, what to do, in what order.
 
-**What this teaches Forge:**
+**What this teaches Compose:**
 - Recurring processes can be captured as templates.
 - Templates encode *how* to do something, not just *what* to do.
 - They're invocable — the user triggers them, the AI follows the steps.
 - They compose with other capabilities (a skill can read files, run commands, write output).
 
-**Forge equivalent:** Pipeline step templates? If "decompose a goal" is a recurring process, it could be a skill-like template: gather context, identify sub-goals, define acceptance criteria per sub-goal, check for missing pieces, propose to human. The pipeline steps could be skill-shaped.
+**Compose equivalent:** Pipeline step templates? If "decompose a goal" is a recurring process, it could be a skill-like template: gather context, identify sub-goals, define acceptance criteria per sub-goal, check for missing pieces, propose to human. The pipeline steps could be skill-shaped.
 
 ### Hooks — event-driven enforcement
 
 Shell commands that execute in response to events. Pre-commit hooks, session-start hooks. They enforce constraints automatically — you don't have to remember, the system checks.
 
-**What this teaches Forge:**
+**What this teaches Compose:**
 - Enforcement can be event-driven, not just gate-driven.
 - "Before executing, verify X" is a hook pattern.
 - Hooks are the mechanical implementation of the "check frequently" principle.
 - They run automatically — no human decision needed. This is the "skip" mode of the 3-mode dial.
 
-**Forge equivalent:** Pipeline step hooks. Before execution starts: verify acceptance criteria exist. After decomposition: verify every sub-task traces back to a requirement. After build: run verification against acceptance criteria. These are the *rails* — automated checks that catch drift without human intervention.
+**Compose equivalent:** Pipeline step hooks. Before execution starts: verify acceptance criteria exist. After decomposition: verify every sub-task traces back to a requirement. After build: run verification against acceptance criteria. These are the *rails* — automated checks that catch drift without human intervention.
 
 ### Memory — accumulated knowledge across sessions
 
 Persistent memory files for preferences, corrections, patterns, decisions, issues. Written when the AI learns something reusable. Read on session start.
 
-**What this teaches Forge:**
+**What this teaches Compose:**
 - Knowledge capture can happen at the moment of learning, not in a separate capture phase.
 - Memory has types: corrections (what not to do), patterns (what to do), decisions (why we chose this).
 - The most valuable memory is *corrections* — things that went wrong and shouldn't happen again.
 
-**Forge equivalent:** This IS the knowledge capture cross-cutting capability. The insight is: capture should be typed (not all knowledge is the same) and triggered at the moment of learning (not post-hoc).
+**Compose equivalent:** This IS the knowledge capture cross-cutting capability. The insight is: capture should be typed (not all knowledge is the same) and triggered at the moment of learning (not post-hoc).
 
 ---
 
@@ -294,7 +294,7 @@ The confidence model applies here too: confidence in a constraint's value determ
 
 ## Background sub-agent for meta-tracking
 
-Thread to resolve: should Forge run a background sub-agent that observes the conversation and does meta-tracking automatically?
+Thread to resolve: should Compose run a background sub-agent that observes the conversation and does meta-tracking automatically?
 
 **The problem it solves:** We designed the meta-trace, the confidence evaluation process, and the phase transition tracking — then immediately failed to use them when the transition actually happened. Manual tracking fails at the moment of highest value (when you're in flow). This happened to us. It will happen to users.
 
@@ -315,7 +315,7 @@ Thread to resolve: should Forge run a background sub-agent that observes the con
 - How does it surface observations without interrupting? Flag mode? Async notes?
 - Is this one sub-agent or multiple (one for tracking, one for confidence, one for capture)?
 - What's the cost? Token budget for background processing?
-- Can it work with Claude Code's existing architecture, or does it need Forge-specific infrastructure?
+- Can it work with Claude Code's existing architecture, or does it need Compose-specific infrastructure?
 
 **This is itself something a sub-agent could work on in the background** — researching feasibility, drafting a design, while the main conversation continues on requirements.
 
@@ -332,4 +332,4 @@ Thread to resolve: should Forge run a background sub-agent that observes the con
 
 ---
 
-*The rails aren't the data structures. The rails are the enforcement mechanism that uses the data structures at every pipeline step. Without them, Forge is a fancy prompt. With them, Forge is a structured process that produces reliable output.*
+*The rails aren't the data structures. The rails are the enforcement mechanism that uses the data structures at every pipeline step. Without them, Compose is a fancy prompt. With them, Compose is a structured process that produces reliable output.*

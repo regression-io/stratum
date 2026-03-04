@@ -15,7 +15,7 @@ The discussion produced 16 design decisions, captured in `docs/features/feature-
 
 **The rewrite.** Feature-dev SKILL.md went from v1 to v2: 12 phases with clear skip conditions, ralph loop prompts for Phases 8-9, execution skill decision table, blocker protocol, cross-cutting skills table expanded with all superpowers and interface-design skills.
 
-**Then the audit.** Checked all skills and rules for redundancy with feature-dev v2. Found one: `forge-loop`. The human asked "why is this not universal instead of forge-loop specific?" and then "isn't it already part of claude's operating instructions?" — both correct. The core pattern (decompose, dispatch subagents, integrate) was already in superpowers skills. forge-loop was just a Forge-branded wrapper. Killed the skill, replaced the rule with a 3-line pointer to the superpowers skills.
+**Then the audit.** Checked all skills and rules for redundancy with feature-dev v2. Found one: `compose-loop`. The human asked "why is this not universal instead of compose-loop specific?" and then "isn't it already part of claude's operating instructions?" — both correct. The core pattern (decompose, dispatch subagents, integrate) was already in superpowers skills. compose-loop was just a Compose-branded wrapper. Killed the skill, replaced the rule with a 3-line pointer to the superpowers skills.
 
 **Finally, hooks.** The human noticed PostToolUse hooks inject `<system-reminder>` tags into context on every tool call. The activity hook had no matcher filter — it fired on Read, Grep, Glob, everything. That's hundreds of small context injections per session. Disabled all PostToolUse and PostToolUseFailure hooks pending a discussion on async hooks or batching strategies.
 
@@ -34,14 +34,14 @@ The discussion produced 16 design decisions, captured in `docs/features/feature-
 - `src/components/vision/useVisionStore.js` — `agentError` WebSocket handler, `agentErrors` state
 - `src/components/vision/AppSidebar.jsx` — Error display section, `StatsBar` ordering fix
 - `src/components/vision/VisionTracker.jsx` — Pass `agentErrors` through to sidebar
-- `.claude/rules/forge-loop.md` — Replaced with pointer to superpowers subagent skills
+- `.claude/rules/compose-loop.md` — Replaced with pointer to superpowers subagent skills
 
 ### Deleted files
-- `~/.claude/skills/forge-loop/SKILL.md` — Redundant with superpowers skills
+- `~/.claude/skills/compose-loop/SKILL.md` — Redundant with superpowers skills
 
 ## What we learned
 
-1. **Skills should be capabilities, not branded wrappers.** forge-loop was just "use subagents" with a Forge-specific name. The capability was already in superpowers. When you find yourself writing a skill that's mostly "invoke these other skills," it's probably not a skill — it's a trigger rule.
+1. **Skills should be capabilities, not branded wrappers.** compose-loop was just "use subagents" with a Compose-specific name. The capability was already in superpowers. When you find yourself writing a skill that's mostly "invoke these other skills," it's probably not a skill — it's a trigger rule.
 
 2. **Hooks have a hidden context cost.** Every hook execution generates a `<system-reminder>` in the conversation, even if the hook produces no stdout. An unfiltered PostToolUse hook fires hundreds of times per session. The context cost is invisible until you notice your sessions dying faster.
 

@@ -21,7 +21,7 @@
 ## CF3: "Three verbs isn't enough — where's DO?"
 
 **Claim tested:** CR3 three verbs cover all user actions.
-**Counter:** See/change/evaluate are about managing things in Forge. "Build me X" requires execution — directing agents, assigning work, monitoring.
+**Counter:** See/change/evaluate are about managing things in Compose. "Build me X" requires execution — directing agents, assigning work, monitoring.
 **Decision:** Add 4th verb: "Execute." Updated CR3.
 
 ## CF4: "The composition is too abstract to build from"

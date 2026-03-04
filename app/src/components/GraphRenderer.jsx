@@ -12,7 +12,7 @@ cytoscape.use(cytoscapeDagre);
  *   edges: [{ from, to, label?, color?, style?, type? }]
  *   elements: cytoscape elements array (alternative to nodes/edges)
  *   layout: cytoscape layout options (default: dagre TB)
- *   style: cytoscape stylesheet array (default: Forge design tokens)
+ *   style: cytoscape stylesheet array (default: Compose design tokens)
  *   title?: string
  *   subtitle?: string
  *   graphKey?: string (for localStorage persistence)
@@ -140,7 +140,7 @@ function toElements(nodes, edges) {
   return elements;
 }
 
-const GRAPH_STATE_PREFIX = 'forge:graph:';
+const GRAPH_STATE_PREFIX = 'compose:graph:';
 
 function loadGraphState(key) {
   try {

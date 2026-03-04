@@ -11,17 +11,17 @@ import { SessionManager } from './session-manager.js';
 let serverListening = false;
 process.on('uncaughtException', (err) => {
   if (!serverListening && err.code === 'EADDRINUSE') {
-    console.error(`[forge] Port in use, exiting for supervisor retry: ${err.message}`);
+    console.error(`[compose] Port in use, exiting for supervisor retry: ${err.message}`);
     process.exit(1);
   }
-  console.error('[forge] Uncaught exception (process kept alive):', err.message);
+  console.error('[compose] Uncaught exception (process kept alive):', err.message);
   console.error(err.stack);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[forge] Unhandled rejection (process kept alive):', reason);
+  console.error('[compose] Unhandled rejection (process kept alive):', reason);
 });
 process.on('SIGTERM', () => {
-  console.log('[forge] SIGTERM received, shutting down gracefully');
+  console.log('[compose] SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
 
@@ -46,7 +46,7 @@ try {
   const features = visionServer._scanSpeckit();
   if (features.length > 0) visionServer._seedSpeckit(features);
 } catch (err) {
-  console.error('[forge] Speckit startup seed error:', err.message);
+  console.error('[compose] Speckit startup seed error:', err.message);
 }
 
 // Wire .specify/ file changes → auto-reseed vision store
@@ -56,7 +56,7 @@ fileWatcher.onSpeckitChanged = (_relativePath) => {
     visionServer._seedSpeckit(features);
     visionServer.scheduleBroadcast();
   } catch (err) {
-    console.error('[forge] Speckit reseed error:', err.message);
+    console.error('[compose] Speckit reseed error:', err.message);
   }
 };
 
@@ -79,7 +79,7 @@ server.on('upgrade', (req, socket, head) => {
 
 server.listen(PORT, '127.0.0.1', () => {
   serverListening = true;
-  console.log(`Forge server running on http://127.0.0.1:${PORT}`);
+  console.log(`Compose server running on http://127.0.0.1:${PORT}`);
   console.log(`File watcher WebSocket: ws://localhost:${PORT}/ws/files`);
   console.log(`Vision WebSocket: ws://localhost:${PORT}/ws/vision`);
 });

@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-11
 **Phase:** Discovery (active)
-**Work area:** How Forge tracks its own work — and by extension, how it tracks all work
+**Work area:** How Compose tracks its own work — and by extension, how it tracks all work
 **Participants:** Human + Claude Code agent
 **Source conversation:** Session 3 (this session)
 
@@ -14,7 +14,7 @@ The integration roadmap (`docs/plans/2026-02-11-integration-roadmap.md`) tracks 
 
 The roadmap said "Phase 0.4: Persistence Connector — NEXT" which implied "go build it." But the actual state was: we're still in brainstorming and design. The roadmap is not the primary source of truth for where we are.
 
-**Core insight:** The thinking IS the work. Implementation is the easy part once the thinking is done. Forge exists to track knowledge work — deliberation, decisions, design — not just tasks. The project's own tracking should model that.
+**Core insight:** The thinking IS the work. Implementation is the easy part once the thinking is done. Compose exists to track knowledge work — deliberation, decisions, design — not just tasks. The project's own tracking should model that.
 
 ---
 
@@ -38,7 +38,7 @@ Not flat. A work area can contain work areas:
 - **Infrastructure** contains terminal embed, crash resilience, supervisor
 - **Persistence** might contain schema design, migration, API layer
 
-The hierarchy IS the navigation. Same principle as Forge's tree view. Arbitrary depth, just like the Work primitive.
+The hierarchy IS the navigation. Same principle as Compose's tree view. Arbitrary depth, just like the Work primitive.
 
 ### 3. Three persistence layers, not one
 
@@ -50,7 +50,7 @@ Different consumers need different representations of the same data:
 | **Content layer** | LLM reasoning, human understanding | Markdown prose, artifacts | Understanding (the "why" and "how") |
 | **Graph layer** | Discovery, navigation, impact analysis | Relationships between entities | Connections (blocks, informs, relates_to) |
 
-Obsidian = layers 2+3 without layer 1. A database = layer 1 without 2+3. Forge needs all three.
+Obsidian = layers 2+3 without layer 1. A database = layer 1 without 2+3. Compose needs all three.
 
 ### 4. Structure crystallizes as you move down the lifecycle
 
@@ -82,9 +82,9 @@ When looping back, the system must capture:
 - **What the previous state was** — the old decision shouldn't vanish. "We decided X, then learned Y, now we decide Z."
 - **What goes stale** — downstream artifacts based on the changed item are potentially invalid. The `informs` dependency models this; the system surfaces it.
 
-### 6. Forge facilitates transitions AND loopbacks
+### 6. Compose facilitates transitions AND loopbacks
 
-Forge's core job: help knowledge move through the lifecycle — crystallizing at each transition, preserving evidence, enabling loopback with context. Not just tracking where things are, but actively supporting the transformation from loose thought to locked artifact to running code... and back again when reality intervenes.
+Compose's core job: help knowledge move through the lifecycle — crystallizing at each transition, preserving evidence, enabling loopback with context. Not just tracking where things are, but actively supporting the transformation from loose thought to locked artifact to running code... and back again when reality intervenes.
 
 ### 7. The master plan shows where everything is
 
@@ -103,7 +103,7 @@ This is always true: persistence might be in planning while UI design is in disc
 
 ### 9. The meta-level is recursive
 
-This very discussion — designing how Forge tracks work — is itself work at the discovery phase. It will crystallize into decisions, then specs, then code. Forge should be able to represent this recursion: the tool tracking the design of the tool.
+This very discussion — designing how Compose tracks work — is itself work at the discovery phase. It will crystallize into decisions, then specs, then code. Compose should be able to represent this recursion: the tool tracking the design of the tool.
 
 ---
 

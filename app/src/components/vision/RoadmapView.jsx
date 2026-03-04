@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { PHASE_LABELS, TYPE_COLORS } from './constants.js';
 import ItemRow from './ItemRow.jsx';
-import { withForgeToken } from '@/lib/forge-api.js';
+import { withComposeToken } from '@/lib/compose-api.js';
 
 /**
  * Canonical phase order for grouping children under features.
@@ -430,7 +430,7 @@ function InitiativeRow({ item, items, connections, selectedPhase, onDrillIn, onA
       ].join('\n');
       const res = await fetch('http://localhost:3001/api/agent/spawn', {
         method: 'POST',
-        headers: withForgeToken({ 'Content-Type': 'application/json' }),
+        headers: withComposeToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ prompt }),
       });
       if (res.ok) {

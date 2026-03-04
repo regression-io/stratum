@@ -7,7 +7,7 @@ import PopoutView from './components/PopoutView';
  * Intent: Minimal chrome, maximum workspace.
  * The header is a thin strip — just enough to ground you.
  * Below: terminal (left) + canvas (right), split by a draggable divider.
- * Terminal is the forge floor. Canvas is the viewing surface.
+ * Terminal is the compose floor. Canvas is the viewing surface.
  *
  * Safe mode: If the canvas/vision surface crashes (e.g. bad HMR from agent edits),
  * an error boundary catches it and expands the terminal to full width.
@@ -82,9 +82,9 @@ class SafeModeBoundary extends React.Component {
   }
 }
 
-const FONT_SIZE_KEY = 'forge:fontSize';
-const THEME_KEY = 'forge:theme';
-const SPLIT_KEY = 'forge:splitPercent';
+const FONT_SIZE_KEY = 'compose:fontSize';
+const THEME_KEY = 'compose:theme';
+const SPLIT_KEY = 'compose:splitPercent';
 const DEFAULT_FONT_SIZE = 13;
 const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 20;
@@ -181,7 +181,7 @@ function AppInner() {
       >
         <div className="flex items-center">
           <span className="text-xs font-semibold tracking-widest uppercase text-accent">
-            Forge
+            Compose
           </span>
           <span className="text-[10px] ml-3 uppercase tracking-wider text-muted-foreground">
             bootstrap
@@ -191,7 +191,7 @@ function AppInner() {
         {/* Controls */}
         <div className="flex items-center gap-2">
           <button
-            className="forge-btn-icon"
+            className="compose-btn-icon"
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
@@ -199,7 +199,7 @@ function AppInner() {
           </button>
           <div className="flex items-center gap-1">
             <button
-              className="forge-btn-icon"
+              className="compose-btn-icon"
               onClick={() => changeFontSize(-1)}
               disabled={fontSize <= MIN_FONT_SIZE}
               title="Decrease font size"
@@ -210,7 +210,7 @@ function AppInner() {
               {fontSize}
             </span>
             <button
-              className="forge-btn-icon"
+              className="compose-btn-icon"
               onClick={() => changeFontSize(1)}
               disabled={fontSize >= MAX_FONT_SIZE}
               title="Increase font size"
@@ -219,7 +219,7 @@ function AppInner() {
             </button>
           </div>
           <button
-            className="forge-btn-icon"
+            className="compose-btn-icon"
             onClick={() => {
               setFontSize(DEFAULT_FONT_SIZE);
               localStorage.setItem(FONT_SIZE_KEY, DEFAULT_FONT_SIZE);

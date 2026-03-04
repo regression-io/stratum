@@ -6,7 +6,7 @@
 ## Related Documents
 
 - [Connectors Architecture](../../connectors.md) ← this doc refines
-- [MCP Connector Design](../mcp-connector/design.md) ← forge-mcp.js patterns adopted here
+- [MCP Connector Design](../mcp-connector/design.md) ← compose-mcp.js patterns adopted here
 - [Lifecycle Engine Roadmap](../../plans/2026-02-15-lifecycle-engine-roadmap.md) ← Layer 7 (Agent Abstraction)
 - [Bootstrap Roadmap (CLAUDE.md)](../../../CLAUDE.md) ← Phase 4.5 items 18a–18h, Phase 7 items 27–28
 - [Architecture Foundation Plan](../../plans/2026-02-26-architecture-foundation-plan.md) ← implementation steps for this design
@@ -132,7 +132,7 @@ Structured output mechanism per connector:
 
 ## Decision 3: MCP Tools — Two Now, More Deferred
 
-Connectors are exposed as MCP tools in a new `server/agent-mcp.js` (stdio transport, same pattern as `forge-mcp.js`). `OpencodeConnector` itself is **not** exposed — only named subclasses ship as tools.
+Connectors are exposed as MCP tools in a new `server/agent-mcp.js` (stdio transport, same pattern as `compose-mcp.js`). `OpencodeConnector` itself is **not** exposed — only named subclasses ship as tools.
 
 **In scope now:**
 
@@ -235,10 +235,10 @@ Pipelines live in `pipelines/` and are versioned in git.
 | `server/codex-server.js` | **Delete** | Wrong abstraction — HTTP server for a connector |
 | `server/connectors/codex-connector.js` | **Replace** with `opencode-connector.js` + `codex-connector.js` | Reshape into base + subclass per Decision 1 |
 | `server/agent-server.js` | **No change** | Still the right home for the Claude SDK interactive session |
-| `server/forge-mcp.js` | **No change** | Tracker tools stay separate; agent tools get their own MCP server |
+| `server/compose-mcp.js` | **No change** | Tracker tools stay separate; agent tools get their own MCP server |
 | `server/agent-mcp.js` | **Create** | New MCP server exposing `claude_run` and `codex_run` |
 | `pipelines/` | **Create** | Home for Stratum pipeline specs |
-| `.mcp.json` | **Extend** | Register `agent-mcp.js` alongside `forge-mcp.js` |
+| `.mcp.json` | **Extend** | Register `agent-mcp.js` alongside `compose-mcp.js` |
 
 `agent-server.js` stays because it serves the interactive UI session. That is a UI concern — a human watching an agent run live. The MCP tools serve autonomous pipeline execution, a different concern.
 

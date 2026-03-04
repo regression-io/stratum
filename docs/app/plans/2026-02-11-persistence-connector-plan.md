@@ -2,14 +2,14 @@
 
 **Date:** 2026-02-11
 **Status:** PLANNED
-**Blocks:** Everything — Forge can't self-host without persistence
+**Blocks:** Everything — Compose can't self-host without persistence
 **Related:** [Integration Roadmap](2026-02-11-integration-roadmap.md), [Connectors](../connectors.md)
 
 ---
 
 ## Why Markdown in Folders
 
-- **Human-readable** — work items are readable/editable without Forge running
+- **Human-readable** — work items are readable/editable without Compose running
 - **Git-friendly** — version control for free, diffs are meaningful, history is built in
 - **Portable** — copy a folder, you've backed up the project
 - **Cross-linkable** — relative paths between markdown files are natural
@@ -21,7 +21,7 @@
 ## Folder Structure
 
 ```
-.forge/
+.compose/
 ├── work/
 │   ├── {id}.md                 # One file per Work item
 │   └── ...
@@ -52,7 +52,7 @@ phase: "implementation"
 type: "task"
 labels: ["ui", "editor"]
 tags: []
-project_id: "proj-forge"
+project_id: "proj-compose"
 created_at: "2026-02-11T00:00:00Z"
 updated_at: "2026-02-11T00:00:00Z"
 
@@ -84,7 +84,7 @@ artifacts:
 ## Description
 
 The Base44 UI has artifacts as attachments only. We need inline markdown editing —
-living documents created and edited inside Forge.
+living documents created and edited inside Compose.
 
 ## Evidence
 
@@ -111,7 +111,7 @@ living documents created and edited inside Forge.
       "phase": "implementation",
       "type": "task",
       "labels": ["ui", "editor"],
-      "project_id": "proj-forge",
+      "project_id": "proj-compose",
       "updated_at": "2026-02-11T00:00:00Z"
     }
   },
@@ -169,7 +169,7 @@ rebuildIndex()                   → void
 The Base44 code calls `base44.entities.Work.list()`, `.create()`, `.update()`, `.delete()`. The swap:
 
 1. Create a module that implements the same call signature as `base44.entities`
-2. Point it at the `.forge/` folder instead of the Base44 API
+2. Point it at the `.compose/` folder instead of the Base44 API
 3. Replace the import in `src/api/base44Client.js`
 4. Remove Base44 auth (not needed for local files)
 
@@ -191,7 +191,7 @@ When rendering in the UI, IDs resolve to names via the index. When reading the r
 
 Because the persistence layer is markdown files:
 - Every change is a file change → git tracks it automatically
-- `git log .forge/work/w-001.md` shows the full history of a work item
+- `git log .compose/work/w-001.md` shows the full history of a work item
 - `git diff` shows what changed in a session
 - Branching a project branches the work items too
 - Merging a project merges the work items (with conflict resolution)
@@ -206,4 +206,4 @@ This is artifact versioning for free, without building it.
 - **Artifact storage:** Inline in the work item markdown body, or separate files in `./artifacts/`? Inline is simpler for short content. Separate files are better for large docs.
 - **Concurrent access:** If two UI tabs or agent sessions modify the same work item, who wins? File locking? Last-write-wins? Merge?
 - **Performance:** At what scale does scanning markdown files become too slow even with an index? (Probably hundreds, not thousands — fine for self-hosting.)
-- **Watch mode:** Should the connector watch the filesystem for external changes (e.g., someone edits a .md file in their editor)? Useful for the manual-to-Forge transition.
+- **Watch mode:** Should the connector watch the filesystem for external changes (e.g., someone edits a .md file in their editor)? Useful for the manual-to-Compose transition.

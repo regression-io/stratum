@@ -1,4 +1,4 @@
-# Forge: Use Cases
+# Compose: Use Cases
 
 **Date:** 2026-02-11
 **Status:** LIVING — new use cases added as they're discovered through dogfooding
@@ -18,7 +18,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Read session context files, scan ROADMAP.md (660 lines), check gaps.md, grep through 62 plan files, check git status across repos. Takes 10-15 minutes to build a mental model of project state.
 
-**With Forge:** Open the dashboard. See all initiatives, features, and tasks with their status. See what's in progress, what's blocked, what completed since last session. Under 10 seconds.
+**With Compose:** Open the dashboard. See all initiatives, features, and tasks with their status. See what's in progress, what's blocked, what completed since last session. Under 10 seconds.
 
 **Primitives used:** Work (hierarchy + state), visual dashboard
 
@@ -30,7 +30,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Manually review what's unblocked, what's highest priority, what has enough context to start. Write a detailed prompt with all relevant state. Takes 5-10 minutes per session.
 
-**With Forge:** View unblocked, unassigned work items sorted by priority. Claim one. Forge generates a context briefing with everything the session needs: what to do, acceptance criteria, scope, what other sessions are doing.
+**With Compose:** View unblocked, unassigned work items sorted by priority. Claim one. Compose generates a context briefing with everything the session needs: what to do, acceptance criteria, scope, what other sessions are doing.
 
 **Primitives used:** Work (state, dependencies), Session (assignment, context)
 
@@ -42,7 +42,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** No way to constrain what agents do. No way to verify work before it lands. Discovery happens only when you run the tests yourself.
 
-**With Forge:** Each task has scope boundaries (which files to read, which routes to test). Acceptance criteria include "pytest passes for new tests." Completion gate policy set to gate mode — agent can't mark done until tests pass. If an agent produces failing tests, it stays in_progress and the dashboard shows it.
+**With Compose:** Each task has scope boundaries (which files to read, which routes to test). Acceptance criteria include "pytest passes for new tests." Completion gate policy set to gate mode — agent can't mark done until tests pass. If an agent produces failing tests, it stays in_progress and the dashboard shows it.
 
 **Primitives used:** Work (scope, acceptance criteria), Policy (scope enforcement + completion gate), Session (assignment)
 
@@ -54,7 +54,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Write a design spec manually. Create a plan file with phases and checkbox tasks. Hope you thought of everything. No visual representation of dependencies.
 
-**With Forge:** Create a top-level work item. Request AI decomposition. Forge proposes features, phases, tasks with dependencies and scope boundaries. Developer reviews the breakdown visually — sees the dependency graph, adjusts ordering, adds/removes items, sets policies. Approves. Work items are ready for sessions to claim.
+**With Compose:** Create a top-level work item. Request AI decomposition. Compose proposes features, phases, tasks with dependencies and scope boundaries. Developer reviews the breakdown visually — sees the dependency graph, adjusts ordering, adds/removes items, sets policies. Approves. Work items are ready for sessions to claim.
 
 **Primitives used:** Work (hierarchy, dependencies), Policy (decomposition gate), visual dashboard (dependency graph)
 
@@ -66,7 +66,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Track this in your head or in a plan file. Easy to forget to update the JS SDK or the contracts. No visibility into which pieces are done and which aren't.
 
-**With Forge:** The feature work item has child tasks scoped to each project. Dependencies enforce ordering (service before SDK, contracts before both). Dashboard shows: service task complete, Python SDK in progress, JS SDK blocked, frontend planned. One glance tells you exactly where the cross-project work stands.
+**With Compose:** The feature work item has child tasks scoped to each project. Dependencies enforce ordering (service before SDK, contracts before both). Dashboard shows: service task complete, Python SDK in progress, JS SDK blocked, frontend planned. One glance tells you exactly where the cross-project work stands.
 
 **Primitives used:** Work (hierarchy, scope, dependencies), visual dashboard (cross-project view)
 
@@ -74,11 +74,11 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 ### UC-6: Product planning loop
 
-**Trigger:** Developer is brainstorming a new product (like Forge itself). The process is iterative: brainstorm → use cases → PRD → design, with feedback loops between all stages.
+**Trigger:** Developer is brainstorming a new product (like Compose itself). The process is iterative: brainstorm → use cases → PRD → design, with feedback loops between all stages.
 
 **Today:** Create markdown files manually. Track relationships in your head. No visual representation of how brainstorm findings connect to PRD features connect to use cases.
 
-**With Forge:** Create a work item for the product. Attach artifacts (brainstorm doc, PRD, use cases) to work items at appropriate levels. Child work items represent the planning activities themselves. Status shows which planning artifacts are draft vs. reviewed vs. approved. The planning process is itself managed as work.
+**With Compose:** Create a work item for the product. Attach artifacts (brainstorm doc, PRD, use cases) to work items at appropriate levels. Child work items represent the planning activities themselves. Status shows which planning artifacts are draft vs. reviewed vs. approved. The planning process is itself managed as work.
 
 **Primitives used:** Work (hierarchy, artifacts, state), visual dashboard
 
@@ -90,7 +90,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Read the session context file (if one was written). Try to reconstruct what was done and what remains. Often start over or miss things.
 
-**With Forge:** The previous session's progress was reported in real-time: files changed, tests run, partial completions. The work item shows exactly what's done and what's not. New session claims the same work item and gets a briefing that includes the previous session's evidence. Picks up cleanly.
+**With Compose:** The previous session's progress was reported in real-time: files changed, tests run, partial completions. The work item shows exactly what's done and what's not. New session claims the same work item and gets a briefing that includes the previous session's evidence. Picks up cleanly.
 
 **Primitives used:** Work (evidence), Session (context briefing), Policy (assignment)
 
@@ -102,7 +102,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Discussion happens in a Claude Code chat session or a meeting. Reasoning and rejected alternatives live in the transcript. Outcomes are manually extracted into markdown files. The rationale is lost or buried. When someone later asks "why did we decide X?", it takes archaeology to reconstruct.
 
-**With Forge:** The question becomes a Work item (label: "decision"). Discussion is captured as an artifact — inline markdown, not an external file. Arguments for and against are recorded. When the decision lands, the Work item moves to `complete` with the outcome, rationale, and rejected alternatives as artifacts. The decision `informs` downstream Work items (specs, tasks) via dependency relationships. When those downstream items are opened, the decision and its rationale are linked and visible. Conversation distillation extracts any undocumented decisions, open questions, and action items from session transcripts and proposes them as Work items.
+**With Compose:** The question becomes a Work item (label: "decision"). Discussion is captured as an artifact — inline markdown, not an external file. Arguments for and against are recorded. When the decision lands, the Work item moves to `complete` with the outcome, rationale, and rejected alternatives as artifacts. The decision `informs` downstream Work items (specs, tasks) via dependency relationships. When those downstream items are opened, the decision and its rationale are linked and visible. Conversation distillation extracts any undocumented decisions, open questions, and action items from session transcripts and proposes them as Work items.
 
 **Primitives used:** Work (hierarchy, artifacts, evidence), Dependency (`informs`), Session (transcript as evidence), distillation (transcript → structured outcomes)
 
@@ -114,7 +114,7 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 
 **Today:** Everything happens in a chat transcript. Outcomes are manually captured as separate files. Cross-references are added by hand. Easy to miss capturing a decision, lose rationale, or forget to update downstream docs. The session is productive but the outputs are fragile.
 
-**With Forge:** The session is a Work item (label: "planning-session"). As topics emerge, child Work items are created in real-time — each brainstorm, decision, evaluation is a child. Artifacts are written inline on each child. When a decision informs a spec, the `informs` dependency is created immediately. At session end, distillation reviews the transcript against what was captured and proposes any missing items. The session Work item shows everything that was produced, decided, and what still needs follow-up.
+**With Compose:** The session is a Work item (label: "planning-session"). As topics emerge, child Work items are created in real-time — each brainstorm, decision, evaluation is a child. Artifacts are written inline on each child. When a decision informs a spec, the `informs` dependency is created immediately. At session end, distillation reviews the transcript against what was captured and proposes any missing items. The session Work item shows everything that was produced, decided, and what still needs follow-up.
 
 **Primitives used:** Work (hierarchy, artifacts, evidence), Dependency (`informs`, `blocks`), Session (transcript, distillation), memory (learnings persisted)
 
@@ -139,4 +139,4 @@ All use cases below are drawn from real scenarios managing SmartMemory developme
 **Phase 3 adds:** UC-3 (policy enforcement)
 **Phase 4 adds:** real-time monitoring, parallel coordination
 
-**Note:** UC-8 and UC-9 are Phase 1 because they require only Work items, artifacts, and dependencies — no agent integration or policy enforcement. These are the use cases that validate Forge as a knowledge work tracker, not just a task tracker.
+**Note:** UC-8 and UC-9 are Phase 1 because they require only Work items, artifacts, and dependencies — no agent integration or policy enforcement. These are the use cases that validate Compose as a knowledge work tracker, not just a task tracker.

@@ -1,0 +1,9 @@
+{
+  "name": "stratum-custom-tracker-example",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Minimal MCP tracker server — compose-mcp pattern example",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0"
+  }
+}

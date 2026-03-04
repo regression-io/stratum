@@ -39,7 +39,7 @@ If the LLM returns low confidence, it gets told exactly what failed and retries 
 
 ```bash
 pip install stratum-mcp
-stratum-mcp setup
+stratum-mcp install
 ```
 
 `setup` configures Claude Code in one command: writes `.claude/mcp.json`, appends the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code and it's active.
@@ -57,7 +57,7 @@ stratum-mcp setup
 | `/stratum-migrate` | Find bare LLM calls and rewrite as `@infer` + `@contract` with typed contracts and postconditions |
 | `/stratum-test` | Write a test suite for existing untested code — golden flows, error-path harness, passing on first report |
 | `/stratum-learn` | Review recent session transcripts — extract retry patterns, write project-specific conclusions to `MEMORY.md` |
-| `/forge` | Full feature lifecycle: emits `.stratum.yaml`, drives spec-kit phases via `stratum_plan` loop |
+| `/compose` | Full feature lifecycle: emits `.stratum.yaml`, drives spec-kit phases via `stratum_plan` loop |
 
 Claude writes the `.stratum.yaml` spec internally — you never see it. You see plain English narration and the result. The MCP server enforces postconditions on every step; if a step's output fails a check, Claude fixes it and retries before reporting success.
 
@@ -203,7 +203,7 @@ Requires Python 3.11+. Set `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any key LiteL
 **Track 2 — Claude Code MCP server:**
 ```bash
 pip install stratum-mcp
-stratum-mcp setup
+stratum-mcp install
 ```
 Requires Claude Code. `setup` configures everything — restart Claude Code to activate.
 

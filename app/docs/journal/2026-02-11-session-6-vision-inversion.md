@@ -37,9 +37,9 @@ We wrote out the full analysis: what moves confidence up/down, when to evaluate 
 
 Then the human asked: "do we have our product vision statement?"
 
-We didn't. The agent proposed one centered on "making direction durable" — capturing the thinking behind work. The human corrected: that's not what Forge is.
+We didn't. The agent proposed one centered on "making direction durable" — capturing the thinking behind work. The human corrected: that's not what Compose is.
 
-The original idea: **"Put implementation on rails. Say 'Build me X' and Forge figures out the rest — decomposing, asking questions, making decisions, building."** The structured process is the product. What/How/Why/Confidence are reasoning infrastructure that makes the pipeline work, not the user-facing goal.
+The original idea: **"Put implementation on rails. Say 'Build me X' and Compose figures out the rest — decomposing, asking questions, making decisions, building."** The structured process is the product. What/How/Why/Confidence are reasoning infrastructure that makes the pipeline work, not the user-facing goal.
 
 Further: discovery/brainstorming is an optional on-ramp. Half of dev users will skip it — they know what they want to build. Founders/PMs may use it more. It's valuable but not the core product.
 
@@ -51,13 +51,13 @@ The human's closing observation: brainstorming is the hardest feature because of
 
 With the vision grounded, we pressure-tested the tagline with six counterfactuals. All landed to some degree but were resolved by feature design rather than changing the vision. The key advancement: not every prompt is "Build me X." The pipeline handles variable entry points — fix, extend, refactor, resume — by scaling a context phase at the front.
 
-This produced F0 (Context) as a new top-level feature: the front door of every pipeline run. It gathers what Forge needs before it can decompose. Autonomous context (code) is always available. Opportunistic context (project history, work state) is used when it exists. The pipeline works with just the prompt + code. Everything else makes it better over time.
+This produced F0 (Context) as a new top-level feature: the front door of every pipeline run. It gathers what Compose needs before it can decompose. Autonomous context (code) is always available. Opportunistic context (project history, work state) is used when it exists. The pipeline works with just the prompt + code. Everything else makes it better over time.
 
 ### The rails question
 
 The human surfaced the core design question: how do we keep implementation on rails through the lifecycle? LLMs drift, hallucinate, scope-creep. But humans have the same problem and have developed processes — traceability, acceptance criteria, gates, testing, change control.
 
-We analyzed Claude Code's own mechanisms (CLAUDE.md, rules, skills, hooks, memory) and mapped each to Forge equivalents. The architecture emerged: at each pipeline step — context injection, constraint injection, execution, verification hook, drift detection, knowledge capture. The 3-mode dial governs human involvement, not constraint level.
+We analyzed Claude Code's own mechanisms (CLAUDE.md, rules, skills, hooks, memory) and mapped each to Compose equivalents. The architecture emerged: at each pipeline step — context injection, constraint injection, execution, verification hook, drift detection, knowledge capture. The 3-mode dial governs human involvement, not constraint level.
 
 Key insights from this thread:
 - **Permissive mode needs MORE automated rails, not fewer.** When the human steps back, something else steps up.
@@ -72,7 +72,7 @@ No code. 4 new discovery docs, 5 docs updated:
 
 | File | What it captures |
 |------|-----------------|
-| `vision-statement.md` | "Build me X" → Forge handles the rest. Pressure-tested. Variable entry points. |
+| `vision-statement.md` | "Build me X" → Compose handles the rest. Pressure-tested. Variable entry points. |
 | `confidence-evaluation-process.md` | Evaluation mechanics, timing, process inference |
 | `counterfactuals-session-6.md` | 6 challenges against interaction surface analysis, verdicts |
 | `rails-architecture.md` | The core design question: keeping AI on rails. Human patterns, Claude Code patterns, hard/soft limits, constraint weight classes, self-escalation. |
@@ -92,9 +92,9 @@ No code. 4 new discovery docs, 5 docs updated:
 
 3. **The confidence model works in practice.** Not as math. As a reasoning pattern: prior → challenge → revised posterior. The first real use produced useful results. That's evidence.
 
-4. **Evaluation has timing.** Too early kills divergence. Too late lets false crystallization set in. The human's instinct for when to challenge is the current timing mechanism. The question for Forge: can AI learn this timing?
+4. **Evaluation has timing.** Too early kills divergence. Too late lets false crystallization set in. The human's instinct for when to challenge is the current timing mechanism. The question for Compose: can AI learn this timing?
 
-5. **Processes are inferred, not designed.** We didn't plan to run the confidence evaluation process. We just did it naturally. Recognized it afterward. This suggests Forge's process support should watch what people do and name it, not impose templates.
+5. **Processes are inferred, not designed.** We didn't plan to run the confidence evaluation process. We just did it naturally. Recognized it afterward. This suggests Compose's process support should watch what people do and name it, not impose templates.
 
 6. **Product dimensions and process dimensions use the same words but operate at different levels.** How/When for Work items (the product) is different from how/when for discovery (the process). Don't conflate them.
 
@@ -111,8 +111,8 @@ No code. 4 new discovery docs, 5 docs updated:
 ## Open threads
 
 - [ ] Pipeline features (F0, F3, F4, F5) need design attention — core product with least definition
-- [ ] "Build me X" decomposition mechanics — how does Forge break a goal into steps?
-- [ ] Q&A mechanics — how does Forge know what to ask? When to ask vs. proceed?
+- [ ] "Build me X" decomposition mechanics — how does Compose break a goal into steps?
+- [ ] Q&A mechanics — how does Compose know what to ask? When to ask vs. proceed?
 - [ ] Rails enforcement mechanics — how are verification hooks and drift detection implemented?
 - [ ] Self-escalation thresholds — what confidence level triggers escalation?
 - [ ] Constraint routing — how does F0 decide which guidelines are relevant per step?
@@ -120,7 +120,7 @@ No code. 4 new discovery docs, 5 docs updated:
 - [ ] Counterfactual 3: trackable unit of Discovery (lighter than Work, but visible)
 - [ ] Counterfactual 6: temporal context — evidence needs timestamps
 - [ ] Level 2 clusters (How, Why-factual, Knowledge layer) — gaps narrowed but not closed
-- [ ] Dogfooding: how does Forge track its own development?
+- [ ] Dogfooding: how does Compose track its own development?
 
 ---
 

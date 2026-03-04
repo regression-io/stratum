@@ -68,7 +68,7 @@ The pipeline is descriptive, not prescriptive. Every user works differently — 
 
 8. **Fill matrix rows on the fly.** Don't wait for a dedicated session — capture lived data as it emerges. Design row partially filled from this session's actual design work.
 
-9. **Specialized agents per phase.** If Forge's thesis is a structured pipeline, each phase should be handled by a specialized agent with appropriate tools. Design agent uses design tools. This is the industrialized version.
+9. **Specialized agents per phase.** If Compose's thesis is a structured pipeline, each phase should be handled by a specialized agent with appropriate tools. Design agent uses design tools. This is the industrialized version.
 
 ---
 

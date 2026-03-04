@@ -78,6 +78,22 @@ Tell the user:
 - How many new memory entries were written
 - The most actionable 2–3 entries in plain English
 
+## Memory
+
+**Before reviewing transcripts:** Read the project's `MEMORY.md` (at `.claude/memory/MEMORY.md` or the root). Note existing entries to avoid duplicates and to focus on patterns not yet captured.
+
+**After reviewing transcripts:** Append new entries with a session marker, tagging each with the skill it applies to:
+
+```markdown
+<!-- stratum-learn: <date> -->
+[stratum-learn] <pattern about when Stratum should be used but wasn't>
+[stratum-learn] <ensure expression insight — e.g. fires every run, safe to make default>
+[stratum-feature] <project constraint revealed by retry patterns>
+[stratum-debug] <confirmed root-cause class — e.g. "timing assumptions fail on CI">
+```
+
+Only write entries that would change what you do next session. Skip one-off flukes and observations already in `MEMORY.md`.
+
 ## Narration Pattern
 
 ```

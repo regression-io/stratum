@@ -33,7 +33,7 @@
 
 **Affected use cases:** UC-10 (exploring a new idea), UC-14 (pivoting/killing a direction)
 
-**The problem:** How does Forge represent "this direction is dead"? And how does it distinguish "parked because we got busy" from "killed because the evidence says no"?
+**The problem:** How does Compose represent "this direction is dead"? And how does it distinguish "parked because we got busy" from "killed because the evidence says no"?
 
 **Options:**
 - A. Status: killed (new status alongside parked, blocked, complete)
@@ -55,7 +55,7 @@
 
 **Affected use cases:** UC-8 (deliberation), UC-9 (planning session), UC-12 (onboarding)
 
-**The problem:** Decisions, insights, and action items happen in conversations but only exist in Forge if someone manually creates Work items. Most get lost.
+**The problem:** Decisions, insights, and action items happen in conversations but only exist in Compose if someone manually creates Work items. Most get lost.
 
 **Options:**
 - A. Real-time extraction during conversation (AI creates Work items as you talk)
@@ -155,7 +155,7 @@ This makes the gap both simpler and deeper:
 
 **Affected use cases:** UC-15 (prototyping to learn)
 
-**The problem:** A prototype is throwaway. Implementation ships. Both involve building. How does Forge distinguish them?
+**The problem:** A prototype is throwaway. Implementation ships. Both involve building. How does Compose distinguish them?
 
 **Options:**
 - A. Label only (type: poc vs type: task)

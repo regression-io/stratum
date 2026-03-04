@@ -73,4 +73,4 @@ No changes. Same items, connections, phases, types, statuses. The mode is purely
 
 - Discovery mode becomes the natural surface for brainstorming sessions — thinking visible, building hidden
 - Execution mode becomes the natural surface during implementation — tasks visible, decisions behind a click
-- The bridge between them (cross-references) preserves Forge's differentiator: traceability from why to what
+- The bridge between them (cross-references) preserves Compose's differentiator: traceability from why to what

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Gate Queue — stratum-ui{% endblock %}
+
+{% block content %}
+<h1>Gate Queue</h1>
+
+{% if gates %}
+<p class="refresh-note">Auto-refreshing every {{ refresh_s }}s</p>
+<div class="phase-list">
+  {% for gate in gates %}
+  <div class="phase-card">
+    <div class="phase-header">
+      <span class="phase-name">{{ gate.phase }}</span>
+      <span class="badge badge-gate-pending">pending</span>
+      <span class="run-id">
+        run <a href="/runs/{{ gate.run_id }}">{{ gate.run_id }}</a>
+        &middot; {{ gate.pipeline }}
+        &middot; {{ gate.created_at[:19] | replace("T", " ") }} UTC
+      </span>
+    </div>
+
+    {% if gate.gate_context and gate.gate_context.get("context") %}
+    <pre class="phase-result">{{ gate.gate_context.get("context") | tojson(indent=2) }}</pre>
+    {% endif %}
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <form method="post" action="/gates/{{ gate.run_id }}/{{ gate.phase }}/approve">
+        <button type="submit" class="btn btn-approve">Approve</button>
+      </form>
+      <form method="post" action="/gates/{{ gate.run_id }}/{{ gate.phase }}/reject">
+        <input name="note" placeholder="Rejection note (optional)" style="
+          background:#0e1117; border:1px solid #30363d; border-radius:4px;
+          color:#c9d1d9; padding:4px 8px; font-family:inherit; font-size:12px;
+          width:240px;
+        ">
+        <button type="submit" class="btn btn-reject">Reject</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">No gates pending. The pipeline is running or has completed.</p>
+{% endif %}
+
+<style>
+.btn {
+  padding: 5px 16px;
+  border: none;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-approve { background: #1a4731; color: #3fb950; }
+.btn-approve:hover { background: #238636; color: #fff; }
+.btn-reject  { background: #3d1f1f; color: #f85149; margin-left:6px; }
+.btn-reject:hover  { background: #da3633; color: #fff; }
+</style>
+{% endblock %}

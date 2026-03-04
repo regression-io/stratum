@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TRACK="$SCRIPT_DIR/vision-track.mjs"
-LOG="/tmp/forge-vision-hook.log"
+LOG="/tmp/compose-vision-hook.log"
 
 # Read hook JSON from stdin
 INPUT=$(cat)

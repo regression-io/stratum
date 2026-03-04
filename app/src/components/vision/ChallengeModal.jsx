@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useContext, useMemo, useEffect, useRef } from 'react';
 import { X, Zap, Loader2, Check, XCircle, MessageSquare, Send } from 'lucide-react';
 import { cn } from '@/lib/utils.js';
-import { withForgeToken } from '@/lib/forge-api.js';
+import { withComposeToken } from '@/lib/compose-api.js';
 import { Button } from '@/components/ui/button.jsx';
 import { TYPE_COLORS } from './constants.js';
 import { VisionChangesContext } from './VisionTracker.jsx';
@@ -33,7 +33,7 @@ function ChallengeRow({ item, onUpdate }) {
     try {
       await fetch('http://localhost:3002/api/terminal/inject', {
         method: 'POST',
-        headers: withForgeToken({ 'Content-Type': 'application/json' }),
+        headers: withComposeToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ text }),
       });
       const xtermTextarea = document.querySelector('.xterm-helper-textarea');
@@ -224,7 +224,7 @@ export default function ChallengeModal({ item, items, connections, onUpdate, onC
     try {
       const res = await fetch('http://localhost:3001/api/agent/spawn', {
         method: 'POST',
-        headers: withForgeToken({ 'Content-Type': 'application/json' }),
+        headers: withComposeToken({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ prompt }),
       });
       if (!res.ok) {

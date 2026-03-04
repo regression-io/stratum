@@ -80,7 +80,7 @@ Same question everywhere: **did this survive pressure from below?**
 A parent's confidence is derived from its children's posteriors. Not a simple min — a distribution:
 
 ```
-Initiative: "Forge bootstrap"              posterior: low
+Initiative: "Compose bootstrap"              posterior: low
 ├── Feature: "Terminal embed"              posterior: high
 │   prior: moderate (known patterns)
 │   evidence: +built, +works, +survives crashes

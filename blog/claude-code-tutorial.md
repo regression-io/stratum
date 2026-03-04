@@ -10,7 +10,7 @@ This tutorial shows what changes when Stratum is running behind it. Every exampl
 
 ```bash
 pip install stratum-mcp
-stratum-mcp setup
+stratum-mcp install
 ```
 
 That's it. `setup` finds your project root, writes the MCP config, and adds the execution model instructions to your `CLAUDE.md`. Restart Claude Code and Stratum is active.
@@ -277,7 +277,7 @@ Claude Code is doing the same thing it always does: reading files, writing code,
 **CLI:**
 
 ```bash
-stratum-mcp setup           # configure Claude Code (run once per project)
+stratum-mcp install           # configure Claude Code (run once per project)
 stratum-mcp validate <file> # validate a spec file offline
 ```
 

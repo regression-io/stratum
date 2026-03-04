@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-start-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/session-start-hook.sh"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-end-hook.sh"
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/session-end-hook.sh"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/agent-activity-hook.sh",
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/agent-activity-hook.sh",
             "timeout": 10,
             "async": true
           }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/agent-error-hook.sh",
+            "command": "/Users/ruze/reg/my/compose/coder-compose/scripts/agent-error-hook.sh",
             "timeout": 10,
             "async": true
           }

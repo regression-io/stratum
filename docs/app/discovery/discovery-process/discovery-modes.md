@@ -67,6 +67,6 @@ Each mode contributes to confidence differently:
 ## Open questions
 
 - Are there other modes beyond these four?
-- How does Forge represent which mode is active? Does it need to?
+- How does Compose represent which mode is active? Does it need to?
 - Does the AI switch behavior based on mode, or does the human signal mode changes?
 - How does prototyping connect to implementation? A prototype is throwaway, but the learning feeds back into discovery. When does a prototype stop being discovery and start being implementation?

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Forge</title>
+    <title>Compose</title>
   </head>
   <body>
     <div id="root"></div>
@@ -11,12 +11,12 @@
       // Kill any stale service workers — they break dev mode
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
-          regs.forEach(r => { r.unregister(); console.log('[forge] Unregistered stale service worker'); });
+          regs.forEach(r => { r.unregister(); console.log('[compose] Unregistered stale service worker'); });
         });
       }
       // Restore theme preference before React renders (prevents flash)
       (function() {
-        var theme = localStorage.getItem('forge:theme');
+        var theme = localStorage.getItem('compose:theme');
         if (theme === 'light') {
           document.documentElement.classList.remove('dark');
         } else {

@@ -185,3 +185,79 @@ def test_uninstall_prints_done_when_something_removed(tmp_path, capsys):
 def test_uninstall_prints_nothing_to_remove_when_already_clean(tmp_path, capsys):
     _uninstall(tmp_path)
     assert "Nothing to remove" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Hooks (T2-M2/M3/M4)
+# ---------------------------------------------------------------------------
+
+from stratum_mcp.server import _HOOK_SCRIPTS
+
+
+def test_uninstall_removes_hook_scripts(tmp_path, capsys):
+    _run(tmp_path, _cmd_setup)
+    capsys.readouterr()
+    _uninstall(tmp_path)
+
+    hooks_dir = tmp_path / ".claude" / "hooks"
+    for script_name in _HOOK_SCRIPTS.values():
+        assert not (hooks_dir / script_name).exists(), \
+            f"Hook script still present after uninstall: {script_name}"
+
+
+def test_uninstall_removes_hooks_from_settings_json(tmp_path, capsys):
+    _run(tmp_path, _cmd_setup)
+    capsys.readouterr()
+    _uninstall(tmp_path)
+
+    settings_file = tmp_path / ".claude" / "settings.json"
+    # File may be deleted entirely or have hooks removed
+    if settings_file.exists():
+        settings = json.loads(settings_file.read_text())
+        hooks = settings.get("hooks", {})
+        for event, script_name in _HOOK_SCRIPTS.items():
+            commands = [
+                h.get("command", "")
+                for entry in hooks.get(event, [])
+                for h in entry.get("hooks", [])
+            ]
+            assert not any(script_name in cmd for cmd in commands), \
+                f"hooks.{event} still has {script_name} after uninstall"
+
+
+def test_uninstall_preserves_other_hooks_in_settings_json(tmp_path, capsys):
+    """Non-stratum hooks must survive uninstall."""
+    # Seed settings.json with a foreign hook before setup
+    settings_file = tmp_path / ".claude" / "settings.json"
+    (tmp_path / ".claude").mkdir(parents=True)
+    foreign_entry = {"hooks": [{"type": "command", "command": "bash other-hook.sh"}]}
+    settings_file.write_text(json.dumps(
+        {"hooks": {"SessionStart": [foreign_entry]}}
+    ))
+
+    _run(tmp_path, _cmd_setup)
+    capsys.readouterr()
+    _uninstall(tmp_path)
+
+    assert settings_file.exists(), "settings.json was deleted but foreign hooks remained"
+    settings = json.loads(settings_file.read_text())
+    session_hooks = settings.get("hooks", {}).get("SessionStart", [])
+    commands = [
+        h.get("command", "")
+        for entry in session_hooks
+        for h in entry.get("hooks", [])
+    ]
+    assert "bash other-hook.sh" in commands, "Foreign hook was removed by uninstall"
+
+
+def test_uninstall_does_not_crash_when_settings_json_has_no_hooks_key(tmp_path, capsys):
+    """P1: _remove_hooks() must not raise KeyError when settings.json lacks 'hooks'."""
+    settings_file = tmp_path / ".claude" / "settings.json"
+    (tmp_path / ".claude").mkdir(parents=True)
+    settings_file.write_text(json.dumps({"permissions": {"allow": ["Bash(pytest:*)"]}}))
+
+    _uninstall(tmp_path)  # must not raise
+
+    # permissions key must be preserved
+    assert settings_file.exists()
+    assert json.loads(settings_file.read_text())["permissions"]["allow"] == ["Bash(pytest:*)"]

@@ -40,7 +40,7 @@
 | T2-6 | `ensure` expression evaluation (Python, dunder-blocked) | COMPLETE |
 | T2-7 | `$.input` / `$.steps` reference resolution | COMPLETE |
 | T2-8 | Kahn's topological sort on `depends_on` + implicit refs | COMPLETE |
-| T2-9 | `stratum-mcp setup` CLI command | COMPLETE |
+| T2-9 | `stratum-mcp install` CLI command | COMPLETE |
 | T2-10 | `stratum-mcp validate <file>` CLI command | COMPLETE |
 | T2-11 | Published to PyPI as `stratum-mcp` 0.1.2 | COMPLETE |
 | T2-12 | 202 passing tests (contracts, invariants, integration) | COMPLETE |
@@ -51,16 +51,16 @@
 | T2-17 | `stratum_commit` — explicit flow-state checkpoint with label | COMPLETE |
 | T2-18 | `stratum_revert` — roll back to a named checkpoint, trace records revert | COMPLETE |
 
-### Forge Integration
+### Compose Integration
 
-Enable the `forge` skill to use Stratum as its execution backbone. See `docs/plans/2026-02-24-forge-stratum-integration-plan.md`.
+Enable the `compose` skill to use Stratum as its execution backbone. See `docs/plans/2026-02-24-compose-stratum-integration-plan.md`.
 
 | ID | Feature | Status |
 |---|---|---|
-| T2-F1 | Result schema convention for forge steps | COMPLETE |
+| T2-F1 | Result schema convention for compose steps | COMPLETE |
 | T2-F2 | `ensure` file-aware builtins (→ T2-15) | COMPLETE |
 | T2-F3 | Step output contracts (→ T2-16) | COMPLETE |
-| T2-F4 | Forge skill emits `.stratum.yaml` | COMPLETE |
+| T2-F4 | Compose skill emits `.stratum.yaml` | COMPLETE |
 
 ### Skills
 
@@ -75,7 +75,7 @@ Enable the `forge` skill to use Stratum as its execution backbone. See `docs/pla
 | T2-S7 | `/stratum-migrate` — rewrite bare LLM calls as `@infer` | COMPLETE |
 | T2-S8 | `/stratum-test` — write test suite for existing code | COMPLETE |
 | T2-S9 | `/stratum-learn` — extract patterns from session transcripts | COMPLETE |
-| T2-S10 | `/forge` rewrite — emits `.stratum.yaml`, uses `stratum_plan` loop (→ T2-F4) | COMPLETE |
+| T2-S10 | `/compose` rewrite — emits `.stratum.yaml`, uses `stratum_plan` loop (→ T2-F4) | COMPLETE |
 
 ### Memory & Hooks
 
@@ -112,17 +112,17 @@ Full SmartMemory service — multi-tenant, LLM entity extraction, Wikidata groun
 
 ---
 
-## Track 3 — Forge + Stratum + spec-kit Substrate
+## Track 3 — Compose + Stratum + spec-kit Substrate
 
-Refactor Forge to use Stratum as its execution backbone and spec-kit as its specification layer. The result is a clean three-layer stack:
+Refactor Compose to use Stratum as its execution backbone and spec-kit as its specification layer. The result is a clean three-layer stack:
 
 ```
 spec-kit  →  specification layer   (spec.md, plan.md, tasks/)
 stratum   →  execution layer       (.stratum.yaml, postconditions, audit)
-forge     →  orchestration layer   (UI, Vision Surface, agent coordination)
+compose     →  orchestration layer   (UI, Vision Surface, agent coordination)
 ```
 
-See `docs/features/forge-speckit-substrate/design.md` for full architecture.
+See `docs/features/compose-speckit-substrate/design.md` for full architecture.
 
 ### Pipeline Authoring Model
 
@@ -149,7 +149,7 @@ and `stratum.toml` for policy overrides. See `docs/features/pipeline-authoring/d
 | T3-2 | Task→step compiler: `tasks/*.md` → `.stratum.yaml` (acceptance criteria → `ensure` expressions) | COMPLETE |
 | T3-3 | `/stratum-speckit` bridge skill — drives spec-kit phases through stratum, emits compiled flow | COMPLETE |
 
-### Forge Skill Refactor
+### Compose Skill Refactor
 
 | ID | Feature | Status |
 |---|---|---|
@@ -157,7 +157,7 @@ and `stratum.toml` for policy overrides. See `docs/features/pipeline-authoring/d
 | T3-5 | Replace custom phase artifacts with spec-kit canonical structure | COMPLETE |
 | T3-6 | `stratum-build` skill compiles `tasks/` → `.stratum.yaml`, drives execution via `stratum_plan` loop | COMPLETE |
 
-### Forge Web App Integration
+### Compose Web App Integration
 
 | ID | Feature | Status |
 |---|---|---|
@@ -169,15 +169,16 @@ and `stratum.toml` for policy overrides. See `docs/features/pipeline-authoring/d
 
 ## Track 4 — Consolidation
 
-Merge `coder-forge` into this repo. Restructure developer configuration (`CLAUDE.md`, rules,
+Merge `coder-compose` into this repo. Restructure developer configuration (`CLAUDE.md`, rules,
 skills, memory) from monolithic files into pointed sub-docs.
 
 | ID | Item | Status |
 |---|---|---|
-| T4-1 | Fresh copy of `coder-forge` content into `app/` — no git history carry-over | COMPLETE |
-| T4-2 | Merge `coder-forge/docs/` into `docs/app/` — plans, features, decisions, journal | COMPLETE |
+| T4-1 | Fresh copy of `coder-compose` content into `app/` — no git history carry-over | COMPLETE |
+| T4-2 | Merge `coder-compose/docs/` into `docs/app/` — plans, features, decisions, journal | COMPLETE |
 | T4-3 | `CLAUDE.md` restructure — unified pointer doc covering Python lib + MCP + web app | COMPLETE |
-| T4-4 | Archive `coder-forge` repo — canonical location is now `app/` in this repo | COMPLETE |
+| T4-4 | Archive `coder-compose` repo — canonical location is now `app/` in this repo | COMPLETE |
+| T4-5 | Extract `app/` to standalone compose project at `/Users/ruze/reg/my/forge/compose/` | COMPLETE |
 
 ---
 
@@ -217,9 +218,9 @@ via a thin local HTTP server — not an MCP client.
 
 ## Evaluation & Benchmarks
 
-Answers two questions: (1) is Stratum/Forge better than not using it, and (2) which memory tier is better for a given workload.
+Answers two questions: (1) is Stratum/Compose better than not using it, and (2) which memory tier is better for a given workload.
 
-### Stratum/Forge vs. baseline
+### Stratum/Compose vs. baseline
 
 The `stratum_audit` trace is the built-in instrument — attempt counts, step durations, ensure failure reasons. The missing piece is a standardized task battery and comparison harness.
 
@@ -227,7 +228,7 @@ The `stratum_audit` trace is the built-in instrument — attempt counts, step du
 |---|---|---|
 | E-0 | Difficulty taxonomy — collect empirically difficult tasks from session transcripts; classify by failure dimension (cascading incorrectness, ambiguous spec, stale blueprint, self-reporting temptation, multi-file coordination, non-obvious constraint, cross-session dependency, noisy memory) | PLANNED |
 | E-1 | Task battery — 5-10 tasks selected from E-0 taxonomy, covering each difficulty dimension, with known-correct outputs | PLANNED |
-| E-2 | Automated scorer — `file_exists`, test pass/fail, `forge-reviewer` confidence | PLANNED |
+| E-2 | Automated scorer — `file_exists`, test pass/fail, `compose-reviewer` confidence | PLANNED |
 | E-3 | Comparison harness — run task with Stratum vs. without, collect audit traces | PLANNED |
 | E-4 | Metrics report — artifact completeness, retry rate, recovery rate, abandonment rate | PLANNED |
 

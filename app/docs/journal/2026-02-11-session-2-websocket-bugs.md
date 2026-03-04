@@ -12,7 +12,7 @@ Picked up where Session 1 left off. The terminal and self-healing infrastructure
 
 ### Bug 1: Permissions — "clicking allow for everything normal"
 
-First order of business: Claude Code running inside Forge's terminal was prompting for permission on every file read, every bash command, every tool call. The human's ask: configure permissions so normal dev operations are auto-approved but genuinely dangerous actions are gated.
+First order of business: Claude Code running inside Compose's terminal was prompting for permission on every file read, every bash command, every tool call. The human's ask: configure permissions so normal dev operations are auto-approved but genuinely dangerous actions are gated.
 
 Set up `.claude/settings.json` with comprehensive allow/deny lists:
 - **Allow:** npm scripts, safe git ops, file operations, search utilities, process tools, all MCP tools
@@ -22,7 +22,7 @@ The deny list takes precedence — so `git push*` is allowed but `git push --for
 
 ### Bug 2: The restart zombie — EADDRINUSE but nobody's home
 
-Started Forge. Server hit EADDRINUSE (port 3001 already taken by a stale process). The `uncaughtException` handler from Session 1 caught the error and kept the process alive — exactly as designed for runtime errors, but exactly wrong for startup errors. The server was alive but not listening: a zombie. The supervisor thought everything was fine.
+Started Compose. Server hit EADDRINUSE (port 3001 already taken by a stale process). The `uncaughtException` handler from Session 1 caught the error and kept the process alive — exactly as designed for runtime errors, but exactly wrong for startup errors. The server was alive but not listening: a zombie. The supervisor thought everything was fine.
 
 **Fix:** Added a `serverListening` flag. EADDRINUSE before the server binds now exits with code 1, letting the supervisor retry. Runtime exceptions after startup still keep the process alive to protect PTY sessions.
 
@@ -83,7 +83,7 @@ MODIFIED FILES:
 
 - [ ] Confirm the Session 1 causal chain theory (ws.send crash → SIGHUP → 400)
 - [ ] Wire persistence connector (Phase 0.4) — this was supposed to be today's work
-- [ ] CC inside Forge created a Canvas component and file-watcher that we haven't reviewed
+- [ ] CC inside Compose created a Canvas component and file-watcher that we haven't reviewed
 - [ ] Test the full three-layer resilience: kill server, kill supervisor, kill everything
 
 ---

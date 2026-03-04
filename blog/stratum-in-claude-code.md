@@ -226,7 +226,7 @@ The MCP server is available now as a standalone package (`stratum-mcp`). It has 
 
 ```bash
 pip install stratum-mcp
-stratum-mcp setup
+stratum-mcp install
 ```
 
 `setup` writes the MCP config, adds the execution model block to `CLAUDE.md`, and installs nine skills to `~/.claude/skills/`. Restart Claude Code to activate.

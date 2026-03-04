@@ -5,7 +5,7 @@
 | **Date** | 2026-02-11 |
 | **Source** | [Core Requirements](../requirements/core-requirements.md) CR1-CR7, [Pipeline Matrices](../requirements/matrices.md) Vision row |
 | **Audience** | Builder (us) |
-| **Scope** | The Vision phase of Forge — the first buildable piece |
+| **Scope** | The Vision phase of Compose — the first buildable piece |
 
 ---
 
@@ -13,7 +13,7 @@
 
 > Source: [Vision Statement](../discovery/discovery-process/vision-statement.md) — variable entry points, "I have a fuzzy idea" on-ramp
 
-The Vision component supports the first phase of knowledge work in Forge: taking a fuzzy idea and turning it into a crystallized direction. Users create ideas, make connections, identify gaps, run evaluations, and arrive at decisions about what to build and why.
+The Vision component supports the first phase of knowledge work in Compose: taking a fuzzy idea and turning it into a crystallized direction. Users create ideas, make connections, identify gaps, run evaluations, and arrive at decisions about what to build and why.
 
 This is the on-ramp to the pipeline. Some users start here ("I have a fuzzy idea"), some skip it ("Build me X"). When used, it produces: a vision statement, feature map, key decisions, and enough clarity to enter requirements.
 
@@ -21,7 +21,7 @@ This is the on-ramp to the pipeline. Some users start here ("I have a fuzzy idea
 
 ## What are we building?
 
-The smallest piece that lets a user do Vision-phase work inside Forge instead of scattered markdown files and chat transcripts.
+The smallest piece that lets a user do Vision-phase work inside Compose instead of scattered markdown files and chat transcripts.
 
 **In scope:**
 
@@ -197,5 +197,5 @@ The background sub-agent observes continuously and surfaces findings through the
 | AI proactively surfaces at least one observation or challenge per 5 minutes of active work | CR6, Matrix 4 Vision/Actor |
 | Can see the evolution trail of any item (what changed, when, confidence history) | CR5/Time, Matrix 4 Vision/Time |
 | System answers "where are we?" for a 50-item project in under 10 seconds | CR3/See, Matrix 1 Vision/See |
-| A Vision session done inside Forge produces better outcomes than the same session in scattered markdown + chat — fewer missed connections, faster drift detection, confidence tracked instead of forgotten, gaps surfaced that would have been invisible, and the experience is delightful enough that you'd choose it over the alternative | Acid test — all of the above |
-| Forge's own Vision work (sessions 5-7) would have been improved by this component — the agent's drift to design (session 7) caught earlier, the phase transition (session 6) recognized sooner, the missing verb (Execute) surfaced before round 10 of counterfactuals | Acid test — real data validation |
+| A Vision session done inside Compose produces better outcomes than the same session in scattered markdown + chat — fewer missed connections, faster drift detection, confidence tracked instead of forgotten, gaps surfaced that would have been invisible, and the experience is delightful enough that you'd choose it over the alternative | Acid test — all of the above |
+| Compose's own Vision work (sessions 5-7) would have been improved by this component — the agent's drift to design (session 7) caught earlier, the phase transition (session 6) recognized sooner, the missing verb (Execute) surfaced before round 10 of counterfactuals | Acid test — real data validation |

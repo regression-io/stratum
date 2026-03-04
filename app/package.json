@@ -1,10 +1,10 @@
 {
-  "name": "forge",
+  "name": "compose",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node server/supervisor.js 2>&1 | tee /tmp/forge-server.log",
+    "dev": "node server/supervisor.js 2>&1 | tee /tmp/compose-server.log",
     "dev:server": "node server/supervisor.js",
     "dev:server:bare": "node server/index.js",
     "dev:client": "vite",

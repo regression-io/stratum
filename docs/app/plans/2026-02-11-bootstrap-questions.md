@@ -57,11 +57,11 @@ The UI currently won't load without `@base44/sdk` and `@base44/vite-plugin`. Bef
 
 **Options:**
 
-A. **Wire the persistence connector now** — The server code exists, the forgeClient exists. Do the trivial wiring (import swap, AuthContext stub, vite proxy, package.json). ~30 min of work.
+A. **Wire the persistence connector now** — The server code exists, the composeClient exists. Do the trivial wiring (import swap, AuthContext stub, vite proxy, package.json). ~30 min of work.
 
 B. **Stub everything to no-ops** — Make the UI load with empty data. Minimal changes. Then the agent panel can be added to a working (empty) UI.
 
-C. **Both** — Wire persistence so the UI shows real data from `.forge/`, then add the agent panel.
+C. **Both** — Wire persistence so the UI shows real data from `.compose/`, then add the agent panel.
 
 **Leans toward:** C — the persistence wiring is trivial and gives us a working UI that displays real data.
 
@@ -99,14 +99,14 @@ C. **No** — Agent and UI are independent. User explicitly references items by 
 
 ## Q6: Conversation persistence
 
-When you close Forge and reopen it, is the conversation still there?
+When you close Compose and reopen it, is the conversation still there?
 
 **Options:**
 
-A. **Yes, stored in `.forge/`** — Conversations are artifacts, stored as markdown. Git tracks them.
-B. **Yes, stored separately** — Conversation state in a local database or file outside `.forge/`.
-C. **No** — Each session starts fresh. Agent reads `.forge/` for context but conversation history is ephemeral.
-D. **Hybrid** — Conversation is ephemeral, but the agent distills key outputs into `.forge/` work items/artifacts before session ends.
+A. **Yes, stored in `.compose/`** — Conversations are artifacts, stored as markdown. Git tracks them.
+B. **Yes, stored separately** — Conversation state in a local database or file outside `.compose/`.
+C. **No** — Each session starts fresh. Agent reads `.compose/` for context but conversation history is ephemeral.
+D. **Hybrid** — Conversation is ephemeral, but the agent distills key outputs into `.compose/` work items/artifacts before session ends.
 
 **Leans toward:** D — conversations are messy. The valuable outputs (decisions, work items, findings) should be extracted and stored. The raw transcript is less valuable.
 
@@ -114,13 +114,13 @@ D. **Hybrid** — Conversation is ephemeral, but the agent distills key outputs 
 
 ## Q7: What does the agent panel need to do in the FIRST session?
 
-If we build the minimum agent panel and open Forge for the first time, what should the interaction be?
+If we build the minimum agent panel and open Compose for the first time, what should the interaction be?
 
-Scenario: Empty `.forge/` directory. User opens Forge. Sees empty dashboard + agent panel.
+Scenario: Empty `.compose/` directory. User opens Compose. Sees empty dashboard + agent panel.
 
 What should the agent say/do?
 - Greet and ask what we're building?
-- Offer to import existing docs (we have a whole `coder-forge/docs/` folder)?
+- Offer to import existing docs (we have a whole `coder-compose/docs/` folder)?
 - Create the first project and work items from conversation?
 - Offer structured options: "New project", "Import existing", "Continue from docs"?
 
@@ -130,13 +130,13 @@ What should the agent say/do?
 
 ## Q8: Scope of agent modifications
 
-Can the agent modify the Forge UI code itself during a session?
+Can the agent modify the Compose UI code itself during a session?
 
 **Options:**
 
 A. **Yes, always** — Agent has full codebase access. Self-modification is a feature.
 B. **Yes, with approval** — Agent proposes changes, user approves (gate mode). This is Claude Code's default behavior.
-C. **No, only `.forge/` data** — Agent can create/edit work items but can't change the UI code. Self-modification is a separate mode.
+C. **No, only `.compose/` data** — Agent can create/edit work items but can't change the UI code. Self-modification is a separate mode.
 
 **Leans toward:** B — this is already how Claude Code works. The permission model is built.
 
@@ -146,7 +146,7 @@ C. **No, only `.forge/` data** — Agent can create/edit work items but can't ch
 
 ```
 Q1 → DECIDED: Terminal (xterm.js) now, chat UI later.
-     Terminal has self-extension capability — Forge can build
+     Terminal has self-extension capability — Compose can build
      the chat UI from inside itself using the terminal.
 
 Q2 → DECIDED: Claude Code CLI via shell process + WebSocket.
@@ -162,7 +162,7 @@ Q4-Q8 → DEFERRED: Answer by using it. Build the terminal,
 ## Implementation Plan
 
 ```
-Step 1: Wire persistence (remove Base44 SDK, connect forgeClient)
+Step 1: Wire persistence (remove Base44 SDK, connect composeClient)
         - Import swap, AuthContext stub, vite proxy, package.json
         - Audit + update connector for new UI fields (type, phase, etc.)
         - Gate: UI loads, shows empty dashboard, no errors
@@ -171,10 +171,10 @@ Step 2: Embed terminal in UI
         - Backend: WebSocket server (on Express), spawn shell with PTY
         - Frontend: xterm.js terminal component, panel in UI layout
         - Gate: Can type `claude` in the embedded terminal,
-                agent can modify .forge/ files, UI reflects changes
+                agent can modify .compose/ files, UI reflects changes
 
 Step 3: Self-bootstrap
         - Use the terminal to build everything else
-        - First task: the agent imports existing docs into .forge/
+        - First task: the agent imports existing docs into .compose/
         - Second task: the agent builds the chat UI replacement
 ```

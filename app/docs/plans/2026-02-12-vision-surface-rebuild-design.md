@@ -17,7 +17,7 @@ The current Vision Surface UX is unintuitive and poorly laid out. Custom layout 
 
 ## Decision
 
-Full adoption of shadcn/ui component library. Fresh build using Base44 as visual/interaction reference. Conventional layout (sidebar + main content + detail panel) with Forge's novel content model (confidence, types, phases, connections).
+Full adoption of shadcn/ui component library. Fresh build using Base44 as visual/interaction reference. Conventional layout (sidebar + main content + detail panel) with Compose's novel content model (confidence, types, phases, connections).
 
 ## Design Tokens
 
@@ -63,7 +63,7 @@ Full adoption of shadcn/ui component library. Fresh build using Base44 as visual
   /* Radius */
   --radius: 0.75rem;
 
-  /* Forge-specific */
+  /* Compose-specific */
   --success: 122 39% 49%;           /* #4CAF50 */
   --warning: 36 100% 50%;           /* #FF9800 */
 }

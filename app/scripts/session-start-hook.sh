@@ -1,5 +1,5 @@
 #!/bin/bash
-# session-start-hook.sh — SessionStart hook. Creates a session on the Forge server.
+# session-start-hook.sh — SessionStart hook. Creates a session on the Compose server.
 # Receives JSON on stdin: { source, model, agent_type }
 # Outputs context to stdout (becomes Claude's session context).
 

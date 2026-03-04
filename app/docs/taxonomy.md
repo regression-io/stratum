@@ -1,4 +1,4 @@
-# Forge: Project Taxonomy
+# Compose: Project Taxonomy
 
 **Date:** 2026-02-11
 **Status:** DECIDED
@@ -8,7 +8,7 @@
 
 ## Principle
 
-Everything in Forge is a Work item. Phases and types are labels, not different systems. The primitive is always the same. What varies is the defaults — what "done" means, what gets produced, who does it, how much trust.
+Everything in Compose is a Work item. Phases and types are labels, not different systems. The primitive is always the same. What varies is the defaults — what "done" means, what gets produced, who does it, how much trust.
 
 ---
 
@@ -203,7 +203,7 @@ Standard labels are suggested defaults, not enforced. Users can create their own
 
 ---
 
-## How This Maps to Forge UI
+## How This Maps to Compose UI
 
 The taxonomy doesn't change the UI — it configures it:
 
