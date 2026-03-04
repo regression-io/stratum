@@ -88,7 +88,14 @@ def run(coro: Any) -> Any:
         asyncio.set_event_loop(loop)
 
     try:
-        return loop.run_until_complete(coro)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            # Drain tasks on both normal and exception paths (e.g. PostconditionFailed)
+            # so async telemetry callbacks are not abandoned mid-flight.
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
     finally:
         loop.close()
 
