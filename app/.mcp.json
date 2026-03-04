@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "forge": {
+      "command": "node",
+      "args": ["server/forge-mcp.js"],
+      "description": "Forge tracker state — vision items, sessions, phase summaries, blocked items"
+    },
+    "smartmemory-memory": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/ruze/reg/my/SmartMemory/smart-memory-service",
+        "run",
+        "smartmemory-mcp"
+      ],
+      "env": {
+        "SM_DEFAULT_TENANT_ID": "claude-code-dev",
+        "SM_DEFAULT_USER_ID": "claude-code"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "description": "Browser automation for web scraping and testing"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "./"
+      ]
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    }
+  }
+}

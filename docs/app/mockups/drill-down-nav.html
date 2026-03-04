@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0b0b14; color: #e2e8f0; padding: 16px; }
+
+  .mockup-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 12px; }
+
+  /* Breadcrumb */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 16px; padding: 8px 12px; background: #0e0e19; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .breadcrumb a { color: #818cf8; text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep { color: #475569; }
+  .breadcrumb .current { color: #e2e8f0; font-weight: 500; }
+
+  /* Header */
+  .item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-spec { background: rgba(129,140,248,0.15); color: #818cf8; }
+  .badge-in-progress { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .badge-design { background: rgba(129,140,248,0.1); color: #a5b4fc; }
+  .item-title { font-size: 16px; font-weight: 600; flex: 1; }
+  .status-actions { display: flex; gap: 6px; }
+  .status-actions button { font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #94a3b8; cursor: pointer; }
+  .status-actions button:hover { border-color: #818cf8; color: #818cf8; }
+
+  /* Slot section */
+  .slot { margin-bottom: 20px; }
+  .slot-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .slot-label .count { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; font-size: 10px; }
+
+  /* Document slot */
+  .doc-preview { background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 16px; font-size: 13px; line-height: 1.7; max-height: 200px; overflow-y: auto; }
+  .doc-preview h3 { color: #fbbf24; font-size: 13px; margin-bottom: 6px; }
+  .doc-preview p { color: #94a3b8; margin-bottom: 8px; }
+  .doc-preview .option { margin-left: 16px; margin-bottom: 4px; }
+  .doc-preview .option b { color: #e2e8f0; }
+
+  /* Children slot — decisions */
+  .decision-list { display: flex; flex-direction: column; gap: 6px; }
+  .decision-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; }
+  .decision-row .id { font-size: 11px; color: #64748b; font-weight: 600; width: 28px; }
+  .decision-row .title { flex: 1; font-size: 13px; }
+  .decision-row .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-planned { background: #64748b; }
+  .dot-complete { background: #22c55e; }
+  .decision-actions { display: flex; gap: 4px; }
+  .btn-approve { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(34,197,94,0.3); background: rgba(34,197,94,0.1); color: #22c55e; cursor: pointer; }
+  .btn-approve:hover { background: rgba(34,197,94,0.2); }
+  .btn-decline { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; cursor: pointer; }
+  .btn-decline:hover { background: rgba(239,68,68,0.2); }
+  .btn-approved { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(34,197,94,0.3); background: rgba(34,197,94,0.15); color: #22c55e; cursor: default; }
+
+  /* Discussion button */
+  .discussion-fab { position: fixed; bottom: 20px; right: 20px; display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #161625; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: #94a3b8; font-size: 12px; cursor: pointer; }
+  .discussion-fab:hover { border-color: #818cf8; color: #e2e8f0; }
+
+  /* Annotations */
+  .annotation { position: absolute; font-size: 10px; color: #818cf8; background: rgba(129,140,248,0.1); padding: 2px 6px; border-radius: 3px; pointer-events: none; }
+
+  .divider { height: 1px; background: rgba(255,255,255,0.04); margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<p class="mockup-label">Drill-Down View — Design Doc with Decisions</p>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+  <a>Board</a>
+  <span class="sep">›</span>
+  <span class="current">Vision Tracker as Primary Roadmap</span>
+</div>
+
+<!-- Header -->
+<div class="item-header">
+  <span class="badge badge-spec">spec</span>
+  <span class="badge badge-design">design</span>
+  <span class="item-title">Vision Tracker as Primary Roadmap</span>
+  <span class="badge badge-in-progress">in progress</span>
+  <div class="status-actions">
+    <button>Edit</button>
+    <button>Connect</button>
+  </div>
+</div>
+
+<!-- Document slot -->
+<div class="slot">
+  <div class="slot-label">Linked Document <span class="count">vision-tracker-design.md</span></div>
+  <div class="doc-preview">
+    <h3>Options Evaluated</h3>
+    <div class="option"><b>Option A: ROADMAP.md only</b> — Agent reads/writes natural language. No impedance mismatch.</div>
+    <div class="option"><b>Option B: Vision Tracker only</b> — Queryable, filterable, interactive, visual dependency graphs.</div>
+    <div class="option"><b>Option C: Both, kept in sync</b> — Manual sync will fail. Two sources of truth means zero.</div>
+    <div class="option"><b>Option D: Tracker primary, markdown generated</b> — Single source of truth. Git-diffable snapshots on demand.</div>
+    <p>The key insight: if the tracker is the agent's <b>work queue</b>, the agent has self-interest in keeping it current.</p>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Children slot — Decisions -->
+<div class="slot">
+  <div class="slot-label">Decisions <span class="count">9</span></div>
+  <div class="decision-list">
+    <div class="decision-row">
+      <span class="id">D1</span>
+      <span class="decision-row status-dot dot-planned"></span>
+      <span class="title">Tracker is primary, markdown is generated</span>
+      <div class="decision-actions">
+        <button class="btn-approve">Approve</button>
+        <button class="btn-decline">Decline</button>
+      </div>
+    </div>
+    <div class="decision-row">
+      <span class="id">D2</span>
+      <span class="decision-row status-dot dot-planned"></span>
+      <span class="title">New fields — priority, effort, planLink, successMetric, semanticId</span>
+      <div class="decision-actions">
+        <button class="btn-approve">Approve</button>
+        <button class="btn-decline">Decline</button>
+      </div>
+    </div>
+    <div class="decision-row">
+      <span class="id">D3</span>
+      <span class="decision-row status-dot dot-complete"></span>
+      <span class="title">New entity types — feature and initiative</span>
+      <div class="decision-actions">
+        <button class="btn-approved">✓ Approved</button>
+      </div>
+    </div>
+    <div class="decision-row">
+      <span class="id">D4</span>
+      <span class="decision-row status-dot dot-planned"></span>
+      <span class="title">Typed edges — blocks, informs, implements, supports</span>
+      <div class="decision-actions">
+        <button class="btn-approve">Approve</button>
+        <button class="btn-decline">Decline</button>
+      </div>
+    </div>
+    <div class="decision-row">
+      <span class="id">D5</span>
+      <span class="decision-row status-dot dot-planned"></span>
+      <span class="title">Forge-loop reads tracker as work queue</span>
+      <div class="decision-actions">
+        <button class="btn-approve">Approve</button>
+        <button class="btn-decline">Decline</button>
+      </div>
+    </div>
+    <div class="decision-row" style="opacity: 0.5;">
+      <span class="id">D6</span>
+      <span class="decision-row status-dot dot-planned"></span>
+      <span class="title" style="color: #64748b;">+ 4 more decisions...</span>
+      <div class="decision-actions"></div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Evidence slot (empty state) -->
+<div class="slot">
+  <div class="slot-label">Evidence <span class="count">0</span></div>
+  <div style="padding: 12px; text-align: center; color: #475569; font-size: 12px; background: #0e0e19; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.06);">
+    No evidence attached yet
+  </div>
+</div>
+
+<!-- Discussion FAB -->
+<div class="discussion-fab">💬 Discussion (0)</div>
+
+</body>
+</html>

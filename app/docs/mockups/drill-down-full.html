@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0b0b14; color: #e2e8f0; padding: 16px; overflow-y: auto; padding-bottom: 60px; }
+
+  .mockup-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 12px; }
+
+  /* Breadcrumb */
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 16px; padding: 8px 12px; background: #0e0e19; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .breadcrumb a { color: #818cf8; text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb .sep { color: #475569; }
+  .breadcrumb .current { color: #e2e8f0; font-weight: 500; }
+
+  /* Header */
+  .item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-decision { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .badge-planned { background: rgba(100,116,139,0.2); color: #94a3b8; }
+  .badge-design { background: rgba(129,140,248,0.1); color: #a5b4fc; }
+  .item-title { font-size: 16px; font-weight: 600; flex: 1; min-width: 200px; }
+  .header-actions { display: flex; gap: 6px; }
+  .header-actions button { font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #94a3b8; cursor: pointer; transition: all 0.15s; }
+  .header-actions button:hover { border-color: #818cf8; color: #818cf8; }
+
+  /* Collapsible slot section */
+  .slot { margin-bottom: 4px; }
+  .slot-header { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; display: flex; align-items: center; gap: 6px; padding: 8px 0; cursor: pointer; user-select: none; }
+  .slot-header:hover { color: #94a3b8; }
+  .slot-header .chevron { transition: transform 0.2s; font-size: 12px; }
+  .slot-header .chevron.open { transform: rotate(90deg); }
+  .slot-header .count { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; font-size: 10px; }
+  .slot-header .summary { font-size: 10px; color: #475569; font-style: italic; text-transform: none; letter-spacing: normal; margin-left: 4px; }
+  .slot-content { overflow: hidden; }
+  .slot-content.collapsed { display: none; }
+
+  /* Document slot */
+  .doc-preview { background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 16px; font-size: 13px; line-height: 1.7; max-height: 180px; overflow-y: auto; }
+  .doc-preview h3 { color: #fbbf24; font-size: 13px; margin-bottom: 6px; }
+  .doc-preview p { color: #94a3b8; margin-bottom: 8px; }
+  .doc-preview .option { margin-left: 16px; margin-bottom: 4px; color: #94a3b8; }
+  .doc-preview .option b { color: #e2e8f0; }
+
+  /* Children slot */
+  .child-list { display: flex; flex-direction: column; gap: 4px; }
+  .child-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .child-row:hover { border-color: rgba(129,140,248,0.3); background: #10101f; }
+  .type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-decision { background: #22c55e; }
+  .dot-task { background: #e2e8f0; }
+  .dot-spec { background: #818cf8; }
+  .dot-idea { background: #fbbf24; }
+  .child-row .title { flex: 1; font-size: 13px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-planned { background: #64748b; }
+  .dot-complete { background: #22c55e; }
+  .dot-in-progress { background: #fbbf24; }
+  .child-row .nav-chevron { color: #475569; font-size: 14px; flex-shrink: 0; }
+  .edge-label { font-size: 10px; color: #64748b; flex-shrink: 0; }
+
+  /* Decision actions */
+  .decision-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .btn-approve { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(34,197,94,0.3); background: rgba(34,197,94,0.1); color: #22c55e; cursor: pointer; transition: all 0.15s; }
+  .btn-approve:hover { background: rgba(34,197,94,0.2); }
+  .btn-discuss { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(129,140,248,0.3); background: rgba(129,140,248,0.1); color: #818cf8; cursor: pointer; transition: all 0.15s; }
+  .btn-discuss:hover { background: rgba(129,140,248,0.2); }
+  .btn-decline { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; cursor: pointer; transition: all 0.15s; }
+  .btn-decline:hover { background: rgba(239,68,68,0.2); }
+  .btn-approved { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(34,197,94,0.3); background: rgba(34,197,94,0.15); color: #22c55e; cursor: default; }
+
+  /* Evidence slot */
+  .evidence-list { display: flex; flex-direction: column; gap: 4px; }
+  .evidence-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; }
+  .evidence-row .icon { font-size: 14px; }
+  .evidence-row .name { flex: 1; font-size: 12px; color: #818cf8; }
+  .evidence-row .meta { font-size: 10px; color: #64748b; }
+  .empty-slot { padding: 12px; text-align: center; color: #475569; font-size: 12px; background: #0e0e19; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.06); }
+
+  /* Discussion FAB */
+  .discussion-fab { position: fixed; bottom: 20px; right: 20px; display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #161625; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: #94a3b8; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .discussion-fab:hover { border-color: #818cf8; color: #e2e8f0; }
+
+  .divider { height: 1px; background: rgba(255,255,255,0.04); margin: 4px 0; }
+
+  /* Drill hint */
+  .drill-hint { font-size: 10px; color: #475569; text-align: center; margin-top: 8px; }
+  .drill-hint a { color: #818cf8; text-decoration: none; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<p class="mockup-label">Drill-Down View — Collapsible Slots + Decision Actions</p>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+  <a>Board</a>
+  <span class="sep">›</span>
+  <a>Vision Tracker Design</a>
+  <span class="sep">›</span>
+  <span class="current">Vision Tracker as Primary Roadmap</span>
+</div>
+
+<!-- Header -->
+<div class="item-header">
+  <span class="badge badge-decision">spec</span>
+  <span class="badge badge-design">design</span>
+  <span class="item-title">Vision Tracker as Primary Roadmap</span>
+  <span class="badge badge-planned">in progress</span>
+  <div class="header-actions">
+    <button>Edit</button>
+    <button>Connect</button>
+  </div>
+</div>
+
+<!-- SLOT 1: Linked Document — collapsible, starts expanded -->
+<div class="slot">
+  <div class="slot-header" onclick="toggleSlot('doc')">
+    <span class="chevron open" id="doc-chevron">›</span>
+    Linked Document
+    <span class="count">product-realignment.md</span>
+    <span class="summary" id="doc-summary" style="display:none;">4 options evaluated, Option D recommended</span>
+  </div>
+  <div class="slot-content" id="doc-content">
+    <div class="doc-preview">
+      <h3>Options Evaluated</h3>
+      <div class="option"><b>Option A: ROADMAP.md only</b> — Agent reads/writes natural language. No impedance mismatch.</div>
+      <div class="option"><b>Option B: Vision Tracker only</b> — Queryable, filterable, interactive, visual dependency graphs.</div>
+      <div class="option"><b>Option C: Both, kept in sync</b> — Manual sync will fail. Two sources of truth means zero.</div>
+      <div class="option"><b>Option D: Tracker primary, markdown generated</b> — Single source of truth. Git-diffable snapshots on demand.</div>
+      <p>The key insight: if the tracker is the agent's <b>work queue</b>, the agent has self-interest in keeping it current.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SLOT 2: Decisions — collapsible, starts expanded -->
+<div class="slot">
+  <div class="slot-header" onclick="toggleSlot('decisions')">
+    <span class="chevron open" id="decisions-chevron">›</span>
+    Decisions
+    <span class="count">9</span>
+  </div>
+  <div class="slot-content" id="decisions-content">
+    <div class="child-list">
+      <!-- D1: pending — full action set -->
+      <div class="child-row">
+        <span class="type-dot dot-decision"></span>
+        <span class="title">D1: Tracker is primary, markdown is generated</span>
+        <span class="status-dot dot-planned"></span>
+        <div class="decision-actions">
+          <button class="btn-approve">Approve</button>
+          <button class="btn-discuss">Discuss</button>
+          <button class="btn-decline">Decline</button>
+        </div>
+        <span class="nav-chevron">›</span>
+      </div>
+      <!-- D2: pending -->
+      <div class="child-row">
+        <span class="type-dot dot-decision"></span>
+        <span class="title">D2: New fields — priority, effort, planLink, successMetric</span>
+        <span class="status-dot dot-planned"></span>
+        <div class="decision-actions">
+          <button class="btn-approve">Approve</button>
+          <button class="btn-discuss">Discuss</button>
+          <button class="btn-decline">Decline</button>
+        </div>
+        <span class="nav-chevron">›</span>
+      </div>
+      <!-- D3: approved -->
+      <div class="child-row" style="opacity: 0.7;">
+        <span class="type-dot dot-decision"></span>
+        <span class="title">D3: New entity types — feature and initiative</span>
+        <span class="status-dot dot-complete"></span>
+        <div class="decision-actions">
+          <button class="btn-approved">✓ Approved</button>
+        </div>
+        <span class="nav-chevron">›</span>
+      </div>
+      <!-- D4: pending -->
+      <div class="child-row">
+        <span class="type-dot dot-decision"></span>
+        <span class="title">D4: Typed edges — blocks, informs, implements, supports</span>
+        <span class="status-dot dot-planned"></span>
+        <div class="decision-actions">
+          <button class="btn-approve">Approve</button>
+          <button class="btn-discuss">Discuss</button>
+          <button class="btn-decline">Decline</button>
+        </div>
+        <span class="nav-chevron">›</span>
+      </div>
+      <!-- D5: pending -->
+      <div class="child-row">
+        <span class="type-dot dot-decision"></span>
+        <span class="title">D5: Forge-loop reads tracker as work queue</span>
+        <span class="status-dot dot-planned"></span>
+        <div class="decision-actions">
+          <button class="btn-approve">Approve</button>
+          <button class="btn-discuss">Discuss</button>
+          <button class="btn-decline">Decline</button>
+        </div>
+        <span class="nav-chevron">›</span>
+      </div>
+      <!-- D6-D9: collapsed summary -->
+      <div class="child-row" style="opacity: 0.5;">
+        <span class="type-dot" style="background: #475569;"></span>
+        <span class="title" style="color: #64748b;">+ 4 more decisions (D6–D9)</span>
+        <span class="nav-chevron">›</span>
+      </div>
+    </div>
+    <p class="drill-hint">Click any row to drill deeper. Click Discuss to open a thread on that decision.</p>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SLOT 3: Connected Items — collapsible, starts collapsed -->
+<div class="slot">
+  <div class="slot-header" onclick="toggleSlot('connected')">
+    <span class="chevron" id="connected-chevron">›</span>
+    Connected Items
+    <span class="count">3</span>
+    <span class="summary">2 tasks, 1 spec</span>
+  </div>
+  <div class="slot-content collapsed" id="connected-content">
+    <div class="child-list">
+      <div class="child-row">
+        <span class="type-dot dot-task"></span>
+        <span class="title">Migrate vision-state schema to v2</span>
+        <span class="status-dot dot-planned"></span>
+        <span class="edge-label">implements</span>
+        <span class="nav-chevron">›</span>
+      </div>
+      <div class="child-row">
+        <span class="type-dot dot-task"></span>
+        <span class="title">Build drill-down view component</span>
+        <span class="status-dot dot-planned"></span>
+        <span class="edge-label">implements</span>
+        <span class="nav-chevron">›</span>
+      </div>
+      <div class="child-row">
+        <span class="type-dot dot-spec"></span>
+        <span class="title">Product realignment — DAG data model</span>
+        <span class="status-dot dot-complete"></span>
+        <span class="edge-label">informs</span>
+        <span class="nav-chevron">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SLOT 4: Evidence — collapsible, starts collapsed -->
+<div class="slot">
+  <div class="slot-header" onclick="toggleSlot('evidence')">
+    <span class="chevron" id="evidence-chevron">›</span>
+    Evidence
+    <span class="count">2</span>
+    <span class="summary">1 design doc, 1 journal entry</span>
+  </div>
+  <div class="slot-content collapsed" id="evidence-content">
+    <div class="evidence-list">
+      <div class="evidence-row">
+        <span class="icon">📄</span>
+        <span class="name">product-realignment.md</span>
+        <span class="meta">Design doc · Feb 13</span>
+      </div>
+      <div class="evidence-row">
+        <span class="icon">📓</span>
+        <span class="name">Session 12: product ontology, graph renderer</span>
+        <span class="meta">Journal · Feb 13</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Discussion FAB -->
+<div class="discussion-fab">💬 Discussion (0)</div>
+
+<script>
+function toggleSlot(id) {
+  const content = document.getElementById(id + '-content');
+  const chevron = document.getElementById(id + '-chevron');
+  const summary = document.getElementById(id + '-summary');
+  const isCollapsed = content.classList.contains('collapsed');
+
+  if (isCollapsed) {
+    content.classList.remove('collapsed');
+    chevron.classList.add('open');
+    if (summary) summary.style.display = 'none';
+  } else {
+    content.classList.add('collapsed');
+    chevron.classList.remove('open');
+    if (summary) summary.style.display = '';
+  }
+}
+</script>
+
+</body>
+</html>

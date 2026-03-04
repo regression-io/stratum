@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forge</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Kill any stale service workers — they break dev mode
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(r => { r.unregister(); console.log('[forge] Unregistered stale service worker'); });
+        });
+      }
+      // Restore theme preference before React renders (prevents flash)
+      (function() {
+        var theme = localStorage.getItem('forge:theme');
+        if (theme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

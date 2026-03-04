@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0b0b14; color: #e2e8f0; }
+
+  /* Nav */
+  .step-nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #0b0b14; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .step-nav button { font-size: 12px; padding: 4px 12px; border-radius: 4px; border: 1px solid rgba(129,140,248,0.3); background: rgba(129,140,248,0.1); color: #818cf8; cursor: pointer; }
+  .step-nav button:disabled { opacity: 0.3; cursor: default; }
+  .step-dots { display: flex; gap: 6px; }
+  .step-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: #1e1e3a; cursor: pointer; }
+  .step-dots .dot.active { background: #818cf8; }
+  .step-label { font-size: 12px; color: #94a3b8; flex: 1; text-align: center; }
+
+  .screen { display: none; padding: 16px; padding-bottom: 40px; }
+  .screen.active { display: block; }
+  .note { font-size: 11px; color: #818cf8; background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.15); border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; line-height: 1.5; }
+  .note b { color: #a5b4fc; }
+  .hint { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px; background: rgba(251,191,36,0.15); color: #fbbf24; margin-left: 4px; }
+
+  /* Board */
+  .board { display: flex; gap: 12px; }
+  .board-col { flex: 1; }
+  .col-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .card { padding: 8px 10px; background: #0e0e19; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; margin-bottom: 6px; cursor: pointer; }
+  .card:hover { border-color: rgba(129,140,248,0.3); }
+  .card.hl { border-color: rgba(251,191,36,0.5); box-shadow: 0 0 8px rgba(251,191,36,0.1); }
+  .card .ct { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+  .card .cn { font-size: 12px; }
+  .t-spec { color: #818cf8; } .t-dec { color: #22c55e; } .t-task { color: #94a3b8; } .t-idea { color: #fbbf24; }
+
+  /* Breadcrumb */
+  .bc { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 16px; padding: 8px 12px; background: #0e0e19; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .bc a { color: #818cf8; text-decoration: none; cursor: pointer; }
+  .bc .sep { color: #475569; }
+  .bc .cur { color: #e2e8f0; font-weight: 500; }
+
+  /* Header */
+  .hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .hdr .title { font-size: 15px; font-weight: 600; flex: 1; min-width: 200px; }
+
+  /* Description */
+  .desc { font-size: 12px; line-height: 1.6; color: #94a3b8; margin-bottom: 16px; padding: 10px 12px; background: #0e0e19; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .desc b { color: #e2e8f0; }
+
+  /* Item row — the core pattern */
+  .item { border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; margin-bottom: 6px; background: #0e0e19; overflow: hidden; }
+  .item-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; font-size: 12px; }
+  .item-head:hover { background: rgba(129,140,248,0.04); }
+  .item.open .item-head { background: #10101f; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .item-head .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .item-head .nm { flex: 1; }
+  .item-head .nm b { color: #e2e8f0; }
+  .item-head .status { font-size: 9px; padding: 1px 6px; border-radius: 10px; flex-shrink: 0; }
+  .s-plan { background: rgba(100,116,139,0.2); color: #94a3b8; }
+  .s-done { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .s-prog { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .item-head .chev { color: #475569; font-size: 14px; flex-shrink: 0; transition: transform 0.2s; }
+  .item.open .item-head .chev { transform: rotate(90deg); color: #818cf8; }
+
+  /* Item body — expandable */
+  .item-body { display: none; padding: 10px 12px; font-size: 11px; line-height: 1.6; }
+  .item.open .item-body { display: block; }
+  .item-body .rationale { color: #94a3b8; margin-bottom: 10px; }
+  .item-body .rationale b { color: #e2e8f0; }
+
+  /* Pros/cons */
+  .pc { display: flex; gap: 12px; margin-bottom: 10px; }
+  .pc-col { flex: 1; }
+  .pc-col h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .pc-col.pro h4 { color: #22c55e; }
+  .pc-col.con h4 { color: #ef4444; }
+  .pc-col ul { list-style: none; padding: 0; }
+  .pc-col li { color: #94a3b8; padding: 1px 0; }
+  .pc-col.pro li::before { content: '+ '; color: #22c55e; }
+  .pc-col.con li::before { content: '- '; color: #ef4444; }
+
+  /* Linked items inside expansion */
+  .links { margin-bottom: 10px; }
+  .links-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 4px; }
+  .link-row { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 11px; color: #818cf8; cursor: pointer; border-radius: 3px; }
+  .link-row:hover { background: rgba(129,140,248,0.08); }
+  .link-row .ldot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .link-row .edge-type { font-size: 9px; color: #475569; margin-left: auto; }
+
+  /* Options inside a decision */
+  .options { margin-bottom: 10px; }
+  .opt { border: 1px solid rgba(255,255,255,0.06); border-radius: 5px; margin-bottom: 4px; background: #0a0a16; overflow: hidden; }
+  .opt-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 11px; }
+  .opt-head:hover { background: rgba(129,140,248,0.04); }
+  .opt.open .opt-head { background: rgba(129,140,248,0.06); border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .opt-head .letter { font-weight: 700; color: #64748b; width: 16px; flex-shrink: 0; }
+  .opt-head .opt-nm { flex: 1; color: #94a3b8; }
+  .opt-head .opt-nm b { color: #e2e8f0; }
+  .opt.recommended .opt-head .letter { color: #818cf8; }
+  .opt.recommended .opt-head { border-left: 2px solid #818cf8; }
+  .opt.recommended .opt-head .opt-nm { color: #e2e8f0; }
+  .opt-head .opt-chev { color: #475569; font-size: 12px; transition: transform 0.2s; }
+  .opt.open .opt-head .opt-chev { transform: rotate(90deg); color: #818cf8; }
+  .opt-body { display: none; padding: 8px 10px; font-size: 11px; line-height: 1.5; }
+  .opt.open .opt-body { display: block; }
+  .opt-verdict { font-size: 10px; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
+  .v-rec { background: rgba(129,140,248,0.15); color: #818cf8; }
+  .v-rej { background: rgba(239,68,68,0.08); color: #64748b; }
+
+  /* Actions bar */
+  .actions { display: flex; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04); }
+  .btn { font-size: 10px; padding: 4px 12px; border-radius: 4px; cursor: pointer; border: 1px solid; }
+  .b-approve { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.1); color: #22c55e; }
+  .b-approve:hover { background: rgba(34,197,94,0.2); }
+  .b-discuss { border-color: rgba(129,140,248,0.3); background: rgba(129,140,248,0.1); color: #818cf8; }
+  .b-discuss:hover { background: rgba(129,140,248,0.2); }
+  .b-decline { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; }
+  .b-decline:hover { background: rgba(239,68,68,0.2); }
+  .b-done { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.15); color: #22c55e; cursor: default; }
+
+  .divider { height: 1px; background: rgba(255,255,255,0.04); margin: 8px 0; }
+
+  /* Section label */
+  .sec { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .sec .cnt { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="step-nav">
+  <button onclick="go(-1)" id="prev-btn" disabled>← Prev</button>
+  <div class="step-dots" id="dots"></div>
+  <span class="step-label" id="step-label"></span>
+  <button onclick="go(1)" id="next-btn">Next →</button>
+</div>
+
+<!-- ===== S0: Roadmap ===== -->
+<div class="screen active" id="s0">
+  <div class="note">
+    <b>Step 1: Roadmap view.</b> High-level initiatives with rolled-up status. Each row expands to show phases and children. Click any row to drill in.
+    <span class="hint">user expands "Vision Tracker" then clicks the Specification phase</span>
+  </div>
+
+  <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Forge Roadmap</div>
+
+  <!-- Initiative 1: Vision Tracker — expanded -->
+  <div class="item open">
+    <div class="item-head">
+      <span class="dot" style="background:#818cf8;"></span>
+      <span class="nm" style="font-weight:600;">Vision Tracker</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">6/18 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;">
+        <div style="width:33%;height:100%;border-radius:2px;background:#818cf8;"></div>
+      </div>
+      <span class="status s-prog">in progress</span>
+      <span class="chev">›</span>
+    </div>
+    <div class="item-body" style="padding:4px 12px 8px;">
+      <!-- Phase rows -->
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-bottom:2px;background:rgba(34,197,94,0.04);">
+        <span style="color:#22c55e;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Planning</span>
+        <span style="font-size:10px;color:#22c55e;margin-left:auto;">complete</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-bottom:2px;border:1px solid rgba(251,191,36,0.2);background:rgba(251,191,36,0.04);">
+        <span style="color:#fbbf24;font-size:9px;">●</span>
+        <span style="color:#e2e8f0;font-weight:500;">Specification</span>
+        <span style="font-size:10px;color:#64748b;">7 decisions (2 approved)</span>
+        <span style="font-size:10px;color:#fbbf24;margin-left:auto;">in progress</span>
+        <span class="hint">click</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-bottom:2px;">
+        <span style="color:#64748b;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Architecture</span>
+        <span style="font-size:10px;color:#64748b;margin-left:auto;">planned</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;">
+        <span style="color:#64748b;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Implementation</span>
+        <span style="font-size:10px;color:#64748b;margin-left:auto;">planned</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Initiative 2: Agent Monitoring — collapsed -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#fbbf24;"></span>
+      <span class="nm" style="font-weight:600;">Agent Monitoring</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">1/5 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;">
+        <div style="width:20%;height:100%;border-radius:2px;background:#fbbf24;"></div>
+      </div>
+      <span class="status s-prog">in progress</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+
+  <!-- Initiative 3: Persistence Connector — collapsed -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#64748b;"></span>
+      <span class="nm" style="font-weight:600;">Persistence Connector</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">0/8 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;"></div>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+
+  <!-- Initiative 4: Git/File Connector — collapsed -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#64748b;"></span>
+      <span class="nm" style="font-weight:600;">Git/File Connector</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">0/4 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;"></div>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+
+  <!-- Initiative 5: Standalone App — collapsed -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#64748b;"></span>
+      <span class="nm" style="font-weight:600;">Standalone App</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">0/6 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;"></div>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S1: Drill into Specification phase ===== -->
+<div class="screen" id="s1">
+  <div class="note">
+    <b>Step 2: Specification phase.</b> User clicked "Specification" under Vision Tracker. All children of this phase shown as expandable rows — decisions, specs, tasks. Same uniform pattern. Click any row to expand inline.
+    <span class="hint">user clicks D1</span>
+  </div>
+  <div class="bc">
+    <a>Roadmap</a><span class="sep">›</span><a>Vision Tracker</a><span class="sep">›</span><span class="cur">Specification</span>
+  </div>
+  <div class="hdr">
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">design</span>
+    <span class="title">Vision Tracker — Specification Phase</span>
+    <span style="font-size:10px;color:#22c55e;margin-left:8px;">2/9 approved</span>
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">in progress</span>
+  </div>
+
+  <div class="desc">
+    9 design decisions to make before planning can begin. 2 approved so far. Spec: <a style="color:#818cf8;cursor:pointer;">product-realignment.md</a>
+  </div>
+
+  <div class="sec">Children <span class="cnt">12</span></div>
+
+  <!-- D1 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D1:</b> Tracker is primary, markdown is generated</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+      <span class="hint">click</span>
+    </div>
+  </div>
+  <!-- D2 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D2:</b> New fields — priority, effort, planLink</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D3 — approved -->
+  <div class="item" style="opacity:0.6;">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D3:</b> New entity types — feature, initiative</span>
+      <span class="status s-done">approved</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D4 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D4:</b> Typed edges — blocks, informs, implements, supports</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D5 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D5:</b> Forge-loop reads tracker as work queue</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- Task -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#94a3b8;"></span>
+      <span class="nm">Migrate vision-state schema to v2</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- More -->
+  <div style="font-size:11px;color:#475569;padding:6px 12px;">+ 6 more items...</div>
+</div>
+
+<!-- ===== S2: D1 expanded in-place ===== -->
+<div class="screen" id="s2">
+  <div class="note">
+    <b>Step 3: D1 expanded — shows options.</b> Clicking D1 reveals: a Discuss button and artifact links at the top, then options A-D. Each option is expandable (D is open showing pros/cons). Compare options, then Approve one or Discuss the whole decision.
+    <span class="hint">user approves Option D</span>
+  </div>
+  <div class="bc">
+    <a>Roadmap</a><span class="sep">›</span><a>Vision Tracker</a><span class="sep">›</span><span class="cur">Specification</span>
+  </div>
+  <div class="hdr">
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">design</span>
+    <span class="title">Vision Tracker — Specification Phase</span>
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">in progress</span>
+  </div>
+
+  <div class="sec">Children <span class="cnt">12</span></div>
+
+  <!-- D1 EXPANDED — shows options A-D -->
+  <div class="item open">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D1:</b> How should project status be tracked?</span>
+      <span class="status s-plan">4 options</span>
+      <span class="chev">›</span>
+    </div>
+    <div class="item-body">
+      <div class="rationale" style="margin-bottom:8px;">
+        Should the Vision Tracker replace ROADMAP.md as the single source of truth?
+      </div>
+
+      <!-- D1-level actions and links — visible before options -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <button class="btn b-discuss" style="font-size:10px;">Discuss D1</button>
+        <span style="font-size:10px;color:#475569;">|</span>
+        <a style="font-size:10px;color:#818cf8;cursor:pointer;text-decoration:none;">product-realignment.md</a>
+        <span style="font-size:9px;color:#475569;">source doc</span>
+        <span style="flex:1;"></span>
+        <a style="font-size:10px;color:#818cf8;cursor:pointer;text-decoration:none;">D8: Markdown export</a>
+        <span style="font-size:9px;color:#475569;">depends on this</span>
+      </div>
+
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px;">OPTIONS</div>
+      <div class="options">
+        <!-- Option A -->
+        <div class="opt">
+          <div class="opt-head">
+            <span class="letter">A</span>
+            <span class="opt-nm">ROADMAP.md only — agent reads/writes natural language</span>
+            <span class="opt-chev">›</span>
+          </div>
+        </div>
+        <!-- Option B -->
+        <div class="opt">
+          <div class="opt-head">
+            <span class="letter">B</span>
+            <span class="opt-nm">Vision Tracker only — queryable, filterable, visual</span>
+            <span class="opt-chev">›</span>
+          </div>
+        </div>
+        <!-- Option C -->
+        <div class="opt">
+          <div class="opt-head">
+            <span class="letter">C</span>
+            <span class="opt-nm">Both, kept in sync — manual sync will fail</span>
+            <span class="opt-chev">›</span>
+          </div>
+        </div>
+        <!-- Option D — expanded, recommended -->
+        <div class="opt open recommended">
+          <div class="opt-head">
+            <span class="letter">D</span>
+            <span class="opt-nm"><b>Tracker primary, markdown generated</b></span>
+            <span class="opt-verdict v-rec">recommended</span>
+            <span class="opt-chev">›</span>
+          </div>
+          <div class="opt-body">
+            <div style="color:#94a3b8;margin-bottom:8px;">
+              Single source of truth in the tracker. Markdown snapshots generated on demand for git diffability. The agent's work queue IS the tracker — self-interest keeps it current.
+            </div>
+            <div class="pc">
+              <div class="pc-col pro">
+                <h4>Pros</h4>
+                <ul>
+                  <li>Single source of truth</li>
+                  <li>Agent self-maintains</li>
+                  <li>Git-diffable snapshots</li>
+                  <li>Queryable and visual</li>
+                </ul>
+              </div>
+              <div class="pc-col con">
+                <h4>Cons</h4>
+                <ul>
+                  <li>Markdown easier to hand-edit</li>
+                  <li>Tracker must be reliable first</li>
+                  <li>Generated markdown may drift</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn b-approve">Approve Option D</button>
+        <button class="btn b-decline">Decline All</button>
+        <span class="hint" style="margin-left:auto;">user approves Option D</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- D2 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D2:</b> New fields — priority, effort, planLink</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D3 -->
+  <div class="item" style="opacity:0.6;">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D3:</b> New entity types</span>
+      <span class="status s-done">approved</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#475569;padding:6px 12px;">+ 9 more items...</div>
+</div>
+
+<!-- ===== S3: D1 approved, D4 expanded ===== -->
+<div class="screen" id="s3">
+  <div class="note">
+    <b>Step 4: D1 approved. User expands D4.</b> D1 collapses and shows "approved". Now D4 is expanded — same pattern: rationale, pros/cons, linked dependencies. The linked item "D8: Markdown export" has a "depends on" edge — D4's typed edges enable D8's export logic.
+    <span class="hint">user clicks "D8: Markdown export" link</span>
+  </div>
+  <div class="bc">
+    <a>Roadmap</a><span class="sep">›</span><a>Vision Tracker</a><span class="sep">›</span><span class="cur">Specification</span>
+  </div>
+  <div class="hdr">
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">design</span>
+    <span class="title">Vision Tracker — Specification Phase</span>
+    <span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">in progress</span>
+  </div>
+
+  <div class="sec">Children <span class="cnt">12</span> <span style="font-size:10px;color:#22c55e;margin-left:4px;">3 approved</span></div>
+
+  <!-- D1: now approved, collapsed -->
+  <div class="item" style="opacity:0.6;">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D1:</b> Tracker is primary, markdown is generated</span>
+      <span class="status s-done">approved</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D2 -->
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D2:</b> New fields — priority, effort, planLink</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D3 -->
+  <div class="item" style="opacity:0.6;">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D3:</b> New entity types</span>
+      <span class="status s-done">approved</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <!-- D4 EXPANDED -->
+  <div class="item open">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D4:</b> Typed edges — blocks, informs, implements, supports</span>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+    <div class="item-body">
+      <div class="rationale">
+        <b>Rationale:</b> Every connection between items needs a semantic type. Without typed edges, "this blocks that" and "this informs that" look identical — the graph can't drive scheduling or render meaningful dependency lines.
+      </div>
+      <div class="pc">
+        <div class="pc-col pro">
+          <h4>Pros</h4>
+          <ul>
+            <li>Dependency-aware scheduling</li>
+            <li>Graph renders different edge styles</li>
+            <li>Enables the <b>informs</b> deliberation pattern</li>
+            <li>Fixed set keeps complexity bounded</li>
+          </ul>
+        </div>
+        <div class="pc-col con">
+          <h4>Cons</h4>
+          <ul>
+            <li>Fixed types may not cover future needs</li>
+            <li>More complex than generic connections</li>
+            <li>Migration required for existing data</li>
+          </ul>
+        </div>
+      </div>
+      <div class="links">
+        <div class="links-label">Linked items</div>
+        <div class="link-row">
+          <span class="ldot" style="background:#818cf8;"></span>
+          Product realignment — DAG data model
+          <span class="edge-type">informs</span>
+        </div>
+        <div class="link-row" style="background:rgba(251,191,36,0.06);border-radius:3px;">
+          <span class="ldot" style="background:#22c55e;"></span>
+          D8: Markdown export
+          <span class="edge-type">depends on this</span>
+          <span class="hint">click to drill in</span>
+        </div>
+        <div class="link-row">
+          <span class="ldot" style="background:#94a3b8;"></span>
+          Implement edge validation
+          <span class="edge-type">implements</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn b-approve">Approve</button>
+        <button class="btn b-discuss">Discuss</button>
+        <button class="btn b-decline">Decline</button>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:#475569;padding:6px 12px;">+ 8 more items...</div>
+</div>
+
+<!-- ===== S4: Drilled into D8 from the link ===== -->
+<div class="screen" id="s4">
+  <div class="note">
+    <b>Step 5: Drilled into D8 via dependency link.</b> User clicked "D8: Markdown export" inside D4's expansion. Breadcrumb grows. D8 has its own children, links, and actions. Same pattern at every depth. The "blocked by" link back to D4 shows the relationship.
+    <span class="hint">user clicks Back (or "Board" breadcrumb)</span>
+  </div>
+  <div class="bc">
+    <a>Roadmap</a><span class="sep">›</span><a>Vision Tracker</a><span class="sep">›</span><a>Specification</a><span class="sep">›</span><span class="cur">D8: Markdown Export</span>
+  </div>
+  <div class="hdr">
+    <span class="badge" style="background:rgba(34,197,94,0.15);color:#22c55e;">decision</span>
+    <span class="title">D8: Markdown export — on-demand ROADMAP.md generation</span>
+    <span class="badge" style="background:rgba(100,116,139,0.2);color:#94a3b8;">planned</span>
+  </div>
+
+  <div class="desc">
+    Generate ROADMAP.md from tracker state on demand. Human runs a command (or it auto-generates on commit), producing a git-diffable snapshot. <b>Depends on D4 (typed edges)</b> for rendering dependency info in the export.
+  </div>
+
+  <div class="sec">Linked items <span class="cnt">3</span></div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D4:</b> Typed edges</span>
+      <span class="status s-plan">planned</span>
+      <span style="font-size:9px;color:#ef4444;margin-left:auto;">blocked by</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#22c55e;"></span>
+      <span class="nm"><b>D1:</b> Tracker is primary</span>
+      <span class="status s-done">approved</span>
+      <span style="font-size:9px;color:#64748b;margin-left:auto;">informs</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#94a3b8;"></span>
+      <span class="nm">Build export CLI command</span>
+      <span class="status s-plan">planned</span>
+      <span style="font-size:9px;color:#64748b;margin-left:auto;">implements</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="actions">
+    <button class="btn b-approve">Approve</button>
+    <button class="btn b-discuss">Discuss</button>
+    <button class="btn b-decline">Decline</button>
+  </div>
+</div>
+
+<!-- ===== S5: Back to roadmap ===== -->
+<div class="screen" id="s5">
+  <div class="note">
+    <b>Step 6: Back to roadmap.</b> Breadcrumb jump returns to the top level. Vision Tracker's Specification phase now shows "3 approved" (D1 was just approved). Progress bar updated. The full flow: roadmap → expand initiative → click phase → see decisions with options → approve → follow dependency → drill deeper → jump back.
+  </div>
+
+  <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Forge Roadmap</div>
+
+  <div class="item open">
+    <div class="item-head">
+      <span class="dot" style="background:#818cf8;"></span>
+      <span class="nm" style="font-weight:600;">Vision Tracker</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">7/18 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;">
+        <div style="width:39%;height:100%;border-radius:2px;background:#818cf8;"></div>
+      </div>
+      <span class="status s-prog">in progress</span>
+      <span class="chev">›</span>
+    </div>
+    <div class="item-body" style="padding:4px 12px 8px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:11px;margin-bottom:2px;background:rgba(34,197,94,0.04);">
+        <span style="color:#22c55e;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Planning</span>
+        <span style="font-size:10px;color:#22c55e;margin-left:auto;">complete</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:11px;margin-bottom:2px;border:1px solid rgba(251,191,36,0.2);background:rgba(251,191,36,0.04);">
+        <span style="color:#fbbf24;font-size:9px;">●</span>
+        <span style="color:#e2e8f0;font-weight:500;">Specification</span>
+        <span style="font-size:10px;color:#22c55e;">3 approved</span>
+        <span style="font-size:10px;color:#64748b;">/ 7 decisions</span>
+        <span style="font-size:10px;color:#fbbf24;margin-left:auto;">in progress</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:11px;margin-bottom:2px;">
+        <span style="color:#64748b;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Architecture</span>
+        <span style="font-size:10px;color:#64748b;margin-left:auto;">planned</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;font-size:11px;">
+        <span style="color:#64748b;font-size:9px;">●</span>
+        <span style="color:#94a3b8;">Implementation</span>
+        <span style="font-size:10px;color:#64748b;margin-left:auto;">planned</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#fbbf24;"></span>
+      <span class="nm" style="font-weight:600;">Agent Monitoring</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">1/5 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;">
+        <div style="width:20%;height:100%;border-radius:2px;background:#fbbf24;"></div>
+      </div>
+      <span class="status s-prog">in progress</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head">
+      <span class="dot" style="background:#64748b;"></span>
+      <span class="nm" style="font-weight:600;">Persistence Connector</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:auto;">0/8 done</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#1e1e3a;margin:0 4px;"></div>
+      <span class="status s-plan">planned</span>
+      <span class="chev">›</span>
+    </div>
+  </div>
+</div>
+
+<script>
+var screens = document.querySelectorAll('.screen');
+var labelTexts = [
+  'Step 1 of 6 — Roadmap: initiatives + phases at a glance',
+  'Step 2 of 6 — Drill into Specification phase: decisions + tasks',
+  'Step 3 of 6 — Expand D1: options A-D, discuss, links',
+  'Step 4 of 6 — D1 approved, expand D4, see dependencies',
+  'Step 5 of 6 — Follow dependency link into D8',
+  'Step 6 of 6 — Back to roadmap (status updated)',
+];
+var current = 0;
+
+function render() {
+  for (var i = 0; i < screens.length; i++) {
+    screens[i].className = i === current ? 'screen active' : 'screen';
+  }
+  document.getElementById('step-label').textContent = labelTexts[current];
+  document.getElementById('prev-btn').disabled = current === 0;
+  document.getElementById('next-btn').disabled = current === screens.length - 1;
+  var dots = document.getElementById('dots');
+  while (dots.firstChild) dots.removeChild(dots.firstChild);
+  for (var j = 0; j < screens.length; j++) {
+    var d = document.createElement('span');
+    d.className = 'dot' + (j === current ? ' active' : '');
+    d.setAttribute('data-idx', j);
+    d.onclick = function() { current = parseInt(this.getAttribute('data-idx')); render(); };
+    dots.appendChild(d);
+  }
+}
+function go(dir) { current = Math.max(0, Math.min(screens.length - 1, current + dir)); render(); }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+});
+render();
+</script>
+
+</body>
+</html>

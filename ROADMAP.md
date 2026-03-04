@@ -174,10 +174,10 @@ skills, memory) from monolithic files into pointed sub-docs.
 
 | ID | Item | Status |
 |---|---|---|
-| T4-1 | Fresh copy of `coder-forge` content into `app/` — no git history carry-over | PLANNED |
-| T4-2 | Merge `coder-forge/docs/` into `docs/` — plans, features, decisions | PLANNED |
-| T4-3 | `CLAUDE.md` restructure — both repos merged, extracted to sub-docs, CLAUDE.md becomes pointer | PLANNED |
-| T4-4 | Archive / remove `coder-forge` repo | PLANNED |
+| T4-1 | Fresh copy of `coder-forge` content into `app/` — no git history carry-over | COMPLETE |
+| T4-2 | Merge `coder-forge/docs/` into `docs/app/` — plans, features, decisions, journal | COMPLETE |
+| T4-3 | `CLAUDE.md` restructure — unified pointer doc covering Python lib + MCP + web app | COMPLETE |
+| T4-4 | Archive `coder-forge` repo — canonical location is now `app/` in this repo | COMPLETE |
 
 ---
 

@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forge — Vision Surface Variations</title>
+<style>
+  :root {
+    --bg-base: #1a1a2e;
+    --bg-raised: #1e1e36;
+    --bg-overlay: #252542;
+    --bg-card: #2a2a4a;
+    --bg-terminal: #0d1117;
+    --bg-terminal-raised: #161b22;
+    --border: #3a3a5c;
+    --border-focus: #5a5a8c;
+    --border-terminal: #30363d;
+    --ink-primary: #e8e8f0;
+    --ink-secondary: #a8a8c0;
+    --ink-muted: #6a6a88;
+    --ink-terminal: #c9d1d9;
+    --ink-terminal-dim: #8b949e;
+    --amber: #f0a830;
+    --amber-dim: #f0a83040;
+    --green: #40c870;
+    --green-dim: #40c87030;
+    --blue: #4890f0;
+    --blue-dim: #4890f030;
+    --red: #f05050;
+    --red-dim: #f0505030;
+    --gray: #888;
+    --purple: #a070e0;
+    --purple-dim: #a070e030;
+    --chip-bg: #353560;
+    --chip-hover: #454580;
+    --prompt-color: #79c0ff;
+    --user-color: #e6edf3;
+    --ai-color: #c9d1d9;
+    --tool-color: #8b949e;
+    --success-color: #3fb950;
+    --separator: #21262d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg-base);
+    color: var(--ink-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Variation tabs */
+  .variation-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--bg-overlay);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+
+  .variation-tab {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-family: inherit;
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .variation-tab:hover {
+    color: var(--ink-secondary);
+  }
+
+  .variation-tab.active {
+    color: var(--amber);
+    border-bottom-color: var(--amber);
+  }
+
+  .variation-tab .label {
+    display: block;
+    font-size: 10px;
+    color: var(--ink-muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .variation-tab.active .label {
+    color: var(--amber);
+    opacity: 0.6;
+  }
+
+  /* Variation panels */
+  .variation-panel {
+    flex: 1;
+    display: none;
+    overflow: hidden;
+  }
+
+  .variation-panel.active {
+    display: flex;
+  }
+
+  /* ---------- SHARED STYLES ---------- */
+
+  .two-panel {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Claude Code terminal styling (realistic) */
+  .terminal-panel {
+    width: 45%;
+    border-right: 1px solid var(--border-terminal);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-terminal);
+  }
+
+  .terminal-header {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--ink-terminal-dim);
+    border-bottom: 1px solid var(--separator);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-terminal-raised);
+  }
+
+  .terminal-header .dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .terminal-header .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .terminal-header .dot.red { background: #ff5f56; }
+  .terminal-header .dot.yellow { background: #ffbd2e; }
+  .terminal-header .dot.green { background: #27c93f; }
+
+  .terminal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Claude Code message styling */
+  .msg {
+    padding: 4px 16px;
+  }
+
+  .msg + .msg {
+    margin-top: 4px;
+  }
+
+  .msg-user {
+    padding: 8px 16px;
+    border-top: 1px solid var(--separator);
+    border-bottom: 1px solid var(--separator);
+    background: var(--bg-terminal-raised);
+  }
+
+  .msg-user .prompt-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .msg-user .prompt-symbol {
+    color: var(--prompt-color);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .msg-user .prompt-text {
+    color: var(--user-color);
+  }
+
+  .msg-ai {
+    color: var(--ai-color);
+    padding: 8px 16px 8px 28px;
+  }
+
+  .msg-tool {
+    padding: 2px 16px 2px 28px;
+    font-size: 11px;
+    color: var(--tool-color);
+    font-style: italic;
+  }
+
+  .msg-tool .tool-icon {
+    color: var(--ink-terminal-dim);
+    margin-right: 4px;
+  }
+
+  .msg-created {
+    padding: 2px 16px 2px 28px;
+    font-size: 11px;
+    color: var(--success-color);
+  }
+
+  .msg-created::before {
+    content: '✓ ';
+  }
+
+  .msg-chip-prompt {
+    padding: 8px 16px 8px 28px;
+    color: var(--amber);
+    font-size: 12px;
+  }
+
+  .terminal-input {
+    border-top: 1px solid var(--separator);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-terminal-raised);
+  }
+
+  .terminal-input .prompt-symbol {
+    color: var(--prompt-color);
+    font-weight: 600;
+  }
+
+  .terminal-input .cursor {
+    width: 8px; height: 16px;
+    background: var(--prompt-color);
+    opacity: 0.7;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Vision panel */
+  .vision-panel {
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-raised);
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-overlay);
+    flex-shrink: 0;
+  }
+
+  .status-bar .phase {
+    color: var(--amber);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-bar .stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-bar .count {
+    color: var(--ink-primary);
+    font-weight: 600;
+  }
+
+  .status-bar .attention {
+    color: var(--amber);
+  }
+
+  /* Item map */
+  .item-map {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    padding: 24px;
+  }
+
+  .item-card {
+    position: absolute;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    min-width: 180px;
+    max-width: 220px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .item-card:hover {
+    border-color: var(--border-focus);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .item-card.selected {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber), 0 2px 12px rgba(240,168,48,0.15);
+  }
+
+  .item-card .type-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .item-card .type-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .item-card .type-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink-muted);
+  }
+
+  .item-card .title {
+    font-size: 13px;
+    color: var(--ink-primary);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .item-card .confidence {
+    display: flex;
+    gap: 3px;
+  }
+
+  .item-card .confidence .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--ink-muted);
+    background: transparent;
+  }
+
+  .item-card .confidence .dot.filled {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .item-card .confidence .dot.filled.high {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  .item-card.idea { border-left: 3px solid var(--amber); }
+  .item-card.decision { border-left: 3px solid var(--green); }
+  .item-card.question { border-left: 3px solid var(--blue); border-style: dashed; border-left-style: solid; }
+  .item-card.thread { border-left: 3px solid var(--gray); opacity: 0.7; }
+  .item-card.killed { border-left: 3px solid var(--red); opacity: 0.4; }
+  .item-card.killed .title { text-decoration: line-through; }
+  .item-card.produced { border-left: 3px solid var(--purple); }
+
+  /* Connections */
+  .connections-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .connection-line {
+    stroke: var(--border);
+    stroke-width: 1.5;
+    fill: none;
+  }
+
+  .connection-line.informs { stroke: var(--ink-muted); }
+  .connection-line.blocks { stroke: var(--red); stroke-dasharray: 6 4; opacity: 0.6; }
+  .connection-line.supports { stroke: var(--green); stroke-dasharray: 3 3; opacity: 0.5; }
+
+  .connection-arrow {
+    fill: var(--ink-muted);
+  }
+
+  /* Detail zone */
+  .detail-zone {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    background: var(--bg-overlay);
+    min-height: 64px;
+    flex-shrink: 0;
+  }
+
+  .detail-zone .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .detail-zone .detail-title {
+    font-size: 13px;
+    color: var(--ink-primary);
+  }
+
+  .detail-zone .detail-meta {
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 16px;
+    background: var(--chip-bg);
+    color: var(--ink-secondary);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .chip:hover {
+    background: var(--chip-hover);
+    color: var(--ink-primary);
+    border-color: var(--border-focus);
+  }
+
+  .chip.primary {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .chip.primary:hover {
+    background: var(--amber);
+    color: var(--bg-base);
+  }
+
+  .chip.danger {
+    background: var(--red-dim);
+    border-color: transparent;
+    color: var(--red);
+  }
+
+  .chip.danger:hover {
+    background: var(--red);
+    color: var(--ink-primary);
+  }
+
+  /* ---------- VARIATION B: DENSE ---------- */
+
+  .dense .item-card {
+    padding: 6px 10px;
+    min-width: 150px;
+    max-width: 180px;
+    border-radius: 6px;
+  }
+
+  .dense .item-card .title {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .dense .item-card .type-label {
+    font-size: 9px;
+  }
+
+  .dense .item-card .type-dot {
+    width: 6px; height: 6px;
+  }
+
+  .dense .item-card .confidence .dot {
+    width: 5px; height: 5px;
+  }
+
+  .dense .status-bar {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  /* ---------- VARIATION C: TIMELINE ---------- */
+
+  .timeline .item-map {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .timeline .item-map .item-card {
+    position: relative;
+    flex-shrink: 0;
+    min-width: 180px;
+    max-width: 200px;
+  }
+
+  .timeline .timeline-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+
+  .timeline .timeline-cards {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 40px 24px 24px 24px;
+  }
+
+  .timeline .timeline-cards .item-card {
+    position: relative;
+  }
+
+  .timeline .timeline-cards .item-card:nth-child(even) {
+    margin-top: 80px;
+  }
+
+  .timeline .timeline-marker {
+    font-size: 10px;
+    color: var(--ink-muted);
+    margin-bottom: 6px;
+  }
+
+  /* ---------- VARIATION D: CONVERSATION-SYNCED ---------- */
+
+  .synced .terminal-panel {
+    width: 50%;
+  }
+
+  .synced .vision-panel {
+    width: 50%;
+  }
+
+  .synced .msg-ai {
+    position: relative;
+  }
+
+  .synced .inline-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    margin: 4px 0;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .synced .inline-card:hover {
+    border-color: var(--border-focus);
+    background: var(--bg-overlay);
+  }
+
+  .synced .inline-card .ic-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .synced .inline-card .ic-label {
+    color: var(--ink-secondary);
+  }
+
+  .synced .inline-card .ic-type {
+    color: var(--ink-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-focus); }
+</style>
+</head>
+<body>
+
+<!-- Variation tabs -->
+<div class="variation-tabs">
+  <button class="variation-tab active" onclick="showVariation('a')">
+    A: Original
+    <span class="label">spacious cards</span>
+  </button>
+  <button class="variation-tab" onclick="showVariation('b')">
+    B: Dense
+    <span class="label">more items visible</span>
+  </button>
+  <button class="variation-tab" onclick="showVariation('c')">
+    C: Timeline
+    <span class="label">chronological flow</span>
+  </button>
+  <button class="variation-tab" onclick="showVariation('d')">
+    D: Synced
+    <span class="label">cards in conversation</span>
+  </button>
+</div>
+
+<!-- ============ VARIATION A: Original (with improved terminal) ============ -->
+<div class="variation-panel active" id="variation-a">
+  <div class="two-panel">
+    <div class="terminal-panel">
+      <div class="terminal-header">
+        <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+        <span>claude — forge — zsh</span>
+      </div>
+      <div class="terminal-content">
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">I have a fuzzy idea for a knowledge work tracker for AI-driven development</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">Interesting. What problem does it solve that existing tools don't?</div>
+        <div class="msg msg-created">created: "knowledge work tracker" (idea, untested)</div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">AI agents are building software but there's no way to track the thinking — decisions, brainstorms, evaluations all get lost in chat</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">So the core gap is: the reasoning that drives implementation isn't captured or structured. Just AI agents, or human-AI pairs?</div>
+        <div class="msg msg-created">created: "tracking lost reasoning" (idea, untested)</div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Human-AI pairs, definitely. The human steers, the AI builds.</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">That's a decision. Captured.</div>
+        <div class="msg msg-created">decided: "human-AI pairs, not AI-only" (low confidence)</div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">The structured process IS the product. Not just a task tracker.</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">Strong claim. Let me capture that — we should pressure test it.</div>
+        <div class="msg msg-created">decided: "pipeline is core, not a task tracker" (moderate)</div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Discovery and brainstorming is an on-ramp, not the highway</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">Interesting distinction. So the pipeline handles the full lifecycle, and discovery is an optional entry point.</div>
+        <div class="msg msg-created">decided: "discovery is on-ramp, not core" (low)</div>
+
+        <div class="msg msg-chip-prompt">
+          5 items · 3 decided · 0 tested. Want me to run counterfactuals on "pipeline is core"?
+        </div>
+      </div>
+      <div class="terminal-input">
+        <span class="prompt-symbol">❯</span>
+        <span class="cursor"></span>
+      </div>
+    </div>
+
+    <div class="vision-panel">
+      <div class="status-bar">
+        <span class="phase">Vision</span>
+        <span class="stat"><span class="count">5</span> items</span>
+        <span class="stat"><span class="count">3</span> decided</span>
+        <span class="stat"><span class="count">2</span> untested</span>
+        <span class="stat attention">0 tested</span>
+      </div>
+
+      <div class="item-map">
+        <svg class="connections-svg">
+          <defs>
+            <marker id="arrow-a" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6" class="connection-arrow" />
+            </marker>
+          </defs>
+          <path d="M 180 75 C 220 75, 220 170, 260 170" class="connection-line informs" marker-end="url(#arrow-a)" />
+          <path d="M 350 205 C 350 250, 300 280, 300 300" class="connection-line informs" marker-end="url(#arrow-a)" />
+          <path d="M 130 95 C 130 200, 60 250, 60 310" class="connection-line informs" marker-end="url(#arrow-a)" />
+          <path d="M 130 380 C 180 410, 280 410, 310 430" class="connection-line informs" marker-end="url(#arrow-a)" />
+        </svg>
+
+        <div class="item-card idea" style="left: 40px; top: 30px;" onclick="selectCard(this, 'a')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Knowledge work tracker for AI-driven dev</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card idea" style="left: 260px; top: 130px;" onclick="selectCard(this, 'a')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Tracking lost reasoning — decisions, brainstorms lost in chat</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision selected" style="left: 180px; top: 260px;" onclick="selectCard(this, 'a')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Human-AI pairs, not AI-only</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" style="left: 20px; top: 310px;" onclick="selectCard(this, 'a')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Pipeline is core product, not a task tracker</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" style="left: 250px; top: 410px;" onclick="selectCard(this, 'a')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Discovery is on-ramp, not the highway</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-zone" id="detail-a">
+        <div class="detail-header">
+          <span class="detail-title">Human-AI pairs, not AI-only</span>
+          <span class="detail-meta">decided · moderate confidence · 2 connections</span>
+        </div>
+        <div class="chips">
+          <button class="chip primary">Pressure test</button>
+          <button class="chip">Raise confidence</button>
+          <button class="chip">Connect to...</button>
+          <button class="chip">Edit</button>
+          <button class="chip danger">Kill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VARIATION B: Dense ============ -->
+<div class="variation-panel" id="variation-b">
+  <div class="two-panel dense">
+    <div class="terminal-panel">
+      <div class="terminal-header">
+        <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+        <span>claude — forge — zsh</span>
+      </div>
+      <div class="terminal-content">
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">I have a fuzzy idea for a knowledge work tracker for AI-driven development</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">What problem does it solve that existing tools don't?</div>
+        <div class="msg msg-created">created: "knowledge work tracker" (idea)</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">AI agents build software but there's no way to track the thinking</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">Reasoning isn't captured. Just AI agents, or human-AI pairs?</div>
+        <div class="msg msg-created">created: "tracking lost reasoning" (idea)</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Human-AI pairs. The human steers, the AI builds.</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "human-AI pairs, not AI-only"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">The structured process IS the product.</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "pipeline is core"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Discovery is an on-ramp, not the highway</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "discovery is on-ramp"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">What about versioning decisions? Being able to see how thinking evolved?</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">That's a question worth exploring. Captured as an open thread.</div>
+        <div class="msg msg-created">question: "decision versioning / evolution trail"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">And we need confidence tracking. Bayesian, not boolean.</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "Bayesian confidence model" (moderate)</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Actually, what if the AI could challenge weak decisions automatically?</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">Interesting — counterfactuals as a built-in process. That's an idea.</div>
+        <div class="msg msg-created">idea: "automatic counterfactuals on low-confidence items"</div>
+        <div class="msg msg-chip-prompt">
+          8 items · 4 decided · 1 question · 0 tested. Pressure test something?
+        </div>
+      </div>
+      <div class="terminal-input">
+        <span class="prompt-symbol">❯</span>
+        <span class="cursor"></span>
+      </div>
+    </div>
+
+    <div class="vision-panel">
+      <div class="status-bar">
+        <span class="phase">Vision</span>
+        <span class="stat"><span class="count">8</span> items</span>
+        <span class="stat"><span class="count">4</span> decided</span>
+        <span class="stat"><span class="count">1</span> question</span>
+        <span class="stat attention">0 tested</span>
+      </div>
+
+      <div class="item-map">
+        <svg class="connections-svg">
+          <defs>
+            <marker id="arrow-b" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto">
+              <path d="M0,0 L6,2.5 L0,5" class="connection-arrow" />
+            </marker>
+          </defs>
+          <path d="M 140 55 C 170 55, 170 100, 200 100" class="connection-line informs" marker-end="url(#arrow-b)" />
+          <path d="M 290 135 C 290 165, 250 180, 250 200" class="connection-line informs" marker-end="url(#arrow-b)" />
+          <path d="M 100 70 C 100 130, 50 150, 50 180" class="connection-line informs" marker-end="url(#arrow-b)" />
+          <path d="M 100 250 C 150 270, 230 270, 260 290" class="connection-line informs" marker-end="url(#arrow-b)" />
+          <path d="M 50 250 C 50 290, 130 310, 150 340" class="connection-line informs" marker-end="url(#arrow-b)" />
+          <path d="M 420 175 C 420 220, 390 250, 390 280" class="connection-line supports" marker-end="url(#arrow-b)" />
+        </svg>
+
+        <!-- Row 1: Ideas -->
+        <div class="item-card idea" style="left: 20px; top: 15px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Knowledge work tracker</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card idea" style="left: 200px; top: 70px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Lost reasoning in chat</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card idea" style="left: 370px; top: 130px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Auto counterfactuals</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: Decisions -->
+        <div class="item-card decision" style="left: 140px; top: 180px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Human-AI pairs</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" style="left: 20px; top: 170px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Pipeline is core</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" style="left: 230px; top: 280px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Discovery is on-ramp</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision selected" style="left: 350px; top: 260px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Bayesian confidence</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <!-- Question -->
+        <div class="item-card question" style="left: 80px; top: 320px;" onclick="selectCard(this, 'b')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--blue)"></div>
+            <span class="type-label">Question</span>
+          </div>
+          <div class="title">Decision versioning?</div>
+          <div class="confidence">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-zone" id="detail-b">
+        <div class="detail-header">
+          <span class="detail-title">Bayesian confidence</span>
+          <span class="detail-meta">decided · moderate · 1 connection</span>
+        </div>
+        <div class="chips">
+          <button class="chip primary">Pressure test</button>
+          <button class="chip">Connect</button>
+          <button class="chip">Edit</button>
+          <button class="chip danger">Kill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VARIATION C: Timeline ============ -->
+<div class="variation-panel" id="variation-c">
+  <div class="two-panel timeline">
+    <div class="terminal-panel">
+      <div class="terminal-header">
+        <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+        <span>claude — forge — zsh</span>
+      </div>
+      <div class="terminal-content">
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">I have a fuzzy idea for a knowledge work tracker for AI-driven development</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">What problem does it solve?</div>
+        <div class="msg msg-created">created: "knowledge work tracker" (idea)</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Thinking gets lost in chat — decisions, brainstorms, evaluations</span>
+          </div>
+        </div>
+        <div class="msg msg-created">created: "tracking lost reasoning" (idea)</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Human-AI pairs. The human steers, the AI builds.</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "human-AI pairs"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">The structured process IS the product.</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "pipeline is core"</div>
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Discovery is an on-ramp, not the highway</span>
+          </div>
+        </div>
+        <div class="msg msg-created">decided: "discovery is on-ramp"</div>
+        <div class="msg msg-chip-prompt">
+          5 items · 3 decided · 0 tested
+        </div>
+      </div>
+      <div class="terminal-input">
+        <span class="prompt-symbol">❯</span>
+        <span class="cursor"></span>
+      </div>
+    </div>
+
+    <div class="vision-panel">
+      <div class="status-bar">
+        <span class="phase">Vision</span>
+        <span class="stat"><span class="count">5</span> items</span>
+        <span class="stat"><span class="count">3</span> decided</span>
+        <span class="stat attention">0 tested</span>
+        <span style="margin-left: auto; font-size: 10px; color: var(--ink-muted);">timeline view</span>
+      </div>
+
+      <div class="item-map" style="display: flex; flex-direction: column; padding: 0;">
+        <!-- Timeline axis -->
+        <div style="position: relative; flex: 1; overflow-x: auto; padding: 24px;">
+          <!-- Horizontal timeline line -->
+          <div style="position: absolute; top: 50%; left: 24px; right: 24px; height: 2px; background: var(--border);"></div>
+
+          <!-- Timeline items -->
+          <div style="display: flex; gap: 20px; position: relative; min-width: max-content; align-items: center; height: 100%;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="item-card idea" style="position: relative;" onclick="selectCard(this, 'c')">
+                <div class="type-row">
+                  <div class="type-dot" style="background: var(--amber)"></div>
+                  <span class="type-label">Idea</span>
+                </div>
+                <div class="title">Knowledge work tracker</div>
+                <div class="confidence">
+                  <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+              </div>
+              <span style="font-size: 10px; color: var(--ink-muted);">0:00</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="item-card idea" style="position: relative;" onclick="selectCard(this, 'c')">
+                <div class="type-row">
+                  <div class="type-dot" style="background: var(--amber)"></div>
+                  <span class="type-label">Idea</span>
+                </div>
+                <div class="title">Lost reasoning in chat</div>
+                <div class="confidence">
+                  <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+              </div>
+              <span style="font-size: 10px; color: var(--ink-muted);">0:42</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="item-card decision selected" style="position: relative;" onclick="selectCard(this, 'c')">
+                <div class="type-row">
+                  <div class="type-dot" style="background: var(--green)"></div>
+                  <span class="type-label">Decision</span>
+                </div>
+                <div class="title">Human-AI pairs, not AI-only</div>
+                <div class="confidence">
+                  <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+              </div>
+              <span style="font-size: 10px; color: var(--ink-muted);">1:15</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="item-card decision" style="position: relative;" onclick="selectCard(this, 'c')">
+                <div class="type-row">
+                  <div class="type-dot" style="background: var(--green)"></div>
+                  <span class="type-label">Decision</span>
+                </div>
+                <div class="title">Pipeline is core</div>
+                <div class="confidence">
+                  <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+              </div>
+              <span style="font-size: 10px; color: var(--ink-muted);">2:30</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="item-card decision" style="position: relative;" onclick="selectCard(this, 'c')">
+                <div class="type-row">
+                  <div class="type-dot" style="background: var(--green)"></div>
+                  <span class="type-label">Decision</span>
+                </div>
+                <div class="title">Discovery is on-ramp</div>
+                <div class="confidence">
+                  <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+              </div>
+              <span style="font-size: 10px; color: var(--ink-muted);">3:05</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-zone" id="detail-c">
+        <div class="detail-header">
+          <span class="detail-title">Human-AI pairs, not AI-only</span>
+          <span class="detail-meta">decided · moderate · 1:15 into session</span>
+        </div>
+        <div class="chips">
+          <button class="chip primary">Pressure test</button>
+          <button class="chip">Connect</button>
+          <button class="chip">Edit</button>
+          <button class="chip danger">Kill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VARIATION D: Conversation-synced ============ -->
+<div class="variation-panel" id="variation-d">
+  <div class="two-panel synced">
+    <div class="terminal-panel">
+      <div class="terminal-header">
+        <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+        <span>claude — forge — zsh</span>
+      </div>
+      <div class="terminal-content">
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">I have a fuzzy idea for a knowledge work tracker for AI-driven development</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">
+          Interesting. What problem does it solve?
+          <div class="inline-card" onclick="highlightSyncedCard('d-idea-1')">
+            <span class="ic-dot" style="background: var(--amber)"></span>
+            <span class="ic-label">knowledge work tracker</span>
+            <span class="ic-type">idea</span>
+          </div>
+        </div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Thinking gets lost in chat — decisions, brainstorms, evaluations</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">
+          So the reasoning gap: implementation decisions aren't structured. Just AI, or human-AI pairs?
+          <div class="inline-card" onclick="highlightSyncedCard('d-idea-2')">
+            <span class="ic-dot" style="background: var(--amber)"></span>
+            <span class="ic-label">tracking lost reasoning</span>
+            <span class="ic-type">idea</span>
+          </div>
+        </div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Human-AI pairs, definitely. The human steers, the AI builds.</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">
+          That's a decision.
+          <div class="inline-card" onclick="highlightSyncedCard('d-dec-1')" style="border-color: var(--green)">
+            <span class="ic-dot" style="background: var(--green)"></span>
+            <span class="ic-label">human-AI pairs, not AI-only</span>
+            <span class="ic-type">decided</span>
+          </div>
+        </div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">The structured process IS the product. Not just a task tracker.</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">
+          Strong claim. Should pressure test.
+          <div class="inline-card" onclick="highlightSyncedCard('d-dec-2')" style="border-color: var(--green)">
+            <span class="ic-dot" style="background: var(--green)"></span>
+            <span class="ic-label">pipeline is core</span>
+            <span class="ic-type">decided</span>
+          </div>
+        </div>
+
+        <div class="msg msg-user">
+          <div class="prompt-line">
+            <span class="prompt-symbol">❯</span>
+            <span class="prompt-text">Discovery is an on-ramp, not the highway</span>
+          </div>
+        </div>
+        <div class="msg msg-ai">
+          So the pipeline is the full lifecycle, discovery is an optional entry.
+          <div class="inline-card" onclick="highlightSyncedCard('d-dec-3')" style="border-color: var(--green)">
+            <span class="ic-dot" style="background: var(--green)"></span>
+            <span class="ic-label">discovery is on-ramp</span>
+            <span class="ic-type">decided</span>
+          </div>
+        </div>
+
+        <div class="msg msg-chip-prompt">
+          5 items · 3 decided · 0 tested. Pressure test?
+        </div>
+      </div>
+      <div class="terminal-input">
+        <span class="prompt-symbol">❯</span>
+        <span class="cursor"></span>
+      </div>
+    </div>
+
+    <div class="vision-panel">
+      <div class="status-bar">
+        <span class="phase">Vision</span>
+        <span class="stat"><span class="count">5</span> items</span>
+        <span class="stat"><span class="count">3</span> decided</span>
+        <span class="stat attention">0 tested</span>
+      </div>
+
+      <div class="item-map">
+        <svg class="connections-svg">
+          <defs>
+            <marker id="arrow-d" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L8,3 L0,6" class="connection-arrow" />
+            </marker>
+          </defs>
+          <path d="M 180 75 C 220 75, 220 170, 260 170" class="connection-line informs" marker-end="url(#arrow-d)" />
+          <path d="M 350 205 C 350 250, 300 280, 300 300" class="connection-line informs" marker-end="url(#arrow-d)" />
+          <path d="M 130 95 C 130 200, 60 250, 60 310" class="connection-line informs" marker-end="url(#arrow-d)" />
+          <path d="M 130 380 C 180 410, 280 410, 310 430" class="connection-line informs" marker-end="url(#arrow-d)" />
+        </svg>
+
+        <div class="item-card idea" id="d-idea-1" style="left: 40px; top: 30px;" onclick="selectCard(this, 'd')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Knowledge work tracker for AI-driven dev</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card idea" id="d-idea-2" style="left: 260px; top: 130px;" onclick="selectCard(this, 'd')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--amber)"></div>
+            <span class="type-label">Idea</span>
+          </div>
+          <div class="title">Tracking lost reasoning</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" id="d-dec-1" style="left: 180px; top: 260px;" onclick="selectCard(this, 'd')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Human-AI pairs, not AI-only</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" id="d-dec-2" style="left: 20px; top: 310px;" onclick="selectCard(this, 'd')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Pipeline is core</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+
+        <div class="item-card decision" id="d-dec-3" style="left: 250px; top: 410px;" onclick="selectCard(this, 'd')">
+          <div class="type-row">
+            <div class="type-dot" style="background: var(--green)"></div>
+            <span class="type-label">Decision</span>
+          </div>
+          <div class="title">Discovery is on-ramp</div>
+          <div class="confidence">
+            <div class="dot filled"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-zone" id="detail-d">
+        <div class="detail-header">
+          <span class="detail-title">Click an item or inline card</span>
+          <span class="detail-meta">items sync between terminal and surface</span>
+        </div>
+        <div class="chips">
+          <button class="chip primary">Pressure test</button>
+          <button class="chip">Connect</button>
+          <button class="chip">Edit</button>
+          <button class="chip danger">Kill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showVariation(id) {
+    document.querySelectorAll('.variation-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.variation-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('variation-' + id).classList.add('active');
+    event.target.closest('.variation-tab').classList.add('active');
+  }
+
+  function selectCard(card, variation) {
+    const panel = document.getElementById('variation-' + variation);
+    panel.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+
+    const title = card.querySelector('.title').textContent;
+    const type = card.querySelector('.type-label').textContent.toLowerCase();
+    const dots = card.querySelectorAll('.confidence .dot.filled').length;
+    const conf = ['untested', 'low', 'moderate', 'high', 'crystallized'][dots];
+
+    const detail = document.getElementById('detail-' + variation);
+    detail.querySelector('.detail-title').textContent = title;
+    detail.querySelector('.detail-meta').textContent = `${type} · ${conf} confidence`;
+  }
+
+  function highlightSyncedCard(id) {
+    const card = document.getElementById(id);
+    if (card) {
+      const panel = document.getElementById('variation-d');
+      panel.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+
+      const title = card.querySelector('.title').textContent;
+      const type = card.querySelector('.type-label').textContent.toLowerCase();
+      const dots = card.querySelectorAll('.confidence .dot.filled').length;
+      const conf = ['untested', 'low', 'moderate', 'high', 'crystallized'][dots];
+
+      const detail = document.getElementById('detail-d');
+      detail.querySelector('.detail-title').textContent = title;
+      detail.querySelector('.detail-meta').textContent = `${type} · ${conf} confidence`;
+
+      // Brief pulse animation
+      card.style.transition = 'transform 0.15s';
+      card.style.transform = 'scale(1.03)';
+      setTimeout(() => { card.style.transform = 'scale(1)'; }, 200);
+    }
+  }
+</script>
+
+</body>
+</html>

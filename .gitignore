@@ -8,4 +8,3 @@ build/
 .venv/
 venv/
 .env
-docs/

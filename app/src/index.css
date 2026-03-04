@@ -1,0 +1,361 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Base44 light mode */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --success: 142 71% 45%;
+    --warning: 32 95% 52%;
+    --artifact: 282 40% 60%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    /* Base44 palette: deep blue-black background + indigo primary */
+    --background: 240 10% 4%;
+    --foreground: 210 40% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 240 10% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 215 20% 65%;
+    /* Forge semantic: accent = amber, not neutral */
+    --accent: 43 96% 56%;
+    --accent-foreground: 240 10% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    /* Base44 borders */
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 239 84% 67%;
+    /* Sidebar */
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Forge semantic */
+    --success: 142 71% 45%;
+    --warning: 32 95% 52%;
+    --artifact: 282 40% 60%;
+    /* Charts (base44) */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ── Design tokens ── */
+/* Shared (theme-independent) */
+:root {
+  /* Brand (base44 indigo primary) */
+  --color-primary: #818CF8;
+  --color-secondary: #6366F1;
+  --color-accent: #FBBF24;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  /* Agent activity category colors (light mode — higher contrast) */
+  --color-category-reading: var(--color-primary);
+  --color-category-writing: #d97706;
+  --color-category-executing: #ea580c;
+  --color-category-searching: var(--color-primary);
+  --color-category-fetching: #0e7490;
+  --color-category-delegating: #7c3aed;
+
+  /* Typography */
+  --font-family: 'Inter', sans-serif;
+  --line-height: 1.5;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 40px;
+
+  /* Buttons */
+  --button-border-radius: 0.375rem;
+  --button-padding-vertical: 0.5rem;
+  --button-padding-horizontal: 1rem;
+  --button-font-weight: 600;
+
+  /* Cards */
+  --card-border-radius: 0.5rem;
+  --card-padding: 1rem;
+
+  /* Inputs */
+  --input-border-radius: 0.375rem;
+  --input-height: 2.5rem;
+
+  /* Light mode (default) */
+  --color-background: #FFFFFF;
+  --color-surface: #FAFAFA;
+  --color-surface-overlay: #F5F5F5;
+  --color-text-primary: #0a0a0a;
+  --color-text-secondary: #404040;
+  --color-text-tertiary: #737373;
+  --color-text-muted: #a3a3a3;
+  --input-border-color: #e5e5e5;
+  --border-standard: rgba(0, 0, 0, 0.08);
+  --border-soft: rgba(0, 0, 0, 0.04);
+  --border-emphasis: rgba(0, 0, 0, 0.15);
+  --border-focus: rgba(99, 102, 241, 0.40);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --accent-glow: rgba(251, 191, 36, 0.10);
+  --primary-glow: rgba(99, 102, 241, 0.08);
+
+  /* Legacy aliases — existing components still reference these */
+  --forge-void: #FAFAFA;
+  --forge-base: var(--color-background);
+  --forge-raised: var(--color-surface);
+  --forge-overlay: var(--color-surface-overlay);
+  --forge-inset: #F5F5F5;
+  --ink-primary: var(--color-text-primary);
+  --ink-secondary: var(--color-text-secondary);
+  --ink-tertiary: var(--color-text-tertiary);
+  --ink-muted: var(--color-text-muted);
+  --ember: var(--color-accent);
+  --ember-glow: var(--accent-glow);
+  --indigo: var(--color-primary);
+  --indigo-glow: var(--primary-glow);
+  --magenta: #a87cb8;
+  --magenta-glow: rgba(168, 124, 184, 0.15);
+  --error: var(--color-error);
+  --info: var(--color-primary);
+
+  /* ItemRow sizing scale */
+  --row-radius: 8px;
+  --row-gap: 8px;
+  --row-pad-v: 10px;
+  --row-pad-h: 14px;
+  --row-font: 13px;
+  --row-dot: 9px;
+  --row-label: 10px;
+  --row-badge-pad: 2px 8px;
+  --row-body-font: 12px;
+  --row-body-pad-v: 12px;
+  --row-body-pad-h: 14px;
+  --row-section-label: 10px;
+  --row-link-font: 12px;
+  --row-link-pad: 5px 10px;
+  --row-btn-font: 11px;
+  --row-btn-pad: 5px 14px;
+  --row-chevron: 16px;
+}
+
+/* Dark mode overrides (base44 deep blue-black palette) */
+.dark {
+  --color-background: #0b0b14;
+  --color-surface: #0e0e19;
+  --color-surface-overlay: #161625;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-tertiary: #64748b;
+  --color-text-muted: #475569;
+  --input-border-color: rgba(255, 255, 255, 0.06);
+  --border-standard: rgba(255, 255, 255, 0.06);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-emphasis: rgba(255, 255, 255, 0.10);
+  --border-focus: rgba(99, 102, 241, 0.40);
+  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --accent-glow: rgba(251, 191, 36, 0.12);
+  --primary-glow: rgba(99, 102, 241, 0.15);
+  --forge-void: #060609;
+  --forge-inset: #08080f;
+  /* Agent activity category colors (dark mode — brighter on dark bg) */
+  --color-category-writing: #fbbf24;
+  --color-category-executing: #f97316;
+  --color-category-fetching: #06b6d4;
+  --color-category-delegating: #a855f7;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 25%); }
+
+/* ── ItemRow chevron sizing ── */
+.row-chevron { width: var(--row-chevron); height: var(--row-chevron); }
+
+/* ── Vision Tracker animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes vision-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vision-pulse {
+  0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  70% { box-shadow: 0 0 0 4px hsl(var(--primary) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+}
+
+.vision-entering {
+  animation: vision-enter 400ms ease-out;
+}
+.vision-updated {
+  animation: vision-pulse 600ms ease-out;
+}
+
+/* Resolution sparkle — shimmer on the green left-border */
+@keyframes resolution-shimmer {
+  0% { background-position: 0% 0%; opacity: 0; }
+  10% { opacity: 1; }
+  100% { background-position: 0% 300%; opacity: 0; }
+}
+@keyframes resolution-border-glow {
+  0% { border-color: rgba(34, 197, 94, 0.4); box-shadow: -2px 0 8px rgba(34, 197, 94, 0); }
+  20% { border-color: rgba(34, 197, 94, 1); box-shadow: -2px 0 16px rgba(34, 197, 94, 0.5); }
+  60% { border-color: rgba(34, 197, 94, 0.8); box-shadow: -2px 0 12px rgba(34, 197, 94, 0.3); }
+  100% { border-color: rgba(34, 197, 94, 0.4); box-shadow: -2px 0 8px rgba(34, 197, 94, 0); }
+}
+.resolution-sparkle {
+  animation: resolution-border-glow 2s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+.resolution-sparkle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(34, 197, 94, 0.06) 15%,
+    rgba(34, 197, 94, 0.2) 35%,
+    rgba(34, 197, 94, 0.06) 55%,
+    transparent 75%
+  );
+  background-size: 100% 33%;
+  animation: resolution-shimmer 2s ease-out forwards;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ── Terminal ── */
+.xterm { padding: 8px 0 !important; }
+.xterm-viewport::-webkit-scrollbar-thumb { background: hsl(var(--border)); }
+
+/* ── Header icon buttons (legacy, for terminal panel) ── */
+.forge-btn-icon {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 3px 5px;
+  border: 1px solid var(--border-standard);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-tertiary);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+.forge-btn-icon:hover:not(:disabled) {
+  color: var(--ink-secondary);
+  border-color: var(--border-emphasis);
+  background: var(--forge-raised);
+}
+.forge-btn-icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Canvas markdown ── */
+.canvas-markdown {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.7;
+  color: hsl(var(--foreground));
+}
+.canvas-markdown h1 {
+  font-size: 1.4em; font-weight: 600; color: hsl(var(--foreground));
+  margin: 1.5em 0 0.5em; padding-bottom: 0.3em;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.canvas-markdown h1:first-child { margin-top: 0; }
+.canvas-markdown h2 { font-size: 1.15em; font-weight: 600; color: hsl(var(--foreground)); margin: 1.3em 0 0.4em; }
+.canvas-markdown h3 { font-size: 1em; font-weight: 600; color: hsl(var(--accent)); margin: 1.1em 0 0.3em; }
+.canvas-markdown h4, .canvas-markdown h5, .canvas-markdown h6 { font-size: 0.9em; font-weight: 600; color: hsl(var(--muted-foreground)); margin: 1em 0 0.3em; }
+.canvas-markdown p { margin: 0.6em 0; }
+.canvas-markdown a { color: hsl(var(--primary)); text-decoration: none; }
+.canvas-markdown a:hover { text-decoration: underline; }
+.canvas-markdown strong { color: hsl(var(--foreground)); font-weight: 600; }
+.canvas-markdown em { color: hsl(var(--muted-foreground)); font-style: italic; }
+.canvas-markdown ul, .canvas-markdown ol { margin: 0.5em 0; padding-left: 1.5em; }
+.canvas-markdown li { margin: 0.2em 0; }
+.canvas-markdown li::marker { color: hsl(var(--muted-foreground)); }
+.canvas-markdown code { font-family: 'Berkeley Mono', 'JetBrains Mono', 'Menlo', monospace; font-size: 0.88em; background: hsl(var(--muted)); color: hsl(var(--primary)); padding: 0.15em 0.4em; border-radius: 3px; }
+.canvas-markdown pre { background: hsl(var(--muted)); border: 1px solid hsl(var(--border)); border-radius: 4px; padding: 0.8em 1em; margin: 0.8em 0; overflow-x: auto; }
+.canvas-markdown pre code { background: none; padding: 0; color: hsl(var(--foreground)); font-size: 12px; line-height: 1.6; }
+.canvas-markdown table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 12px; }
+.canvas-markdown th { text-align: left; font-weight: 600; color: hsl(var(--foreground)); padding: 0.5em 0.8em; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--muted)); }
+.canvas-markdown td { padding: 0.4em 0.8em; border-bottom: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); }
+.canvas-markdown tr:hover td { background: hsl(var(--accent) / 0.05); }
+.canvas-markdown blockquote { border-left: 3px solid hsl(var(--accent)); margin: 0.8em 0; padding: 0.3em 0 0.3em 1em; color: hsl(var(--muted-foreground)); }
+.canvas-markdown hr { border: none; border-top: 1px solid hsl(var(--border)); margin: 1.5em 0; }
+.canvas-markdown input[type="checkbox"] { margin-right: 0.4em; accent-color: hsl(var(--primary)); }

@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-start-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/session-end-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/agent-activity-hook.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Write|Edit|Bash|NotebookEdit|Read|Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/ruze/reg/my/forge/coder-forge/scripts/agent-error-hook.sh",
+            "timeout": 10,
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "plugin-dev@claude-plugins-official": true
+  }
+}

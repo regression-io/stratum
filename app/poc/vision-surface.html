@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forge — Vision Surface POC</title>
+<style>
+  :root {
+    --bg-base: #1a1a2e;
+    --bg-raised: #1e1e36;
+    --bg-overlay: #252542;
+    --bg-card: #2a2a4a;
+    --border: #3a3a5c;
+    --border-focus: #5a5a8c;
+    --ink-primary: #e8e8f0;
+    --ink-secondary: #a8a8c0;
+    --ink-muted: #6a6a88;
+    --amber: #f0a830;
+    --amber-dim: #f0a83040;
+    --green: #40c870;
+    --green-dim: #40c87030;
+    --blue: #4890f0;
+    --blue-dim: #4890f030;
+    --red: #f05050;
+    --red-dim: #f0505030;
+    --gray: #888;
+    --purple: #a070e0;
+    --chip-bg: #353560;
+    --chip-hover: #454580;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg-base);
+    color: var(--ink-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Two-panel layout */
+  .terminal-panel {
+    width: 45%;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+  }
+
+  .vision-panel {
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-raised);
+  }
+
+  /* Terminal mock */
+  .terminal-header {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .terminal-header .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  .terminal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .terminal-line {
+    margin-bottom: 12px;
+  }
+
+  .terminal-line.user {
+    color: var(--ink-primary);
+  }
+
+  .terminal-line.user::before {
+    content: '> ';
+    color: var(--amber);
+  }
+
+  .terminal-line.ai {
+    color: var(--ink-secondary);
+    padding-left: 2px;
+  }
+
+  .terminal-line .highlight {
+    color: var(--amber);
+  }
+
+  .terminal-line .created {
+    color: var(--green);
+    font-size: 11px;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .terminal-input {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .terminal-input .prompt {
+    color: var(--amber);
+    font-size: 13px;
+  }
+
+  .terminal-input .cursor {
+    width: 8px; height: 16px;
+    background: var(--ink-primary);
+    opacity: 0.7;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Vision surface — status bar */
+  .status-bar {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-overlay);
+  }
+
+  .status-bar .phase {
+    color: var(--amber);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-bar .stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-bar .stat .count {
+    color: var(--ink-primary);
+    font-weight: 600;
+  }
+
+  .status-bar .attention {
+    color: var(--amber);
+  }
+
+  /* Vision surface — item map */
+  .item-map {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    padding: 24px;
+  }
+
+  .item-card {
+    position: absolute;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    min-width: 180px;
+    max-width: 220px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .item-card:hover {
+    border-color: var(--border-focus);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .item-card.selected {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber), 0 2px 12px rgba(240,168,48,0.15);
+  }
+
+  .item-card .type-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .item-card .type-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .item-card .type-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink-muted);
+  }
+
+  .item-card .title {
+    font-size: 13px;
+    color: var(--ink-primary);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .item-card .confidence {
+    display: flex;
+    gap: 3px;
+  }
+
+  .item-card .confidence .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--ink-muted);
+    background: transparent;
+  }
+
+  .item-card .confidence .dot.filled {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+
+  .item-card .confidence .dot.filled.high {
+    background: var(--green);
+    border-color: var(--green);
+  }
+
+  /* Card type styles */
+  .item-card.idea { border-left: 3px solid var(--amber); }
+  .item-card.decision { border-left: 3px solid var(--green); }
+  .item-card.question { border-left: 3px solid var(--blue); border-style: dashed; border-left-style: solid; }
+  .item-card.thread { border-left: 3px solid var(--gray); opacity: 0.7; }
+  .item-card.killed { border-left: 3px solid var(--red); opacity: 0.4; }
+  .item-card.killed .title { text-decoration: line-through; }
+
+  /* Connection SVG */
+  .connections-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .connection-line {
+    stroke: var(--border);
+    stroke-width: 1.5;
+    fill: none;
+  }
+
+  .connection-line.informs { stroke: var(--ink-muted); }
+  .connection-line.blocks { stroke: var(--red); stroke-dasharray: 6 4; opacity: 0.6; }
+  .connection-line.supports { stroke: var(--green); stroke-dasharray: 3 3; opacity: 0.5; }
+
+  .connection-arrow {
+    fill: var(--ink-muted);
+  }
+
+  /* Detail / chips zone */
+  .detail-zone {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    background: var(--bg-overlay);
+    min-height: 64px;
+  }
+
+  .detail-zone .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .detail-zone .detail-title {
+    font-size: 13px;
+    color: var(--ink-primary);
+  }
+
+  .detail-zone .detail-meta {
+    font-size: 11px;
+    color: var(--ink-muted);
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 16px;
+    background: var(--chip-bg);
+    color: var(--ink-secondary);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .chip:hover {
+    background: var(--chip-hover);
+    color: var(--ink-primary);
+    border-color: var(--border-focus);
+  }
+
+  .chip.primary {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .chip.primary:hover {
+    background: var(--amber);
+    color: var(--bg-base);
+  }
+
+  .chip.danger {
+    background: var(--red-dim);
+    border-color: transparent;
+    color: var(--red);
+  }
+
+  .chip.danger:hover {
+    background: var(--red);
+    color: var(--ink-primary);
+  }
+</style>
+</head>
+<body>
+
+<!-- Terminal panel (mock) -->
+<div class="terminal-panel">
+  <div class="terminal-header">
+    <span class="dot"></span>
+    <span>Claude Code — forge</span>
+  </div>
+  <div class="terminal-content">
+    <div class="terminal-line user">I have a fuzzy idea for a knowledge work tracker for AI-driven development</div>
+    <div class="terminal-line ai">
+      Interesting. What problem does it solve that existing tools don't?
+      <span class="created">+ created: "knowledge work tracker" (idea)</span>
+    </div>
+    <div class="terminal-line user">AI agents are building software but there's no way to track the thinking — decisions, brainstorms, evaluations all get lost in chat</div>
+    <div class="terminal-line ai">
+      So the core gap is: the reasoning that drives implementation isn't captured or structured. Just AI agents, or human-AI pairs?
+      <span class="created">+ created: "tracking lost reasoning" (idea)</span>
+    </div>
+    <div class="terminal-line user">Human-AI pairs, definitely. The human steers, the AI builds.</div>
+    <div class="terminal-line ai">
+      That's a decision. Captured.
+      <span class="created">+ decided: "human-AI pairs, not AI-only"</span>
+    </div>
+    <div class="terminal-line user">The structured process IS the product. Not just a task tracker.</div>
+    <div class="terminal-line ai">
+      Strong claim. Let me capture that and we should pressure test it.
+      <span class="created">+ decided: "pipeline is core, not a task tracker"</span>
+    </div>
+    <div class="terminal-line user">Discovery and brainstorming is an on-ramp, not the highway</div>
+    <div class="terminal-line ai">
+      Interesting distinction. So the pipeline handles the full lifecycle, and discovery is an optional entry point?
+      <span class="created">+ decided: "discovery is on-ramp, not core"</span>
+    </div>
+    <div class="terminal-line ai" style="margin-top: 16px; color: var(--amber);">
+      I see 5 items, 3 decisions with low-to-moderate confidence. Two ideas untested. Want me to run counterfactuals on "pipeline is core"?
+    </div>
+  </div>
+  <div class="terminal-input">
+    <span class="prompt">></span>
+    <span class="cursor"></span>
+  </div>
+</div>
+
+<!-- Vision panel -->
+<div class="vision-panel">
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="phase">Vision</span>
+    <span class="stat"><span class="count">5</span> items</span>
+    <span class="stat"><span class="count">3</span> decided</span>
+    <span class="stat"><span class="count">2</span> untested</span>
+    <span class="stat attention">0 tested</span>
+  </div>
+
+  <!-- Item map -->
+  <div class="item-map">
+    <!-- Connection lines -->
+    <svg class="connections-svg">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" class="connection-arrow" />
+        </marker>
+      </defs>
+      <!-- knowledge work tracker → tracking lost reasoning -->
+      <path d="M 180 75 C 220 75, 220 170, 260 170" class="connection-line informs" marker-end="url(#arrow)" />
+      <!-- tracking lost reasoning → human-AI pairs -->
+      <path d="M 350 205 C 350 250, 300 280, 300 300" class="connection-line informs" marker-end="url(#arrow)" />
+      <!-- knowledge work tracker → pipeline is core -->
+      <path d="M 130 95 C 130 200, 60 250, 60 310" class="connection-line informs" marker-end="url(#arrow)" />
+      <!-- pipeline is core → discovery is on-ramp -->
+      <path d="M 130 380 C 180 410, 280 410, 310 430" class="connection-line informs" marker-end="url(#arrow)" />
+    </svg>
+
+    <!-- Item cards -->
+    <div class="item-card idea" style="left: 40px; top: 30px;" onclick="selectCard(this)">
+      <div class="type-row">
+        <div class="type-dot" style="background: var(--amber)"></div>
+        <span class="type-label">Idea</span>
+      </div>
+      <div class="title">Knowledge work tracker for AI-driven dev</div>
+      <div class="confidence">
+        <div class="dot filled"></div>
+        <div class="dot filled"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="item-card idea" style="left: 260px; top: 130px;" onclick="selectCard(this)">
+      <div class="type-row">
+        <div class="type-dot" style="background: var(--amber)"></div>
+        <span class="type-label">Idea</span>
+      </div>
+      <div class="title">Tracking lost reasoning — decisions, brainstorms lost in chat</div>
+      <div class="confidence">
+        <div class="dot filled"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="item-card decision selected" style="left: 180px; top: 260px;" onclick="selectCard(this)">
+      <div class="type-row">
+        <div class="type-dot" style="background: var(--green)"></div>
+        <span class="type-label">Decision</span>
+      </div>
+      <div class="title">Human-AI pairs, not AI-only</div>
+      <div class="confidence">
+        <div class="dot filled"></div>
+        <div class="dot filled"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="item-card decision" style="left: 20px; top: 310px;" onclick="selectCard(this)">
+      <div class="type-row">
+        <div class="type-dot" style="background: var(--green)"></div>
+        <span class="type-label">Decision</span>
+      </div>
+      <div class="title">Pipeline is core product, not a task tracker</div>
+      <div class="confidence">
+        <div class="dot filled"></div>
+        <div class="dot filled"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+
+    <div class="item-card decision" style="left: 250px; top: 410px;" onclick="selectCard(this)">
+      <div class="type-row">
+        <div class="type-dot" style="background: var(--green)"></div>
+        <span class="type-label">Decision</span>
+      </div>
+      <div class="title">Discovery is on-ramp, not the highway</div>
+      <div class="confidence">
+        <div class="dot filled"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail / chips zone -->
+  <div class="detail-zone">
+    <div class="detail-header">
+      <span class="detail-title">Human-AI pairs, not AI-only</span>
+      <span class="detail-meta">decided · moderate confidence · 2 connections</span>
+    </div>
+    <div class="chips">
+      <button class="chip primary">Pressure test</button>
+      <button class="chip">Raise confidence</button>
+      <button class="chip">Connect to...</button>
+      <button class="chip">Edit</button>
+      <button class="chip danger">Kill</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function selectCard(card) {
+    document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+
+    const title = card.querySelector('.title').textContent;
+    const type = card.querySelector('.type-label').textContent.toLowerCase();
+    const dots = card.querySelectorAll('.confidence .dot.filled').length;
+    const conf = ['untested', 'low', 'moderate', 'high', 'crystallized'][dots];
+
+    document.querySelector('.detail-title').textContent = title;
+    document.querySelector('.detail-meta').textContent = `${type} · ${conf} confidence`;
+  }
+</script>
+
+</body>
+</html>

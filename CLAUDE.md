@@ -1,85 +1,62 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## What This Repo Is
 
-## Status
+**Stratum** — execution runtime for AI-driven development. Three shipped components:
 
-Design phase. Nothing is implemented. All files under `docs/` are design notes produced through an extended design session. The implementation has not started.
+- **`src/stratum/`** — Python library (`@pipeline`, `@phase`, `stratum.run()`). Published as `stratum-py` on PyPI.
+- **`stratum-mcp/`** — MCP server (`stratum_plan`, `stratum_step_done`, `stratum_audit`). Published as `stratum-mcp` on PyPI.
+- **`app/`** — Forge web app (React + Express). Vision Surface, agent monitoring, session tracking. Formerly `coder-forge` repo; consolidated here in T4.
 
-## What This Project Is
+Companion: **`stratum-ui/`** — first-party reference UI for pipeline monitoring and gate approval. Separate FastAPI project.
 
-Stratum is a Python (and TypeScript) library where `@infer` and `@compute` functions compose identically, typed contracts flow between steps, and orchestration is always deterministic regardless of what's inside individual steps. The `.stratum.yaml` IR is what the library emits internally — developers never write it.
-
-Two deployment tracks:
-- **Track 1 — Python library**: `@infer`, `@contract`, `@flow` decorators. One required dependency (`litellm`). Python 3.11+.
-- **Track 2 — Claude Code + MCP**: Stratum as an execution runtime behind Claude Code. Two audiences: professional developers (see typed plans) and vibe coders (see plain-language summaries, get `@infer`-annotated code as output).
-
-## Doc Structure
+## Repo Layout
 
 ```
-docs/library/       — Python library design (the primary product)
-docs/claude-code/   — MCP server + Claude Code integration (Track 2)
-docs/strategy/      — competitive analysis, go-to-market, implementation path
+src/stratum/           — Python library source
+stratum-mcp/           — MCP server (FastMCP, fastapi)
+  src/stratum_mcp/
+    server.py          — MCP tools
+    executor.py        — FlowState, persistence (~/.stratum/flows/)
+    task_compiler.py   — tasks/*.md → .stratum.yaml
+    skills/            — stratum-build, stratum-speckit, stratum-plan, ...
+    hooks/             — session-start/stop/failure shell hooks
+stratum-ui/            — Reference UI (FastAPI + uvicorn)
+app/                   — Forge web app (Vision Surface)
+  server/              — Express server (port 3001)
+  src/                 — React frontend
+  docs/                — App-level docs (roadmap, plans, features)
+docs/                  — Stratum-level docs
+  plans/               — Implementation plans
+  features/            — Feature specs
+  app/                 — Archived coder-forge docs (brainstorm, PRD, decisions, journal)
+ROADMAP.md             — Canonical roadmap (all tracks)
 ```
 
-**Start here for implementation:**
-- `docs/library/how-to-build.md` — project structure, executor.py, compiler.py, build sequence
-- `docs/library/language-design.md` — semantic model: what `@infer`, `@contract`, `@flow` mean
-- `docs/library/execution-model.md` — the full execution loop, async model, LLM client config, OTel
+## Development
 
-**Key design decisions recorded in:**
-- `docs/library/open-problems.md` — all 16 design problems with resolution status
-- `docs/library/type-system.md` — contracts, `Probabilistic[T]`, content hash
-- `docs/library/concurrency-and-agents.md` — `parallel`, `debate`, isolation model, Ray upgrade path
-
-## Architecture Decisions
-
-**Contracts**: `@contract` works on plain annotated Python classes. Pydantic `BaseModel` is an optional enhanced backend — not required. Stratum generates JSON Schema from `typing.get_type_hints()` internally.
-
-**Async**: runtime is async-first. `@infer` and `@flow` are async natively. Sync shim via `stratum.run()`. Uses `asyncio.TaskGroup` (Python 3.11+) for `parallel`, `asyncio.timeout` for budget enforcement.
-
-**LLM routing**: LiteLLM is the required LLM client substrate — handles multi-model routing, fallback, cost tracking. The `model:` annotation is a hint passed through to LiteLLM.
-
-**Observability**: internal trace records always written in-memory. OTLP export via a built-in emitter (`stratum/exporters/otlp.py`) — HTTP/JSON POST to any OTLP endpoint. No OTel SDK dependency.
-
-**Non-determinism**: `stable=True` (default) → return type is `T`. `stable=False` → return type is `Probabilistic[T]`, caller must unwrap via `.most_likely()`, `.sample()`, or `.assert_stable()`.
-
-**Prompt optimization**: v1 uses a deterministic prompt compiler (intent + context + inputs). DSPy-backed optimization is a Phase 3 integration for teams with labeled data.
-
-## v1 Dependencies
-
-```toml
-dependencies = ["litellm>=1.0"]
-requires-python = ">=3.11"
-
-[project.optional-dependencies]
-pydantic = ["pydantic>=2.0"]
-all      = ["stratum[pydantic]"]
+**Python library / MCP server:**
+```bash
+cd stratum-mcp && pip install -e ".[dev]"
+pytest stratum-mcp/tests/
 ```
 
-jsonschema and pyyaml are MCP-server-only (Phase 2) — not library dependencies.
+**Web app:**
+```bash
+cd app && npm install && npm run dev   # starts Vite + Express on port 3001
+```
 
-## Phase 2.5 — Decoration-time Static Analysis (not v1)
+**MCP server (local):**
+```bash
+stratum-mcp install   # registers with Claude Code
+stratum-mcp compile <tasks-dir>   # compile tasks/*.md → .stratum.yaml
+```
 
-Introspection-based checks that run when decorators are applied, requiring no new syntax.
+## Key Docs
 
-- **`ensure`/`given` field validation**: inspect `LOAD_ATTR` bytecode of lambda/callable against the contract's JSON schema fields. Raise `StratumCompileError` at decoration time if an accessed attribute doesn't exist on the return type.
-- **Sequential independence warning**: walk the `@flow` function's AST at decoration time, identify `await` calls whose arguments have no data dependency on each other, and emit `StratumWarning` suggesting `parallel()`. Optionally auto-rewrite to `parallel()`.
-- **Budget sufficiency warning**: sum `budget.ms` across `@infer` calls visible in the `@flow` AST; warn if the sum exceeds the flow's `budget` envelope.
-
-Implementation note: all three have access to everything they need at decoration time — the decorator already holds the function object, its bytecode, its AST (via `inspect.getsource` + `ast.parse`), and the resolved contract schema.
-
-## Phase 3 Integrations (not v1)
-
-Build from observed pain, not schedule: Temporal (durable execution), Ray (distributed agents), Outlines (self-hosted constrained decoding via LiteLLM → vLLM → Outlines), DSPy (prompt optimization).
-
-## TypeScript Library (Phase 2)
-
-Zod for contracts, `@anthropic-ai/sdk` for LLM calls. Vercel AI SDK is an integration target for Next.js users — not the substrate.
-
-## The IR
-
-`.stratum.yaml` is generated by the library and by Claude (via MCP). Developers never write it. It is LLVM IR — the compiler targets it, nobody writes it from scratch. IR parsing/validation (jsonschema + pyyaml) is a Phase 2 concern, needed for the MCP server.
+- `ROADMAP.md` — all tracks (T1 Python lib → T6 stratum-ui → Evaluation)
+- `stratum-mcp/src/stratum_mcp/skills/` — skill reference for stratum-build, stratum-speckit
+- `docs/app/` — full Forge design history: brainstorm, PRD, discovery, decisions, journal
 
 ## Stratum Execution Model
 
