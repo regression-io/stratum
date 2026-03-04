@@ -357,6 +357,62 @@ def _generate_yaml(draft: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Pipeline templates — predefined starting points
+# ---------------------------------------------------------------------------
+
+_TEMPLATES: dict[str, dict] = {
+    "feature-dev": {
+        "name": "feature-dev",
+        "description": "End-to-end feature development: explore, design, blueprint, implement",
+        "phases": [
+            {"name": "explore",    "capability": "scout",   "policy": "skip"},
+            {"name": "design",     "capability": "builder", "policy": "gate"},
+            {"name": "blueprint",  "capability": "scout",   "policy": "gate"},
+            {"name": "implement",  "capability": "builder", "policy": "gate"},
+        ],
+    },
+    "bug-fix": {
+        "name": "bug-fix",
+        "description": "Reproduce, diagnose, fix, and verify a bug",
+        "phases": [
+            {"name": "reproduce", "capability": "scout",   "policy": "skip"},
+            {"name": "diagnose",  "capability": "critic",  "policy": "flag"},
+            {"name": "fix",       "capability": "builder", "policy": "gate"},
+            {"name": "verify",    "capability": "critic",  "policy": "gate"},
+        ],
+    },
+    "refactor": {
+        "name": "refactor",
+        "description": "Analyze, plan, and safely refactor existing code",
+        "phases": [
+            {"name": "analyze",  "capability": "scout",   "policy": "skip"},
+            {"name": "plan",     "capability": "builder", "policy": "gate"},
+            {"name": "refactor", "capability": "builder", "policy": "gate"},
+            {"name": "review",   "capability": "critic",  "policy": "gate"},
+        ],
+    },
+    "research": {
+        "name": "research",
+        "description": "Explore a topic, synthesize findings, and produce a report",
+        "phases": [
+            {"name": "explore",    "capability": "scout",   "policy": "skip"},
+            {"name": "synthesize", "capability": "builder", "policy": "flag"},
+            {"name": "report",     "capability": "builder", "policy": "gate"},
+        ],
+    },
+    "content": {
+        "name": "content",
+        "description": "Draft, review, and publish documentation or content",
+        "phases": [
+            {"name": "draft",   "capability": "builder", "policy": "flag"},
+            {"name": "review",  "capability": "critic",  "policy": "gate"},
+            {"name": "publish", "capability": "builder", "policy": "gate"},
+        ],
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------
 
@@ -459,6 +515,21 @@ def create_app(project_dir: Path, token: str | None = None) -> FastAPI:
     def put_draft(draft: dict[str, Any]) -> dict[str, str]:
         _save_draft(project_dir, draft)
         return {"status": "saved"}
+
+    @app.get("/api/templates")
+    def list_templates() -> list[dict[str, Any]]:
+        return [
+            {"name": t["name"], "description": t["description"]}
+            for t in _TEMPLATES.values()
+        ]
+
+    @app.get("/api/templates/{name}")
+    def get_template(name: str) -> dict[str, Any]:
+        if name not in _TEMPLATES:
+            raise HTTPException(status_code=404, detail=f"Template '{name}' not found")
+        tmpl = _TEMPLATES[name]
+        # Return as a loadable draft (strip description — not part of draft schema)
+        return {"name": tmpl["name"], "phases": [dict(p) for p in tmpl["phases"]]}
 
     return app
 

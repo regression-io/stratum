@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const DEFAULT_API = 'http://localhost:7821'
 
@@ -7,15 +7,37 @@ const blankPhase = () => ({ name: '', capability: '', policy: '' })
 export default function PipelineEditor({ onChange, onSave, apiBase = DEFAULT_API }) {
   const [draft, setDraft] = useState(null)
   const [error, setError] = useState(null)
+  const [templates, setTemplates] = useState([])
+  const lastEtagRef = useRef(null)
+
+  // Fetch draft once, then poll every 2s for agent-pushed updates
+  const fetchDraft = async (force = false) => {
+    try {
+      const res = await fetch(`${apiBase}/api/pipeline-draft`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const etag = res.headers.get('etag') || null
+      if (!force && etag && etag === lastEtagRef.current) return  // unchanged
+      lastEtagRef.current = etag
+      const data = await res.json()
+      setDraft(data)
+      setError(null)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   useEffect(() => {
-    fetch(`${apiBase}/api/pipeline-draft`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then(setDraft)
-      .catch(e => setError(e.message))
+    fetchDraft(true)
+    const id = setInterval(() => fetchDraft(false), 2000)
+    return () => clearInterval(id)
+  }, [apiBase])
+
+  // Fetch template list once
+  useEffect(() => {
+    fetch(`${apiBase}/api/templates`)
+      .then(res => res.ok ? res.json() : [])
+      .then(setTemplates)
+      .catch(() => {})
   }, [apiBase])
 
   const update = (newDraft) => {
@@ -38,6 +60,18 @@ export default function PipelineEditor({ onChange, onSave, apiBase = DEFAULT_API
     update({ ...draft, phases })
   }
 
+  const loadTemplate = async (name) => {
+    if (!name) return
+    try {
+      const res = await fetch(`${apiBase}/api/templates/${name}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const tmpl = await res.json()
+      update(tmpl)
+    } catch (e) {
+      setError(`Failed to load template: ${e.message}`)
+    }
+  }
+
   const save = async () => {
     await fetch(`${apiBase}/api/pipeline-draft`, {
       method: 'PUT',
@@ -52,14 +86,26 @@ export default function PipelineEditor({ onChange, onSave, apiBase = DEFAULT_API
 
   return (
     <div className="stratum-pipeline-editor">
-      <div style={{ marginBottom: 12 }}>
-        <label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+        <label style={{ flex: 1 }}>
           Pipeline name:{' '}
           <input
             value={draft.name || ''}
             onChange={e => update({ ...draft, name: e.target.value })}
           />
         </label>
+        {templates.length > 0 && (
+          <select
+            defaultValue=""
+            onChange={e => { loadTemplate(e.target.value); e.target.value = '' }}
+            style={{ fontSize: '0.85em' }}
+          >
+            <option value="" disabled>Load template…</option>
+            {templates.map(t => (
+              <option key={t.name} value={t.name} title={t.description}>{t.name}</option>
+            ))}
+          </select>
+        )}
       </div>
       {(draft.phases || []).map((phase, i) => (
         <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #eee' }}>

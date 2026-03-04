@@ -323,6 +323,38 @@ async def stratum_compile_speckit(
     }
 
 
+@mcp.tool(description=(
+    "Push a pipeline draft to the PipelineEditor UI. "
+    "The draft is written to {project_dir}/.stratum/pipeline-draft.json, "
+    "which the PipelineEditor polls and will display automatically. "
+    "Inputs: draft (dict) — pipeline draft with 'name' (str) and 'phases' (list of "
+    "{name, capability, policy} objects where capability is scout|builder|critic and "
+    "policy is gate|flag|skip). "
+    "Optional: project_dir (str) — project root, defaults to CWD. "
+    "Returns {status: 'saved', path: str} on success."
+))
+async def stratum_draft_pipeline(
+    draft: dict[str, Any],
+    ctx: Context,
+    project_dir: str = ".",
+) -> dict[str, Any]:
+    from pathlib import Path as _Path
+
+    path = _Path(project_dir).resolve()
+    draft_path = path / ".stratum" / "pipeline-draft.json"
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Ensure required fields are present
+    if not isinstance(draft.get("name"), str) or not draft["name"]:
+        draft["name"] = "my-pipeline"
+    if not isinstance(draft.get("phases"), list):
+        draft["phases"] = []
+
+    import json as _json
+    draft_path.write_text(_json.dumps(draft, indent=2))
+    return {"status": "saved", "path": str(draft_path)}
+
+
 _CLAUDE_MD_MARKER = "## Stratum Execution Model"
 
 _CLAUDE_MD_BLOCK = """
