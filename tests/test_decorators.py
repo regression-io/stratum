@@ -267,9 +267,16 @@ class TestRefineDecorator:
             with patch("litellm.completion_cost", return_value=0.0):
                 await refined(spec="test")
 
-        # The second call's system message should contain the feedback
+        # The second call's user message should contain the feedback.
+        # Content may be a plain string (non-Anthropic) or a list of content blocks
+        # (Anthropic prompt-cache format).
+        def _text(c: object) -> str:
+            if isinstance(c, list):
+                return " ".join(block.get("text", "") for block in c if isinstance(block, dict))
+            return str(c)
+
         assert call_count[0] == 2
-        assert any("FEEDBACK_MARKER_XYZ" in c for c in captured_contexts[1:])
+        assert any("FEEDBACK_MARKER_XYZ" in _text(c) for c in captured_contexts[1:])
 
 
 # ---------------------------------------------------------------------------

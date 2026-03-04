@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol, runtime_checkable
 
 from .exceptions import HITLTimeoutError
@@ -82,7 +82,7 @@ class ConsoleReviewSink:
                 value=value,
                 reviewer=None,
                 rationale=None,
-                decided_at=datetime.utcnow(),
+                decided_at=datetime.now(timezone.utc),
                 review_id=review.review_id,
             )
             try:
@@ -134,7 +134,7 @@ async def await_human(
 
     expires_at: datetime | None = None
     if timeout is not None:
-        expires_at = datetime.utcnow() + timeout
+        expires_at = datetime.now(timezone.utc) + timeout
 
     review = PendingReview(
         review_id=review_id,
@@ -165,6 +165,6 @@ async def await_human(
             value=on_timeout,
             reviewer="auto",
             rationale="timeout",
-            decided_at=datetime.utcnow(),
+            decided_at=datetime.now(timezone.utc),
             review_id=review_id,
         )

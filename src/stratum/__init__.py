@@ -31,7 +31,29 @@ from .exceptions import (
     ParallelValidationFailed,
     HITLTimeoutError,
     StabilityAssertionError,
+    StratumWarning,
 )
+from .pipeline_types import (
+    Capability,
+    Policy,
+    NAMED_ASSERTIONS,
+    BARE_ASSERTIONS,
+    PARAMETERISED_ASSERTIONS,
+    is_named_assertion,
+)
+from .pipeline import (
+    PhaseSpec,
+    PipelineDefinition,
+    phase,
+    pipeline,
+)
+from .project_config import (
+    PipelineConfig,
+    StratumConfig,
+)
+from .run_workspace import RunWorkspace
+from .connector import Connector, RunOpts
+from .pipeline_runner import PhaseRecord, PipelineResult, run_pipeline
 from .decorators import infer, compute, flow, refine
 from .trace import TraceRecord, all_records, clear as clear_traces
 from ._config import configure
@@ -51,21 +73,24 @@ def run(coro: Any) -> Any:
     """
     try:
         loop = asyncio.get_event_loop()
-        if loop.is_running():
-            raise RuntimeError(
-                "stratum.run() must not be called from inside a running event loop. "
-                "Use 'await' directly instead."
-            )
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        coro.close()
+        raise RuntimeError(
+            "stratum.run() must not be called from inside a running event loop. "
+            "Use 'await' directly instead."
+        )
+
+    if loop is None or loop.is_closed():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
         return loop.run_until_complete(coro)
-    except RuntimeError as exc:
-        if "no current event loop" in str(exc).lower():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(coro)
-            finally:
-                loop.close()
-        raise
+    finally:
+        loop.close()
 
 
 __all__ = [
@@ -101,7 +126,7 @@ __all__ = [
     "TraceRecord",
     "all_records",
     "clear_traces",
-    # Errors
+    # Errors and warnings
     "StratumError",
     "StratumCompileError",
     "PreconditionFailed",
@@ -113,6 +138,31 @@ __all__ = [
     "ParallelValidationFailed",
     "HITLTimeoutError",
     "StabilityAssertionError",
+    "StratumWarning",
+    # Pipeline primitives
+    "Capability",
+    "Policy",
+    "NAMED_ASSERTIONS",
+    "BARE_ASSERTIONS",
+    "PARAMETERISED_ASSERTIONS",
+    "is_named_assertion",
+    # Pipeline decorators
+    "PhaseSpec",
+    "PipelineDefinition",
+    "phase",
+    "pipeline",
+    # Project config
+    "PipelineConfig",
+    "StratumConfig",
+    # Run workspace
+    "RunWorkspace",
+    # Connector protocol
+    "Connector",
+    "RunOpts",
+    # Pipeline runner
+    "PhaseRecord",
+    "PipelineResult",
+    "run_pipeline",
     # Registry
     "is_registered",
     # Exporters

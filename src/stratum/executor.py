@@ -279,13 +279,21 @@ async def execute_infer(
         if attachment is not None:
             user_content = user_content + f"\n\nData:\n{json.dumps(attachment)}"
 
-        messages = [
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_content},
-        ]
+        # Anthropic prompt caching: wrap stable content in cache_control blocks
+        _is_anthropic = model.startswith("claude") or model.startswith("anthropic/")
+        if _is_anthropic:
+            messages = [
+                {"role": "system", "content": [{"type": "text", "text": system_msg, "cache_control": {"type": "ephemeral"}}]},
+                {"role": "user", "content": [{"type": "text", "text": user_content, "cache_control": {"type": "ephemeral"}}]},
+            ]
+        else:
+            messages = [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_content},
+            ]
 
         # c. Build tool definition for structured output
-        tool = {
+        tool: dict[str, Any] = {
             "type": "function",
             "function": {
                 "name": "output",
@@ -293,6 +301,8 @@ async def execute_infer(
                 "parameters": tool_schema,
             },
         }
+        if _is_anthropic:
+            tool["cache_control"] = {"type": "ephemeral"}
 
         # d. LLM call
         timeout_secs = budget.remaining_seconds() if budget is not None else None

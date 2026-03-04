@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -33,7 +33,7 @@ class AutoResolveSink:
             value=self.value,
             reviewer="bot",
             rationale="automated",
-            decided_at=datetime.utcnow(),
+            decided_at=datetime.now(timezone.utc),
             review_id=review.review_id,
         )
         await review.resolve(decision)
@@ -67,7 +67,7 @@ class TestPendingReview:
             value="approved",
             reviewer="alice",
             rationale="looks good",
-            decided_at=datetime.utcnow(),
+            decided_at=datetime.now(timezone.utc),
             review_id="test-id",
         )
         await review.resolve(decision)
@@ -92,7 +92,7 @@ class TestPendingReview:
             value="new",
             reviewer=None,
             rationale=None,
-            decided_at=datetime.utcnow(),
+            decided_at=datetime.now(timezone.utc),
             review_id="test-id",
         )
         # Should not raise even though future is already resolved
@@ -183,7 +183,7 @@ class TestAwaitHuman:
                         value=review.options[0] if review.options else None,
                         reviewer=None,
                         rationale=None,
-                        decided_at=datetime.utcnow(),
+                        decided_at=datetime.now(timezone.utc),
                         review_id=review.review_id,
                     )
                 )
@@ -208,7 +208,7 @@ class TestAwaitHuman:
                         value="ok",
                         reviewer=None,
                         rationale=None,
-                        decided_at=datetime.utcnow(),
+                        decided_at=datetime.now(timezone.utc),
                         review_id=review.review_id,
                     )
                 )
