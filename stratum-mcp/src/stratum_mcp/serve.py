@@ -424,6 +424,14 @@ class GateActionBody(BaseModel):
 # App factory
 # ---------------------------------------------------------------------------
 
+def _pkg_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("stratum-mcp")
+    except Exception:
+        return "0.0.0"
+
+
 def create_app(project_dir: Path, token: str | None = None) -> FastAPI:
     """Create the FastAPI application bound to ``project_dir``.
 
@@ -433,7 +441,7 @@ def create_app(project_dir: Path, token: str | None = None) -> FastAPI:
     app = FastAPI(
         title="stratum-mcp serve",
         description="Monitor Stratum pipeline runs and approve gate-blocked phases",
-        version="0.1.0",
+        version=_pkg_version(),
     )
 
     # CORS — allow all origins (localhost-only server by default)
