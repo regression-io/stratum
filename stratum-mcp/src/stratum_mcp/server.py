@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
 import time
 from pathlib import Path
@@ -967,6 +968,200 @@ def _cmd_serve(args: list[str]) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# query / gate helpers
+# ---------------------------------------------------------------------------
+
+def _flow_status(state: Any) -> str:
+    """Derive a human-readable status string from a FlowState."""
+    if state.terminal_status == "killed":
+        return "killed"
+    if state.current_idx >= len(state.ordered_steps):
+        return "complete"
+    step = state.ordered_steps[state.current_idx]
+    fn_def = state.spec.functions.get(step.function)
+    if fn_def and fn_def.mode == "gate":
+        return "awaiting_gate"
+    return "running"
+
+
+def _query_flows() -> list[dict]:
+    from .executor import _FLOWS_DIR, restore_flow
+    if not _FLOWS_DIR.exists():
+        return []
+    results = []
+    for path in sorted(_FLOWS_DIR.glob("*.json")):
+        state = restore_flow(path.stem)
+        if state is None:
+            continue
+        current = state.ordered_steps[state.current_idx] if state.current_idx < len(state.ordered_steps) else None
+        results.append({
+            "_schema_version": "1",
+            "flow_id":         state.flow_id,
+            "flow_name":       state.flow_name,
+            "status":          _flow_status(state),
+            "current_step_id": current.id if current else None,
+            "round":           state.round,
+            "step_count":      len(state.ordered_steps),
+            "completed_steps": state.current_idx,
+            "terminal_status": state.terminal_status,
+        })
+    return results
+
+
+def _query_flow(flow_id: str) -> dict:
+    from .executor import restore_flow
+    state = restore_flow(flow_id)
+    if state is None:
+        print(json.dumps({"error": {"code": "NOT_FOUND", "message": f"Flow '{flow_id}' not found"}}))
+        sys.exit(1)
+    current = state.ordered_steps[state.current_idx] if state.current_idx < len(state.ordered_steps) else None
+    return {
+        "_schema_version": "1",
+        "flow_id":          state.flow_id,
+        "flow_name":        state.flow_name,
+        "status":           _flow_status(state),
+        "current_step_id":  current.id if current else None,
+        "current_idx":      state.current_idx,
+        "round":            state.round,
+        "rounds_count":     len(state.rounds),
+        "step_count":       len(state.ordered_steps),
+        "terminal_status":  state.terminal_status,
+        "step_outputs":     state.step_outputs,
+        "records":          [dataclasses.asdict(r) for r in state.records],
+        "rounds":           state.rounds,
+        "ordered_steps":    [
+            {
+                "id":       s.id,
+                "function": s.function,
+                # Normalize: consumers only need gate vs. non-gate
+                "mode":     "gate"
+                            if s.function in state.spec.functions
+                               and state.spec.functions[s.function].mode == "gate"
+                            else "step",
+            }
+            for s in state.ordered_steps
+        ],
+    }
+
+
+def _query_gates() -> list[dict]:
+    from .executor import _FLOWS_DIR, restore_flow
+    if not _FLOWS_DIR.exists():
+        return []
+    gates = []
+    for path in sorted(_FLOWS_DIR.glob("*.json")):
+        state = restore_flow(path.stem)
+        if state is None or state.current_idx >= len(state.ordered_steps):
+            continue
+        step = state.ordered_steps[state.current_idx]
+        fn_def = state.spec.functions.get(step.function)
+        if not fn_def or fn_def.mode != "gate":
+            continue
+        gates.append({
+            "_schema_version": "1",
+            "flow_id":    state.flow_id,
+            "flow_name":  state.flow_name,
+            "step_id":    step.id,
+            "function":   step.function,
+            "on_approve": step.on_approve,
+            "on_revise":  step.on_revise,
+            "on_kill":    step.on_kill,
+            "timeout":    fn_def.timeout,
+        })
+    return gates
+
+
+# ---------------------------------------------------------------------------
+# CLI subcommands: query, gate
+# ---------------------------------------------------------------------------
+
+def _cmd_query(args: list[str]) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(prog="stratum-mcp query")
+    sub = parser.add_subparsers(dest="resource", required=True)
+    sub.add_parser("flows", help="List all persisted flows")
+    flow_p = sub.add_parser("flow", help="Full state for a single flow")
+    flow_p.add_argument("flow_id")
+    sub.add_parser("gates", help="List all pending gate steps")
+    parsed = parser.parse_args(args)
+
+    if parsed.resource == "flows":
+        result = _query_flows()
+    elif parsed.resource == "flow":
+        result = _query_flow(parsed.flow_id)   # exits on NOT_FOUND
+    else:
+        result = _query_gates()
+
+    print(json.dumps(result, indent=2))
+
+
+def _cmd_gate(args: list[str]) -> None:
+    import argparse
+    from .executor import restore_flow, persist_flow, resolve_gate
+
+    parser = argparse.ArgumentParser(prog="stratum-mcp gate")
+    sub = parser.add_subparsers(dest="action", required=True)
+    for action in ("approve", "reject", "revise"):
+        p = sub.add_parser(action)
+        p.add_argument("flow_id")
+        p.add_argument("step_id")
+        p.add_argument("--note", default="", help="Rationale or review note")
+        p.add_argument(
+            "--resolved-by", default="human",
+            choices=["human", "agent", "system"],
+            dest="resolved_by",
+        )
+    parsed = parser.parse_args(args)
+
+    # Map CLI actions to stratum gate outcomes
+    outcome_map = {"approve": "approve", "reject": "kill", "revise": "revise"}
+    outcome = outcome_map[parsed.action]
+
+    state = restore_flow(parsed.flow_id)
+    if state is None:
+        print(json.dumps({
+            "error": {"code": "NOT_FOUND", "message": f"Flow '{parsed.flow_id}' not found"},
+        }))
+        sys.exit(1)
+
+    status, extra = resolve_gate(
+        state,
+        step_id=parsed.step_id,
+        outcome=outcome,
+        rationale=parsed.note,
+        resolved_by=parsed.resolved_by,
+    )
+
+    if status == "error":
+        # Idempotency conflicts: gate already resolved (flow moved past it)
+        conflict_codes = {"flow_already_complete", "wrong_step"}
+        if extra.get("code") in conflict_codes:
+            print(json.dumps({
+                "conflict": True,
+                "flow_id":  parsed.flow_id,
+                "step_id":  parsed.step_id,
+                "detail":   extra.get("message", ""),
+            }))
+            sys.exit(2)
+        # Other domain errors (bad step id, invalid state, etc.)
+        print(json.dumps({
+            "error": {"code": extra.get("code", "INVALID"), "message": extra.get("message", "")},
+        }))
+        sys.exit(1)
+
+    # All non-error outcomes (complete, killed, execute_step, max_rounds_exceeded) persist state
+    persist_flow(state)
+    print(json.dumps({
+        "_schema_version": "1",
+        "ok":      True,
+        "flow_id": parsed.flow_id,
+        "step_id": parsed.step_id,
+        "outcome": outcome,
+        "result":  status,
+    }))
+
+
 def _cmd_help() -> None:
     print("Usage: stratum-mcp <command> [options]")
     print()
@@ -974,6 +1169,12 @@ def _cmd_help() -> None:
     print("  install              Register MCP server and skills with Claude Code")
     print("  uninstall            Remove MCP server registration and skills")
     print("  serve                Start the JSON API server (stratum-mcp serve --help)")
+    print("  query flows          List all persisted flows (JSON)")
+    print("  query flow <id>      Full state for a single flow (JSON)")
+    print("  query gates          List all pending gate steps (JSON)")
+    print("  gate approve <flow_id> <step_id>   Approve a gate")
+    print("  gate reject  <flow_id> <step_id>   Reject (kill) a gate")
+    print("  gate revise  <flow_id> <step_id>   Send back for revision")
     print("  validate <file>      Validate a .stratum.yaml spec file")
     print("  compile <dir>        Compile tasks/*.md files to .stratum.yaml")
     print()
@@ -1002,6 +1203,12 @@ def main() -> None:
             return
         if cmd == "compile":
             _cmd_compile(sys.argv[2] if len(sys.argv) > 2 else "", sys.argv[3:])
+            return
+        if cmd == "query":
+            _cmd_query(sys.argv[2:])
+            return
+        if cmd == "gate":
+            _cmd_gate(sys.argv[2:])
             return
         print(f"Unknown command: {cmd}", file=sys.stderr)
         print("Run 'stratum-mcp --help' for usage.", file=sys.stderr)

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stratum.regression.io/contracts/gate-mutation.v1.schema.json",
+  "title": "GateMutationResponse",
+  "description": "Output of `stratum-mcp gate approve|reject|revise` on success (exit 0). On conflict, exit code 2 with {\"conflict\": true, ...}. On error, exit code 1 with {\"error\": {...}}.",
+  "type": "object",
+  "required": ["_schema_version", "ok", "flow_id", "step_id", "outcome", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "_schema_version": { "type": "string", "const": "1" },
+    "ok":       { "type": "boolean", "const": true },
+    "flow_id":  { "type": "string" },
+    "step_id":  { "type": "string" },
+    "outcome":  { "type": "string", "enum": ["approve", "kill", "revise"] },
+    "result":   { "type": "string" }
+  }
+}

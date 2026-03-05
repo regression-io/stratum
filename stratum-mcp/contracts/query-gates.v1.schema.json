@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stratum.regression.io/contracts/query-gates.v1.schema.json",
+  "title": "QueryGatesResponse",
+  "description": "Output of `stratum-mcp query gates` — array of pending gate steps awaiting resolution.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/PendingGate" },
+  "$defs": {
+    "PendingGate": {
+      "type": "object",
+      "required": ["_schema_version", "flow_id", "flow_name", "step_id", "function"],
+      "additionalProperties": false,
+      "properties": {
+        "_schema_version": { "type": "string", "const": "1" },
+        "flow_id":    { "type": "string" },
+        "flow_name":  { "type": "string" },
+        "step_id":    { "type": "string" },
+        "function":   { "type": "string" },
+        "on_approve": { "type": ["string", "null"] },
+        "on_revise":  { "type": ["string", "null"] },
+        "on_kill":    { "type": ["string", "null"] },
+        "timeout":    { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

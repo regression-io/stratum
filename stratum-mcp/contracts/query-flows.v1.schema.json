@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stratum.regression.io/contracts/query-flows.v1.schema.json",
+  "title": "QueryFlowsResponse",
+  "description": "Output of `stratum-mcp query flows` — array of flow summaries.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/FlowSummary" },
+  "$defs": {
+    "FlowSummary": {
+      "type": "object",
+      "required": ["_schema_version", "flow_id", "flow_name", "status", "round", "step_count", "completed_steps"],
+      "additionalProperties": false,
+      "properties": {
+        "_schema_version": { "type": "string", "const": "1" },
+        "flow_id":          { "type": "string" },
+        "flow_name":        { "type": "string" },
+        "status":           { "type": "string", "enum": ["running", "awaiting_gate", "complete", "killed"] },
+        "current_step_id":  { "type": ["string", "null"] },
+        "round":            { "type": "integer", "minimum": 0 },
+        "step_count":       { "type": "integer", "minimum": 0 },
+        "completed_steps":  { "type": "integer", "minimum": 0 },
+        "terminal_status":  { "type": ["string", "null"] }
+      }
+    }
+  }
+}

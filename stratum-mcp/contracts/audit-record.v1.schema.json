@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stratum.regression.io/contracts/audit-record.v1.schema.json",
+  "title": "AuditRecord",
+  "description": "A single record in a flow's audit trace (step, gate, or skip).",
+  "oneOf": [
+    {
+      "title": "StepRecord",
+      "type": "object",
+      "required": ["type", "step_id", "function_name", "attempts", "duration_ms"],
+      "properties": {
+        "type":          { "const": "step" },
+        "step_id":       { "type": "string" },
+        "function_name": { "type": "string" },
+        "attempts":      { "type": "integer", "minimum": 1 },
+        "duration_ms":   { "type": "integer", "minimum": 0 },
+        "round":         { "type": "integer", "minimum": 0 },
+        "round_start_step_id": { "type": ["string", "null"] }
+      }
+    },
+    {
+      "title": "GateRecord",
+      "type": "object",
+      "required": ["type", "step_id", "outcome", "rationale", "resolved_by", "duration_ms"],
+      "properties": {
+        "type":        { "const": "gate" },
+        "step_id":     { "type": "string" },
+        "outcome":     { "type": "string", "enum": ["approve", "revise", "kill"] },
+        "rationale":   { "type": "string" },
+        "resolved_by": { "type": "string", "enum": ["human", "agent", "system"] },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "round":       { "type": "integer", "minimum": 0 },
+        "round_start_step_id": { "type": ["string", "null"] }
+      }
+    },
+    {
+      "title": "SkipRecord",
+      "type": "object",
+      "required": ["type", "step_id", "skip_reason"],
+      "properties": {
+        "type":        { "const": "skip" },
+        "step_id":     { "type": "string" },
+        "skip_reason": { "type": "string" },
+        "round":       { "type": "integer", "minimum": 0 },
+        "round_start_step_id": { "type": ["string", "null"] }
+      }
+    }
+  ]
+}
