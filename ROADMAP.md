@@ -271,34 +271,35 @@ Must be resolved before publishing 0.2.0 to PyPI.
 
 | ID | Item | Location | Status |
 |---|---|---|---|
-| R-1 | `stratum-mcp serve` without `[serve]` extra raises raw `ModuleNotFoundError`; catch `ImportError` and print install hint | `server.py:909` | PLANNED |
-| R-2 | `test_serve.py` imports `fastapi.testclient` unconditionally — breaks `pytest` on base install; guard with `pytest.importorskip` or optional marker | `tests/test_serve.py:11` | PLANNED |
-| R-3 | `_cmd_validate` swallows `OSError` silently — permission-denied on a path is treated as inline YAML; surface file errors explicitly | `server.py:897` | PLANNED |
+| R-1 | `stratum-mcp serve` without `[serve]` extra raises raw `ModuleNotFoundError`; catch `ImportError` and print install hint | `server.py:909` | COMPLETE |
+| R-2 | `test_serve.py` imports `fastapi.testclient` unconditionally — breaks `pytest` on base install; guard with `pytest.importorskip` or optional marker | `tests/test_serve.py:11` | COMPLETE |
+| R-3 | `_cmd_validate` swallows `OSError` silently — permission-denied on a path is treated as inline YAML; surface file errors explicitly | `server.py:897` | COMPLETE |
 
 ### Should Fix
 
 | ID | Item | Location | Status |
 |---|---|---|---|
-| R-4 | CORS `allow_origins=["*"]` hardcoded — make configurable via `create_app()` parameter | `serve.py:450` | PLANNED |
-| R-5 | `"record_type"` legacy alias in `_record_from_dict` — dead compat shim; 0.2.0 is a clean break | `executor.py:294` | PLANNED |
-| R-6 | `pydantic` not declared in `[serve]` extras — undeclared transitive dependency | `pyproject.toml:29` | PLANNED |
-| R-7 | `stratum_gate_resolve` complete path returns no `output` field; `stratum_step_done` complete path does — decide canonical shape and align | `server.py:259`, `server.py:151` | PLANNED |
-| R-8 | No tests for `stratum_draft_pipeline` MCP tool | `server.py:518` | PLANNED |
+| R-4 | CORS `allow_origins=["*"]` hardcoded — make configurable via `create_app()` parameter | `serve.py:450` | COMPLETE |
+| R-5 | `"record_type"` legacy alias in `_record_from_dict` — dead compat shim; 0.2.0 is a clean break | `executor.py:294` | COMPLETE |
+| R-6 | `pydantic` not declared in `[serve]` extras — undeclared transitive dependency | `pyproject.toml:29` | COMPLETE |
+| R-7 | `stratum_gate_resolve` complete path returns no `output` field; `stratum_step_done` complete path does — decide canonical shape and align | `server.py:259`, `server.py:151` | COMPLETE |
+| R-8 | No tests for `stratum_draft_pipeline` MCP tool | `server.py:518` | COMPLETE |
 
 ### Cleanup (low risk, do while here)
 
 | ID | Item | Location | Status |
 |---|---|---|---|
-| R-9 | `first_step_id` computed but never used after `round_start_step_id=None` change | `executor.py:492` | PLANNED |
-| R-10 | `import importlib.resources` dead import inside `_cmd_setup` | `server.py:731` | PLANNED |
+| R-9 | `first_step_id` computed but never used after `round_start_step_id=None` change | `executor.py:492` | COMPLETE |
+| R-10 | `import importlib.resources` dead import inside `_cmd_setup` | `server.py:731` | COMPLETE |
 
 ---
 
 ## Prioritization Notes
 
 **Next up (as of 2026-03-05):**
-- R-1 through R-10 — pre-release debt cleanup before `stratum-mcp` 0.2.0
-- Then: publish 0.2.0 to PyPI, D-4 (MCP registry), D-5 (HN/r/ClaudeAI post)
+- R-1 through R-10 complete — pre-release debt resolved
+- Publish `stratum-mcp` 0.2.0 to PyPI (bump version, tag, push)
+- D-4 (MCP registry), D-5 (HN/r/ClaudeAI post)
 
 **Longer horizon:**
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort

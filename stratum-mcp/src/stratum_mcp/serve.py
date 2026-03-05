@@ -432,11 +432,19 @@ def _pkg_version() -> str:
         return "0.0.0"
 
 
-def create_app(project_dir: Path, token: str | None = None) -> FastAPI:
+def create_app(
+    project_dir: Path,
+    token: str | None = None,
+    allowed_origins: list[str] | None = None,
+) -> FastAPI:
     """Create the FastAPI application bound to ``project_dir``.
 
     All API endpoints read from / write to ``project_dir/.stratum/runs/``.
     JSON responses only — no HTML views.
+
+    ``allowed_origins`` controls CORS. Defaults to ``["*"]`` for the
+    loopback-only default deployment; pass an explicit list when exposing
+    the server to a known frontend origin.
     """
     app = FastAPI(
         title="stratum-mcp serve",
@@ -444,10 +452,9 @@ def create_app(project_dir: Path, token: str | None = None) -> FastAPI:
         version=_pkg_version(),
     )
 
-    # CORS — allow all origins (localhost-only server by default)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins if allowed_origins is not None else ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -553,10 +560,11 @@ def run_serve(
     project_dir: Path = Path("."),
     tls_cert: str | None = None,
     tls_key: str | None = None,
+    allowed_origins: list[str] | None = None,
 ) -> None:
     import uvicorn
 
-    app = create_app(project_dir.resolve(), token=token)
+    app = create_app(project_dir.resolve(), token=token, allowed_origins=allowed_origins)
     uvicorn.run(
         app,
         host=host,

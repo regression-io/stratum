@@ -291,8 +291,7 @@ class SkipRecord:
 
 def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord:
     """Reconstruct a StepRecord, GateRecord, or SkipRecord from a persisted dict."""
-    # Accept both "type" (current) and "record_type" (legacy field name) for backward compat.
-    rec_type = r.get("type", r.get("record_type", "step"))
+    rec_type = r.get("type", "step")
     if rec_type == "gate":
         return GateRecord(
             step_id=r["step_id"],
@@ -489,7 +488,6 @@ def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any], raw_
     if flow_def is None:
         raise MCPExecutionError(f"Flow '{flow_name}' not found in spec")
     ordered = _topological_sort(flow_def)
-    first_step_id = ordered[0].id if ordered else None
     return FlowState(
         flow_id=str(uuid.uuid4()),
         flow_name=flow_name,

@@ -148,12 +148,17 @@ async def stratum_step_done(
     if next_step is None:
         # Flow complete — clean up persistence
         delete_persisted_flow(flow_id)
-        last_step = state.ordered_steps[-1]
         total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        # Gate steps write no output; find the last step that actually produced one.
+        output = next(
+            (state.step_outputs[s.id] for s in reversed(state.ordered_steps)
+             if s.id in state.step_outputs and state.step_outputs[s.id] is not None),
+            None,
+        )
         return {
             "status": state.terminal_status or "complete",
             "flow_id": state.flow_id,
-            "output": state.step_outputs.get(last_step.id),
+            "output": output,
             "trace": [dataclasses.asdict(r) for r in state.records],
             "total_duration_ms": total_ms,
         }
@@ -256,9 +261,15 @@ async def stratum_gate_resolve(
     if result_status == "complete":
         delete_persisted_flow(flow_id)
         total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        output = next(
+            (state.step_outputs[s.id] for s in reversed(state.ordered_steps)
+             if s.id in state.step_outputs and state.step_outputs[s.id] is not None),
+            None,
+        )
         return {
             "status": "complete",
             "flow_id": flow_id,
+            "output": output,
             "trace": [dataclasses.asdict(r) for r in state.records],
             "total_duration_ms": total_ms,
         }
@@ -728,7 +739,6 @@ def _cmd_setup() -> None:
         changed.append("CLAUDE.md")
 
     # --- Skills ---
-    import importlib.resources
     skills_home = Path.home() / ".claude" / "skills"
     pkg_skills = Path(__file__).parent / "skills"
     if pkg_skills.is_dir():
@@ -894,8 +904,11 @@ def _cmd_validate(arg: str) -> None:
         try:
             with open(arg) as f:
                 yaml_content = f.read()
-        except OSError:
-            pass  # treat as inline YAML
+        except FileNotFoundError:
+            pass  # no file at that path — treat the string as inline YAML
+        except OSError as exc:
+            print(f"ERROR: cannot open '{arg}': {exc}", file=sys.stderr)
+            sys.exit(1)
     try:
         parse_and_validate(yaml_content)
         print("OK")
@@ -908,7 +921,15 @@ def _cmd_validate(arg: str) -> None:
 
 def _cmd_serve(args: list[str]) -> None:
     import argparse
-    from .serve import run_serve
+    try:
+        from .serve import run_serve
+    except ImportError:
+        print(
+            "ERROR: stratum-mcp[serve] is not installed.\n"
+            "Install it with:  pip install stratum-mcp[serve]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     parser = argparse.ArgumentParser(prog="stratum-mcp serve")
     parser.add_argument("--host", default="127.0.0.1")

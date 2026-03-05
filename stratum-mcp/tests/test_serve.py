@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+
+pytest.importorskip("fastapi", reason="requires pip install stratum-mcp[serve]")
+
+from fastapi.testclient import TestClient  # noqa: E402
 
 from stratum_mcp.serve import (
     create_app,
