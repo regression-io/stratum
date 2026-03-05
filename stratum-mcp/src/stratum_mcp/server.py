@@ -12,9 +12,11 @@ from mcp.server.fastmcp import FastMCP, Context
 from .errors import IRParseError, IRValidationError, IRSemanticError, MCPExecutionError, exception_to_mcp_error
 from .executor import (
     FlowState,
+    _flows,
     create_flow_state,
     get_current_step_info,
     process_step_result,
+    resolve_gate,
     persist_flow,
     restore_flow,
     delete_persisted_flow,
@@ -31,9 +33,6 @@ mcp = FastMCP(
         "and tracks step results with ensure postcondition enforcement."
     ),
 )
-
-# In-memory flow state for the session lifetime.
-_flows: dict[str, FlowState] = {}
 
 
 @mcp.tool(description=(
@@ -72,8 +71,9 @@ async def stratum_plan(
         return {"status": "error", **exception_to_mcp_error(exc)}
 
     _flows[state.flow_id] = state
-    persist_flow(state)
-    return get_current_step_info(state)  # always non-None: schema enforces minItems: 1
+    step_info = get_current_step_info(state)  # may skip steps, mutating state
+    persist_flow(state)                        # persist AFTER skip mutations
+    return step_info  # always non-None: schema enforces minItems: 1
 
 
 @mcp.tool(description=(
@@ -99,6 +99,21 @@ async def stratum_step_done(
             }
         _flows[flow_id] = state
 
+    # Gate step rejection: must not process gate steps through stratum_step_done.
+    # This check fires before process_step_result so no state is mutated on rejection.
+    if state.current_idx < len(state.ordered_steps):
+        _cur = state.ordered_steps[state.current_idx]
+        _fn = state.spec.functions.get(_cur.function)
+        if _fn and _fn.mode == "gate":
+            return {
+                "status": "error",
+                "code": "gate_step_requires_gate_resolve",
+                "message": (
+                    f"Step '{_cur.id}' is a gate step. "
+                    "Use stratum_gate_resolve to resolve it."
+                ),
+            }
+
     try:
         status, violations = process_step_result(state, step_id, result)
     except MCPExecutionError as exc:
@@ -118,9 +133,10 @@ async def stratum_step_done(
     if status in ("ensure_failed", "schema_failed"):
         # Persist incremented attempts so retry budget survives an MCP server restart.
         # current_idx has not advanced — get_current_step_info returns the same step
-        # with updated retries_remaining.
-        persist_flow(state)
+        # with updated retries_remaining. Persist AFTER get_current_step_info in case
+        # skip mutations occur on subsequent steps (consistent with stratum_plan ordering).
         step_info = get_current_step_info(state)
+        persist_flow(state)
         return {
             **step_info,
             "status": status,
@@ -135,7 +151,7 @@ async def stratum_step_done(
         last_step = state.ordered_steps[-1]
         total_ms = int((time.monotonic() - state.flow_start) * 1000)
         return {
-            "status": "complete",
+            "status": state.terminal_status or "complete",
             "flow_id": state.flow_id,
             "output": state.step_outputs.get(last_step.id),
             "trace": [dataclasses.asdict(r) for r in state.records],
@@ -165,15 +181,179 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
     total_ms = int((time.monotonic() - state.flow_start) * 1000)
     is_complete = state.current_idx >= len(state.ordered_steps)
 
+    if state.terminal_status == "killed":
+        flow_status = "killed"
+    elif is_complete:
+        flow_status = "complete"
+    else:
+        flow_status = "in_progress"
+
     return {
         "flow_id": state.flow_id,
         "flow_name": state.flow_name,
-        "status": "complete" if is_complete else "in_progress",
+        "status": flow_status,
         "steps_completed": len(state.records),
         "total_steps": len(state.ordered_steps),
         "trace": [dataclasses.asdict(r) for r in state.records],
         "total_duration_ms": total_ms,
+        "round": state.round,
+        # rounds: always present; each element is {"round": N, "steps": [...record dicts]}
+        "rounds": [{"round": i, "steps": r} for i, r in enumerate(state.rounds)],
     }
+
+
+@mcp.tool(description=(
+    "Resolve a gate step in a flow (IR v0.2). "
+    "Inputs: flow_id (str), step_id (str, must be the current gate step), "
+    "outcome (str: 'approve' | 'revise' | 'kill'), "
+    "rationale (str, human-readable reason), "
+    "resolved_by (str: 'human' | 'agent' | 'system'). "
+    "approve routes to on_approve target (or completes the flow if null). "
+    "revise archives the current round and routes to on_revise target. "
+    "kill routes to on_kill target (or terminates the flow if null). "
+    "Returns next step to execute, status: complete, or status: killed."
+))
+async def stratum_gate_resolve(
+    flow_id: str,
+    step_id: str,
+    outcome: str,
+    rationale: str,
+    resolved_by: str,
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    # Reject if current step is not a gate step (before resolve_gate mutates state)
+    if state.current_idx >= len(state.ordered_steps):
+        return {
+            "status": "error",
+            "code": "flow_already_complete",
+            "message": "Flow is already complete",
+        }
+    current_step = state.ordered_steps[state.current_idx]
+    current_fn = state.spec.functions.get(current_step.function)
+    if current_fn is None or current_fn.mode != "gate":
+        return {
+            "status": "error",
+            "code": "not_a_gate_step",
+            "message": f"Step '{current_step.id}' is not a gate step",
+        }
+
+    result_status, extra = resolve_gate(state, step_id, outcome, rationale, resolved_by)
+
+    if result_status == "error":
+        return {"status": "error", **extra}
+
+    if result_status == "complete":
+        delete_persisted_flow(flow_id)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        return {
+            "status": "complete",
+            "flow_id": flow_id,
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    if result_status == "killed":
+        delete_persisted_flow(flow_id)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        return {
+            "status": "killed",
+            "flow_id": flow_id,
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    if result_status == "max_rounds_exceeded":
+        # GateRecord was written to state.records but not archived; persist the updated state.
+        persist_flow(state)
+        return {"status": "error", **extra}
+
+    # "execute_step" — route to the target step; persist AFTER get_current_step_info
+    # in case the routed-to step has skip_if that fires (mutating state).
+    next_step = get_current_step_info(state)
+    persist_flow(state)
+    return next_step
+
+
+@mcp.tool(description=(
+    "Check whether any pending gate step in a flow has exceeded its timeout (IR v0.2). "
+    "Input: flow_id (str). "
+    "If the current gate step has a timeout configured and the timeout has expired, "
+    "fires an auto-kill with resolved_by: system following the same on_kill routing "
+    "as an explicit kill outcome. "
+    "Returns the same response shapes as stratum_gate_resolve: execute_step, killed, or "
+    "status: no_timeout when no gate is pending or the timeout has not expired."
+))
+async def stratum_check_timeouts(flow_id: str, ctx: Context) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    if state.current_idx >= len(state.ordered_steps):
+        return {"status": "no_timeout", "message": "Flow is already complete"}
+
+    current_step = state.ordered_steps[state.current_idx]
+    fn_def = state.spec.functions.get(current_step.function)
+
+    if fn_def is None or fn_def.mode != "gate":
+        return {"status": "no_timeout", "message": "Current step is not a gate step"}
+
+    if fn_def.timeout is None:
+        return {"status": "no_timeout", "message": "Gate has no timeout configured"}
+
+    dispatched = state.dispatched_at.get(current_step.id)
+    if dispatched is None:
+        return {"status": "no_timeout", "message": "Gate not yet dispatched"}
+
+    elapsed = time.time() - dispatched
+    if elapsed < fn_def.timeout:
+        return {
+            "status": "no_timeout",
+            "remaining_seconds": fn_def.timeout - elapsed,
+        }
+
+    # Timeout expired — auto-kill with resolved_by=system
+    result_status, extra = resolve_gate(
+        state, current_step.id, "kill", "timeout", "system"
+    )
+
+    if result_status == "error":
+        return {"status": "error", **extra}
+
+    if result_status == "killed":
+        delete_persisted_flow(flow_id)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        return {
+            "status": "killed",
+            "flow_id": flow_id,
+            "reason": "timeout",
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    if result_status == "execute_step":
+        next_step = get_current_step_info(state)  # may skip; persist after
+        persist_flow(state)
+        return next_step
+
+    return {"status": "error", "message": f"Unexpected gate result: {result_status}"}
 
 
 @mcp.tool(description=(
@@ -246,7 +426,9 @@ async def stratum_revert(flow_id: str, label: str, ctx: Context) -> dict[str, An
             "available": list(state.checkpoints.keys()),
         }
 
-    next_step = get_current_step_info(state)
+    next_step = get_current_step_info(state)  # may skip steps, mutating state
+    persist_flow(state)                        # persist AFTER skip mutations
+
     if next_step is None:
         # Reverted to a post-completion checkpoint — unusual but valid
         last_step = state.ordered_steps[-1]

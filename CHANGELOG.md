@@ -69,6 +69,30 @@
 
 **Testing:** 211 tests passing (up from 79 at 0.1.3)
 
+**IR v0.2 — Gate / Round / Skip primitives**
+
+- `mode: gate` on functions — gate steps return `await_gate` instead of `execute_step`; `stratum_step_done` rejects gate steps; `stratum_gate_resolve` required
+- `stratum_gate_resolve` MCP tool — resolves gate steps with `approve | revise | kill`; `resolved_by: human | agent | system`; GateRecord written to trace
+- `stratum_check_timeouts` MCP tool — auto-kills gate steps that exceed their `timeout` (seconds); fires with `resolved_by: system`
+- Round archiving — `revise` archives the active round into `state.rounds`; resets active trace; increments `state.round`; `stratum_audit` returns `rounds: [{round, steps}]` unconditionally
+- `max_rounds` on flow definitions — `resolve_gate` returns `max_rounds_exceeded` error when round limit reached; GateRecord written but not archived
+- `skip_if` / `skip_reason` on steps — Boolean expression evaluated before dispatch; `$.steps.X.output.field` refs resolved inline; SkipRecord written, output set to None; downstream refs propagate None
+- `on_approve` / `on_revise` / `on_kill` routing — null = default terminal behaviour; named = route to that step; kill routing sets `terminal_status = "killed"` regardless of named cleanup step
+- `terminal_status` on FlowState — `stratum_audit` returns `status: killed` when set; `stratum_step_done` complete path uses `terminal_status or "complete"`
+
+**IR v0.2 semantic validation (enforced at parse time)**
+
+- Gate functions: `ensure`, `budget`, `retries` forbidden
+- Gate steps: `skip_if` forbidden; `on_approve` and `on_kill` must be explicitly declared (even if null); `on_revise` must be non-null, must not self-reference, must target a topologically-earlier step
+- Non-gate steps: `on_approve`, `on_revise`, `on_kill` forbidden
+- `declared_routing: frozenset` tracks which routing fields were explicitly present in YAML (distinguishes absent from null)
+- `retries_explicit: bool` tracks whether `retries` was explicitly declared
+- `_topo_positions()` computes topological execution order for `on_revise` ordering invariant
+- YAML `true` / `false` / `null` recognised in `skip_if` expressions in addition to Python-style literals
+- All server tool paths call `get_current_step_info()` before `persist_flow()` — skip mutations durable across restarts
+
+**Testing:** 305 tests passing (+94); new files: `test_gate_api.py` (9 contract tests), `test_gate_revise.py` (6 integration tests); `test_ir_schema.py` +12 v0.2 semantic invariant tests
+
 ---
 
 ## [0.1.3] — 2026-02-23

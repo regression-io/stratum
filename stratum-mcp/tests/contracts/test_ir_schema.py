@@ -193,3 +193,171 @@ flows:
 """
     with pytest.raises(IRValidationError):
         parse_and_validate(bad_ir)
+
+
+# ---------------------------------------------------------------------------
+# IR v0.2 gate semantic invariants
+# ---------------------------------------------------------------------------
+
+# Minimal valid v0.2 spec with one work step then a gate step. Used as the
+# baseline; individual tests mutate specific fields to provoke errors.
+_VALID_GATE_IR = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Produce output"
+    input: {}
+    output: Out
+  review:
+    mode: gate
+flows:
+  f:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+      - id: gate
+        function: review
+        on_approve: ~
+        on_revise: s1
+        on_kill: ~
+        depends_on: [s1]
+"""
+
+
+def test_valid_v02_gate_spec_parses():
+    """Baseline: a well-formed v0.2 spec with a gate step must parse without error."""
+    spec = parse_and_validate(_VALID_GATE_IR)
+    assert spec.version == "0.2"
+    assert spec.functions["review"].mode == "gate"
+    gate_step = next(s for s in spec.flows["f"].steps if s.id == "gate")
+    assert gate_step.on_revise == "s1"
+
+
+# --- Gate function constraints ---
+
+def test_gate_function_with_ensure_raises():
+    ir = _VALID_GATE_IR.replace(
+        "  review:\n    mode: gate",
+        "  review:\n    mode: gate\n    ensure: [\"true\"]",
+    )
+    with pytest.raises(IRSemanticError, match="ensure"):
+        parse_and_validate(ir)
+
+
+def test_gate_function_with_budget_raises():
+    ir = _VALID_GATE_IR.replace(
+        "  review:\n    mode: gate",
+        "  review:\n    mode: gate\n    budget:\n      ms: 5000",
+    )
+    with pytest.raises(IRSemanticError, match="budget"):
+        parse_and_validate(ir)
+
+
+def test_gate_function_with_retries_raises():
+    ir = _VALID_GATE_IR.replace(
+        "  review:\n    mode: gate",
+        "  review:\n    mode: gate\n    retries: 2",
+    )
+    with pytest.raises(IRSemanticError, match="retries"):
+        parse_and_validate(ir)
+
+
+# --- Gate step constraints ---
+
+def test_gate_step_with_skip_if_raises():
+    ir = _VALID_GATE_IR.replace(
+        "        on_kill: ~",
+        "        on_kill: ~\n        skip_if: \"true\"",
+    )
+    with pytest.raises(IRSemanticError, match="skip_if"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_missing_on_approve_raises():
+    """on_approve must be explicitly declared (even if null)."""
+    ir = _VALID_GATE_IR.replace("        on_approve: ~\n", "")
+    with pytest.raises(IRSemanticError, match="on_approve"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_missing_on_kill_raises():
+    """on_kill must be explicitly declared (even if null)."""
+    ir = _VALID_GATE_IR.replace("        on_kill: ~\n", "")
+    with pytest.raises(IRSemanticError, match="on_kill"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_null_on_revise_raises():
+    """on_revise must be a non-null step id — null means no rollback target."""
+    ir = _VALID_GATE_IR.replace("        on_revise: s1", "        on_revise: ~")
+    with pytest.raises(IRSemanticError, match="on_revise"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_self_referential_on_revise_raises():
+    """on_revise must not target the gate step itself."""
+    ir = _VALID_GATE_IR.replace("        on_revise: s1", "        on_revise: gate")
+    with pytest.raises(IRSemanticError, match="on_revise"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_on_revise_forward_target_raises():
+    """on_revise must target a topologically-earlier step, not a later one."""
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Produce output"
+    input: {}
+    output: Out
+  review:
+    mode: gate
+flows:
+  f:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+      - id: gate
+        function: review
+        on_approve: ~
+        on_revise: s2
+        on_kill: ~
+        depends_on: [s1]
+      - id: s2
+        function: work
+        inputs: {}
+        depends_on: [gate]
+"""
+    with pytest.raises(IRSemanticError, match="topologically-earlier"):
+        parse_and_validate(ir)
+
+
+def test_gate_step_on_revise_backward_target_is_valid():
+    """on_revise targeting a prior step is accepted (the normal rollback pattern)."""
+    spec = parse_and_validate(_VALID_GATE_IR)
+    gate_step = next(s for s in spec.flows["f"].steps if s.id == "gate")
+    assert gate_step.on_revise == "s1"
+
+
+def test_non_gate_step_with_on_approve_raises():
+    """Routing fields on non-gate steps are forbidden."""
+    ir = _VALID_GATE_IR.replace(
+        "      - id: s1\n        function: work\n        inputs: {}",
+        "      - id: s1\n        function: work\n        inputs: {}\n        on_approve: gate",
+    )
+    with pytest.raises(IRSemanticError, match="on_approve"):
+        parse_and_validate(ir)

@@ -334,6 +334,7 @@ async def test_stratum_audit_restores_in_progress_flow(patch_flows_dir):
     assert audit["status"] == "in_progress"
     assert audit["steps_completed"] == 1
     assert audit["total_steps"] == 2
+    assert "rounds" in audit, "rounds must always be present in stratum_audit output"
 
 
 @pytest.mark.asyncio

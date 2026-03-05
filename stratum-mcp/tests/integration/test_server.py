@@ -215,6 +215,7 @@ async def test_audit_returns_trace():
     assert audit["steps_completed"] == 1
     assert audit["total_steps"] == 1
     assert len(audit["trace"]) == 1
+    assert "rounds" in audit, "rounds must always be present in stratum_audit output"
 
 
 @pytest.mark.asyncio

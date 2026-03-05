@@ -1,6 +1,6 @@
 # Stratum Roadmap
 
-**Last updated:** 2026-02-25
+**Last updated:** 2026-03-05
 
 ---
 
@@ -50,6 +50,11 @@
 | T2-16 | Step output contracts (schema validation in `stratum_step_done`) | COMPLETE |
 | T2-17 | `stratum_commit` — explicit flow-state checkpoint with label | COMPLETE |
 | T2-18 | `stratum_revert` — roll back to a named checkpoint, trace records revert | COMPLETE |
+| T2-19 | IR v0.2 — `mode: gate`, `on_approve/on_revise/on_kill` routing, round archiving, `max_rounds`, `skip_if/skip_reason`, `terminal_status` | COMPLETE |
+| T2-20 | `stratum_gate_resolve` MCP tool — approve/revise/kill with `resolved_by`; GateRecord in trace | COMPLETE |
+| T2-21 | `stratum_check_timeouts` MCP tool — auto-kill gate steps that exceed `timeout`; `resolved_by: system` | COMPLETE |
+| T2-22 | IR v0.2 semantic validation — gate function/step invariants, `on_revise` topological ordering, `declared_routing`, `retries_explicit` | COMPLETE |
+| T2-23 | 305 passing tests; `test_gate_api.py`, `test_gate_revise.py`, v0.2 invariant tests in `test_ir_schema.py` | COMPLETE |
 
 ### Compose Integration
 
@@ -260,9 +265,11 @@ Retrieval precision benchmark: pre-load known patterns into each backend, run ta
 
 ## Prioritization Notes
 
-**Next up (as of 2026-03-04):**
+**Next up (as of 2026-03-05):**
+- T2-19 through T2-23 now complete — IR v0.2 gate/round/skip runtime fully implemented
 - D-4 (MCP registry) — discovery channel, low effort
-- D-5 (post to HN) — T1-11 now confirmed passing
+- D-5 (post to HN) — T1-11 confirmed passing, T2-19 IR v0.2 is a meaningful new capability to highlight
+- Publish `stratum-mcp` 0.2.0 to PyPI with IR v0.2
 
 **Longer horizon:**
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort

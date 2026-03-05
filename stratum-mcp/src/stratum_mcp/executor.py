@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import time
 import types
 import uuid
@@ -120,6 +121,9 @@ def resolve_ref(ref: str, flow_inputs: dict[str, Any], step_outputs: dict[str, A
       $.steps.<step_id>.output        → step_outputs[step_id]
       $.steps.<step_id>.output.<f>    → step_outputs[step_id][field]
       <literal>                       → returned as-is
+
+    Skipped steps have output=None. Any field access on a None output propagates None
+    rather than raising, matching the "skipped output resolves to null" contract.
     """
     if not ref.startswith("$"):
         return ref
@@ -147,7 +151,12 @@ def resolve_ref(ref: str, flow_inputs: dict[str, Any], step_outputs: dict[str, A
             raise RefResolutionError(
                 f"Expected '$.steps.<id>.output[.<field>]', got {ref!r}"
             )
+        # None propagation: skipped steps have output=None; any field access returns None.
+        if output is None:
+            return None
         for key in parts[3:]:
+            if output is None:
+                return None
             if isinstance(output, dict):
                 output = output[key]
             else:
@@ -165,6 +174,46 @@ def resolve_inputs(
         param: resolve_ref(ref, flow_inputs, step_outputs)
         for param, ref in input_refs.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# skip_if evaluation
+# ---------------------------------------------------------------------------
+
+def evaluate_skip_if(
+    expr: str,
+    flow_inputs: dict[str, Any],
+    step_outputs: dict[str, Any],
+) -> bool:
+    """
+    Evaluate a skip_if expression against current flow state.
+
+    $ references ($.steps.X.output.field, $.input.field) are resolved first;
+    unresolvable or null references evaluate to None rather than raising.
+    The substituted expression is then evaluated as a Python boolean.
+
+    Returns False on any compilation or evaluation error (conservative: don't skip).
+    """
+    if "__" in expr:
+        return False  # dunder guard
+
+    def replace_ref(m: re.Match) -> str:
+        ref_str = m.group(0)
+        try:
+            value = resolve_ref(ref_str, flow_inputs, step_outputs)
+            return repr(value)
+        except (RefResolutionError, Exception):
+            return repr(None)
+
+    # Replace all $.xxx.yyy references with their Python repr
+    processed = re.sub(r'\$\.[A-Za-z0-9_.]+', replace_ref, expr)
+
+    try:
+        code = compile(processed, "<skip_if>", "eval")
+        return bool(eval(code, {"__builtins__": {}, "None": None, "True": True, "False": False,
+                                "true": True, "false": False, "null": None}))
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +260,64 @@ class StepRecord:
     function_name: str
     attempts: int
     duration_ms: int
+    # "type" field matches the documented trace contract ("step" | "gate" | "skip")
+    type: str = "step"  # noqa: A003 — shadows builtin intentionally for API contract
+    round: int = 0
+    round_start_step_id: str | None = None
+
+
+@dataclass
+class GateRecord:
+    """Trace entry written when a gate step is resolved via stratum_gate_resolve."""
+    step_id: str
+    outcome: str          # "approve" | "revise" | "kill"
+    rationale: str
+    resolved_by: str      # "human" | "agent" | "system"
+    duration_ms: int
+    type: str = "gate"    # noqa: A003
+    round: int = 0
+    round_start_step_id: str | None = None
+
+
+@dataclass
+class SkipRecord:
+    """Trace entry written when a step is skipped due to skip_if evaluating to True."""
+    step_id: str
+    skip_reason: str
+    type: str = "skip"    # noqa: A003
+    round: int = 0
+    round_start_step_id: str | None = None
+
+
+def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord:
+    """Reconstruct a StepRecord, GateRecord, or SkipRecord from a persisted dict."""
+    # Accept both "type" (current) and "record_type" (legacy field name) for backward compat.
+    rec_type = r.get("type", r.get("record_type", "step"))
+    if rec_type == "gate":
+        return GateRecord(
+            step_id=r["step_id"],
+            outcome=r["outcome"],
+            rationale=r["rationale"],
+            resolved_by=r["resolved_by"],
+            duration_ms=r["duration_ms"],
+            round=r.get("round", 0),
+            round_start_step_id=r.get("round_start_step_id"),
+        )
+    if rec_type == "skip":
+        return SkipRecord(
+            step_id=r["step_id"],
+            skip_reason=r["skip_reason"],
+            round=r.get("round", 0),
+            round_start_step_id=r.get("round_start_step_id"),
+        )
+    return StepRecord(
+        step_id=r["step_id"],
+        function_name=r["function_name"],
+        attempts=r["attempts"],
+        duration_ms=r["duration_ms"],
+        round=r.get("round", 0),
+        round_start_step_id=r.get("round_start_step_id"),
+    )
 
 
 @dataclass
@@ -221,13 +328,27 @@ class FlowState:
     spec: IRSpec
     ordered_steps: list[IRStepDef]
     inputs: dict[str, Any]           # flow-level inputs
-    step_outputs: dict[str, Any]     # accumulated: step_id → output
-    records: list[StepRecord]        # completed step records
+    step_outputs: dict[str, Any]     # accumulated: step_id → output (None for skipped)
+    records: list[StepRecord | GateRecord | SkipRecord]  # active round's completed records
     attempts: dict[str, int]         # current attempt count per step_id
     dispatched_at: dict[str, float]  # when each step was sent to Claude Code
     flow_start: float
     current_idx: int = 0
     checkpoints: dict[str, Any] = field(default_factory=dict)  # label → snapshot
+    # v0.2: round tracking
+    round: int = 0
+    rounds: list[list[dict]] = field(default_factory=list)  # archived rounds (record-dicts)
+    round_start_step_id: str | None = None  # first step id of the current round
+    # v0.2: terminal status — set to "killed" when gate kill fires with null on_kill
+    terminal_status: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# In-memory flow state for the session lifetime.
+# Declared here (not in server.py) so tests can inspect via executor_mod._flows.
+# ---------------------------------------------------------------------------
+
+_flows: dict[str, FlowState] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -241,15 +362,19 @@ def persist_flow(state: FlowState) -> None:
     """Write flow state to ~/.stratum/flows/{flow_id}.json."""
     _FLOWS_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        "flow_id":      state.flow_id,
-        "flow_name":    state.flow_name,
-        "raw_spec":     state.raw_spec,
-        "inputs":       state.inputs,
-        "step_outputs": state.step_outputs,
-        "records":      [dataclasses.asdict(r) for r in state.records],
-        "attempts":     state.attempts,
-        "current_idx":  state.current_idx,
-        "checkpoints":  state.checkpoints,
+        "flow_id":            state.flow_id,
+        "flow_name":          state.flow_name,
+        "raw_spec":           state.raw_spec,
+        "inputs":             state.inputs,
+        "step_outputs":       state.step_outputs,
+        "records":            [dataclasses.asdict(r) for r in state.records],
+        "attempts":           state.attempts,
+        "current_idx":        state.current_idx,
+        "checkpoints":        state.checkpoints,
+        "round":              state.round,
+        "rounds":             state.rounds,
+        "round_start_step_id": state.round_start_step_id,
+        "terminal_status":    state.terminal_status,
     }
     (_FLOWS_DIR / f"{state.flow_id}.json").write_text(json.dumps(payload, indent=2))
 
@@ -280,15 +405,7 @@ def restore_flow(flow_id: str) -> "FlowState | None":
     if flow_def is None:
         return None
     ordered = _topological_sort(flow_def)
-    records = [
-        StepRecord(
-            step_id=r["step_id"],
-            function_name=r["function_name"],
-            attempts=r["attempts"],
-            duration_ms=r["duration_ms"],
-        )
-        for r in payload.get("records", [])
-    ]
+    records = [_record_from_dict(r) for r in payload.get("records", [])]
     return FlowState(
         flow_id=payload["flow_id"],
         flow_name=payload["flow_name"],
@@ -303,6 +420,10 @@ def restore_flow(flow_id: str) -> "FlowState | None":
         flow_start=time.monotonic(),
         current_idx=payload["current_idx"],
         checkpoints=payload.get("checkpoints", {}),
+        round=payload.get("round", 0),
+        rounds=payload.get("rounds", []),
+        round_start_step_id=payload.get("round_start_step_id"),
+        terminal_status=payload.get("terminal_status"),
     )
 
 
@@ -322,15 +443,20 @@ def commit_checkpoint(state: FlowState, label: str) -> None:
     """
     Snapshot current mutable state under ``label``.
 
-    Stores step_outputs, attempts, records, and current_idx.
+    Stores step_outputs, attempts, records, current_idx, round, rounds,
+    round_start_step_id, and terminal_status.
     Overwrites any existing checkpoint with the same label.
     Persists the updated flow to disk.
     """
     state.checkpoints[label] = {
-        "step_outputs": copy.deepcopy(state.step_outputs),
-        "attempts":     dict(state.attempts),
-        "records":      [dataclasses.asdict(r) for r in state.records],
-        "current_idx":  state.current_idx,
+        "step_outputs":       copy.deepcopy(state.step_outputs),
+        "attempts":           dict(state.attempts),
+        "records":            [dataclasses.asdict(r) for r in state.records],
+        "current_idx":        state.current_idx,
+        "round":              state.round,
+        "rounds":             copy.deepcopy(state.rounds),
+        "round_start_step_id": state.round_start_step_id,
+        "terminal_status":    state.terminal_status,
     }
     persist_flow(state)
 
@@ -345,18 +471,14 @@ def revert_checkpoint(state: FlowState, label: str) -> bool:
     snap = state.checkpoints.get(label)
     if snap is None:
         return False
-    state.step_outputs = copy.deepcopy(snap["step_outputs"])
-    state.attempts     = dict(snap["attempts"])
-    state.records      = [
-        StepRecord(
-            step_id=r["step_id"],
-            function_name=r["function_name"],
-            attempts=r["attempts"],
-            duration_ms=r["duration_ms"],
-        )
-        for r in snap["records"]
-    ]
-    state.current_idx  = snap["current_idx"]
+    state.step_outputs       = copy.deepcopy(snap["step_outputs"])
+    state.attempts           = dict(snap["attempts"])
+    state.records            = [_record_from_dict(r) for r in snap["records"]]
+    state.current_idx        = snap["current_idx"]
+    state.round              = snap.get("round", 0)
+    state.rounds             = copy.deepcopy(snap.get("rounds", []))
+    state.round_start_step_id = snap.get("round_start_step_id")
+    state.terminal_status    = snap.get("terminal_status")
     persist_flow(state)
     return True
 
@@ -367,6 +489,7 @@ def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any], raw_
     if flow_def is None:
         raise MCPExecutionError(f"Flow '{flow_name}' not found in spec")
     ordered = _topological_sort(flow_def)
+    first_step_id = ordered[0].id if ordered else None
     return FlowState(
         flow_id=str(uuid.uuid4()),
         flow_name=flow_name,
@@ -380,6 +503,7 @@ def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any], raw_
         dispatched_at={},
         flow_start=time.monotonic(),
         current_idx=0,
+        round_start_step_id=None,  # round-0 records carry None per contract
     )
 
 
@@ -387,12 +511,46 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
     """
     Return the current step as a dict Claude Code can act on, with resolved inputs.
     Records dispatch time for duration tracking. Returns None if the flow is complete.
+
+    skip_if is evaluated before dispatch: if the expression is true the step is
+    skipped (SkipRecord written, output set to None) and the next step is returned.
+    Gate steps return status: "await_gate" instead of "execute_step".
     """
     if state.current_idx >= len(state.ordered_steps):
         return None
 
     step = state.ordered_steps[state.current_idx]
     fn_def = state.spec.functions[step.function]
+
+    # Evaluate skip_if before dispatching (non-gate steps only; gates cannot be skipped).
+    if step.skip_if and fn_def.mode != "gate":
+        should_skip = evaluate_skip_if(step.skip_if, state.inputs, state.step_outputs)
+        if should_skip:
+            state.step_outputs[step.id] = None
+            state.records.append(SkipRecord(
+                step_id=step.id,
+                skip_reason=step.skip_reason or f"skip_if: {step.skip_if}",
+                round=state.round,
+                round_start_step_id=state.round_start_step_id,
+            ))
+            state.current_idx += 1
+            return get_current_step_info(state)  # tail-recurse for next step
+
+    if fn_def.mode == "gate":
+        # Use wall-clock time for gate dispatch so timeout detection works correctly.
+        state.dispatched_at[step.id] = time.time()
+        return {
+            "status": "await_gate",
+            "flow_id": state.flow_id,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+            "step_id": step.id,
+            "function": step.function,
+            "on_approve": step.on_approve,
+            "on_revise": step.on_revise,
+            "on_kill": step.on_kill,
+            "timeout": fn_def.timeout,
+        }
 
     try:
         resolved = resolve_inputs(step.inputs, state.inputs, state.step_outputs)
@@ -431,8 +589,8 @@ def process_step_result(
     Record a completed step result and check ensure expressions.
 
     Returns:
-      ("ok", [])                        — ensures passed, current_idx advanced
-      ("ensure_failed", [violations])   — ensures failed, retries remain
+      ("ok", [])                          — ensures passed, current_idx advanced
+      ("ensure_failed", [violations])     — ensures failed, retries remain
       ("retries_exhausted", [violations]) — ensures failed, no retries left
     """
     if state.current_idx >= len(state.ordered_steps):
@@ -460,6 +618,8 @@ def process_step_result(
                     function_name=fn_def.name,
                     attempts=attempt,
                     duration_ms=duration_ms,
+                    round=state.round,
+                    round_start_step_id=state.round_start_step_id,
                 ))
                 return ("retries_exhausted", schema_errors)
             return ("schema_failed", schema_errors)
@@ -483,6 +643,8 @@ def process_step_result(
                 function_name=fn_def.name,
                 attempts=attempt,
                 duration_ms=duration_ms,
+                round=state.round,
+                round_start_step_id=state.round_start_step_id,
             ))
             return ("retries_exhausted", violations)
         return ("ensure_failed", violations)
@@ -493,6 +655,163 @@ def process_step_result(
         function_name=fn_def.name,
         attempts=attempt,
         duration_ms=duration_ms,
+        round=state.round,
+        round_start_step_id=state.round_start_step_id,
     ))
     state.current_idx += 1
     return ("ok", [])
+
+
+# ---------------------------------------------------------------------------
+# Gate resolution (IR v0.2)
+# ---------------------------------------------------------------------------
+
+_VALID_OUTCOMES   = frozenset({"approve", "revise", "kill"})
+_VALID_RESOLVERS  = frozenset({"human", "agent", "system"})
+
+
+def resolve_gate(
+    state: FlowState,
+    step_id: str,
+    outcome: str,
+    rationale: str,
+    resolved_by: str,
+) -> tuple[str, dict[str, Any]]:
+    """
+    Resolve a gate step with the given outcome.
+
+    Returns (status, extra) where status is one of:
+      "complete"             — flow finished (approve with null on_approve)
+      "killed"               — flow terminated (kill with null on_kill)
+      "execute_step"         — routing to a named step
+      "max_rounds_exceeded"  — revise refused; GateRecord written but not archived
+      "error"                — bad call (wrong step, invalid outcome/resolver, etc.)
+
+    extra contains additional context for the server to include in its response.
+    """
+    if outcome not in _VALID_OUTCOMES:
+        return ("error", {
+            "code": "invalid_outcome",
+            "message": f"outcome must be one of {sorted(_VALID_OUTCOMES)}, got {outcome!r}",
+        })
+    if resolved_by not in _VALID_RESOLVERS:
+        return ("error", {
+            "code": "invalid_resolved_by",
+            "message": f"resolved_by must be one of {sorted(_VALID_RESOLVERS)}, got {resolved_by!r}",
+        })
+
+    if state.current_idx >= len(state.ordered_steps):
+        return ("error", {"code": "flow_already_complete", "message": "Flow is already complete"})
+
+    step = state.ordered_steps[state.current_idx]
+    if step.id != step_id:
+        return ("error", {
+            "code": "wrong_step",
+            "message": f"Expected gate step '{step.id}', got '{step_id}'",
+        })
+
+    fn_def = state.spec.functions[step.function]
+    if fn_def.mode != "gate":
+        return ("error", {
+            "code": "not_a_gate_step",
+            "message": f"Step '{step_id}' is not a gate step (mode={fn_def.mode!r})",
+        })
+
+    # Gate steps use wall-clock time for dispatch; duration may be inaccurate after restart.
+    dispatched = state.dispatched_at.get(step_id)
+    duration_ms = int((time.time() - dispatched) * 1000) if dispatched is not None else 0
+
+    gate_record = GateRecord(
+        step_id=step_id,
+        outcome=outcome,
+        rationale=rationale,
+        resolved_by=resolved_by,
+        duration_ms=duration_ms,
+        round=state.round,
+        round_start_step_id=state.round_start_step_id,
+    )
+
+    if outcome == "approve":
+        state.records.append(gate_record)
+        if step.on_approve is None:
+            # Null on_approve → complete the flow
+            state.current_idx = len(state.ordered_steps)
+            return ("complete", {})
+        # Named on_approve → route to that step
+        target_idx = next(
+            (i for i, s in enumerate(state.ordered_steps) if s.id == step.on_approve), None
+        )
+        if target_idx is None:
+            return ("error", {
+                "code": "step_not_found",
+                "message": f"on_approve target '{step.on_approve}' not found in flow",
+            })
+        state.current_idx = target_idx
+        return ("execute_step", {"target_step_id": step.on_approve})
+
+    elif outcome == "revise":
+        # Two-phase operation: GateRecord written first, then max_rounds checked.
+        # If max_rounds exceeded, GateRecord stays in state.records but is NOT archived.
+        state.records.append(gate_record)
+
+        flow_def = state.spec.flows[state.flow_name]
+        if flow_def.max_rounds is not None and state.round >= flow_def.max_rounds:
+            return ("max_rounds_exceeded", {
+                "code": "max_rounds_exceeded",
+                "message": f"Maximum rounds ({flow_def.max_rounds}) exceeded",
+                "round": state.round,
+            })
+
+        if step.on_revise is None:
+            return ("error", {
+                "code": "missing_on_revise",
+                "message": f"Gate step '{step_id}' has no on_revise target configured",
+            })
+
+        target_id = step.on_revise
+        target_idx = next(
+            (i for i, s in enumerate(state.ordered_steps) if s.id == target_id), None
+        )
+        if target_idx is None:
+            return ("error", {
+                "code": "step_not_found",
+                "message": f"on_revise target '{target_id}' not found in flow",
+            })
+
+        # Archive current active records (including the GateRecord just appended)
+        state.rounds.append([dataclasses.asdict(r) for r in state.records])
+
+        # Clear active state from on_revise target onward
+        steps_to_clear = {s.id for s in state.ordered_steps[target_idx:]}
+        for sid in list(state.step_outputs.keys()):
+            if sid in steps_to_clear:
+                del state.step_outputs[sid]
+        for sid in list(state.attempts.keys()):
+            if sid in steps_to_clear:
+                del state.attempts[sid]
+        state.records = []
+        state.current_idx = target_idx
+        state.round += 1
+        state.round_start_step_id = target_id
+
+        return ("execute_step", {"target_step_id": target_id})
+
+    else:  # outcome == "kill"
+        state.records.append(gate_record)
+        if step.on_kill is None:
+            # Null on_kill → terminate the flow immediately
+            state.current_idx = len(state.ordered_steps)
+            state.terminal_status = "killed"
+            return ("killed", {})
+        # Named on_kill → route to terminal step (same branch semantics as approve)
+        target_idx = next(
+            (i for i, s in enumerate(state.ordered_steps) if s.id == step.on_kill), None
+        )
+        if target_idx is None:
+            return ("error", {
+                "code": "step_not_found",
+                "message": f"on_kill target '{step.on_kill}' not found in flow",
+            })
+        state.current_idx = target_idx
+        state.terminal_status = "killed"  # flow is killed even when routing to a cleanup step
+        return ("execute_step", {"target_step_id": step.on_kill})

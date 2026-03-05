@@ -78,6 +78,7 @@ async def test_roundtrip_audit_after_completion():
     assert audit["steps_completed"] == 1
     assert audit["trace"][0]["step_id"] == "s1"
     assert isinstance(audit["total_duration_ms"], int)
+    assert "rounds" in audit, "rounds must always be present in stratum_audit output"
 
 
 @pytest.mark.asyncio
