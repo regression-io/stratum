@@ -2,13 +2,12 @@
 
 ## What This Repo Is
 
-**Stratum** — execution runtime for AI-driven development. Three shipped components:
+**Stratum** — headless execution kernel for AI-driven development. Two shipped components:
 
 - **`src/stratum/`** — Python library (`@pipeline`, `@phase`, `stratum.run()`). Published as `stratum-py` on PyPI.
-- **`stratum-mcp/`** — MCP server (`stratum_plan`, `stratum_step_done`, `stratum_audit`). Published as `stratum-mcp` on PyPI.
-- **`app/`** — *(Extracted)* Compose web app now lives at `/Users/ruze/reg/my/forge/compose/` as a standalone project. The `app/` directory here is the legacy source.
+- **`stratum-mcp/`** — MCP server (`stratum_plan`, `stratum_step_done`, `stratum_audit`) + query/gate CLI. Published as `stratum-mcp` on PyPI.
 
-Companion: **`stratum-ui/`** — first-party reference UI for pipeline monitoring and gate approval. Separate FastAPI project.
+UI and pipeline monitoring live in **Compose** (`/Users/ruze/reg/my/forge/compose/`), which integrates with stratum via the query/gate CLI contract.
 
 ## Repo Layout
 
@@ -21,7 +20,6 @@ stratum-mcp/           — MCP server (FastMCP, fastapi)
     task_compiler.py   — tasks/*.md → .stratum.yaml
     skills/            — stratum-build, stratum-speckit, stratum-plan, ...
     hooks/             — session-start/stop/failure shell hooks
-stratum-ui/            — Reference UI (FastAPI + uvicorn)
 app/                   — (Legacy) Compose source — extracted to standalone project
                          See /Users/ruze/reg/my/forge/compose/
 docs/                  — Stratum-level docs
@@ -52,7 +50,7 @@ stratum-mcp compile <tasks-dir>   # compile tasks/*.md → .stratum.yaml
 
 ## Key Docs
 
-- `ROADMAP.md` — all tracks (T1 Python lib → T6 stratum-ui → Evaluation)
+- `ROADMAP.md` — all tracks (T1 Python lib → T5 MCP → Evaluation)
 - `stratum-mcp/src/stratum_mcp/skills/` — skill reference for stratum-build, stratum-speckit
 - `docs/app/` — full Compose design history: brainstorm, PRD, discovery, decisions, journal
 

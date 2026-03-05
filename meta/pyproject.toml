@@ -13,7 +13,7 @@ authors = [{name = "Stratum", email = "stratum@regression.io"}]
 keywords = ["llm", "ai", "mcp", "claude-code", "structured-outputs"]
 dependencies = [
     "stratum-py>=0.1.1",
-    "stratum-mcp[serve]>=0.1.7",
+    "stratum-mcp>=0.1.7",
 ]
 
 [project.scripts]

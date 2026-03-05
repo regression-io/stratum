@@ -4,8 +4,7 @@ Meta-package. Installs the full Stratum stack in one command:
 
 ```bash
 pip install stratum
-stratum install   # register MCP + install UI
-stratum serve     # start API server + UI on :7821
+stratum install   # register MCP server with Claude Code
 ```
 
 Components:

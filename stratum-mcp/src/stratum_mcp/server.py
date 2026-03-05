@@ -920,53 +920,6 @@ def _cmd_validate(arg: str) -> None:
         sys.exit(1)
 
 
-def _cmd_serve(args: list[str]) -> None:
-    import argparse
-    # Parse args first so --help works even without [serve] extras installed.
-    parser = argparse.ArgumentParser(prog="stratum-mcp serve")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=7821)
-    parser.add_argument("--token", default=None)
-    parser.add_argument("--project-dir", default=".")
-    parser.add_argument(
-        "--allow-origin", dest="allow_origins", action="append", metavar="ORIGIN",
-        help="Allowed CORS origin (repeatable). Defaults to * for loopback.",
-    )
-    parser.add_argument("--tls-cert", default=None, metavar="PATH", help="TLS certificate file (PEM)")
-    parser.add_argument("--tls-key", default=None, metavar="PATH", help="TLS private key file (PEM)")
-    parsed = parser.parse_args(args)
-
-    host = parsed.host
-    token = parsed.token
-    # Security invariant: refuse non-loopback without token
-    loopback = {"127.0.0.1", "localhost", "::1"}
-    if host not in loopback and not token:
-        print("ERROR: non-loopback --host requires --token. Refusing to start.", file=sys.stderr)
-        sys.exit(1)
-
-    # Import after argparse so --help is available without [serve] extras.
-    try:
-        from .serve import run_serve
-    except ModuleNotFoundError as exc:
-        if exc.name in {"fastapi", "uvicorn", "pydantic"}:
-            print(
-                "ERROR: stratum-mcp[serve] is not installed.\n"
-                "Install it with:  pip install stratum-mcp[serve]",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        raise  # unrelated import bug inside serve.py — surface the real traceback
-
-    run_serve(
-        host=host,
-        port=parsed.port,
-        token=token,
-        project_dir=Path(parsed.project_dir),
-        allowed_origins=parsed.allow_origins,  # None → wildcard default in create_app
-        tls_cert=parsed.tls_cert,
-        tls_key=parsed.tls_key,
-    )
-
 
 # ---------------------------------------------------------------------------
 # query / gate helpers
@@ -1168,7 +1121,6 @@ def _cmd_help() -> None:
     print("Commands:")
     print("  install              Register MCP server and skills with Claude Code")
     print("  uninstall            Remove MCP server registration and skills")
-    print("  serve                Start the JSON API server (stratum-mcp serve --help)")
     print("  query flows          List all persisted flows (JSON)")
     print("  query flow <id>      Full state for a single flow (JSON)")
     print("  query gates          List all pending gate steps (JSON)")
@@ -1187,9 +1139,6 @@ def main() -> None:
         cmd = sys.argv[1]
         if cmd in ("-h", "--help", "help"):
             _cmd_help()
-            return
-        if cmd == "serve":
-            _cmd_serve(sys.argv[2:])
             return
         if cmd == "install":
             _cmd_setup()
