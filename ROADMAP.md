@@ -263,13 +263,42 @@ Retrieval precision benchmark: pre-load known patterns into each backend, run ta
 
 ---
 
+## Pre-release Debt (stratum-mcp 0.2.0)
+
+Must be resolved before publishing 0.2.0 to PyPI.
+
+### Must Fix
+
+| ID | Item | Location | Status |
+|---|---|---|---|
+| R-1 | `stratum-mcp serve` without `[serve]` extra raises raw `ModuleNotFoundError`; catch `ImportError` and print install hint | `server.py:909` | PLANNED |
+| R-2 | `test_serve.py` imports `fastapi.testclient` unconditionally — breaks `pytest` on base install; guard with `pytest.importorskip` or optional marker | `tests/test_serve.py:11` | PLANNED |
+| R-3 | `_cmd_validate` swallows `OSError` silently — permission-denied on a path is treated as inline YAML; surface file errors explicitly | `server.py:897` | PLANNED |
+
+### Should Fix
+
+| ID | Item | Location | Status |
+|---|---|---|---|
+| R-4 | CORS `allow_origins=["*"]` hardcoded — make configurable via `create_app()` parameter | `serve.py:450` | PLANNED |
+| R-5 | `"record_type"` legacy alias in `_record_from_dict` — dead compat shim; 0.2.0 is a clean break | `executor.py:294` | PLANNED |
+| R-6 | `pydantic` not declared in `[serve]` extras — undeclared transitive dependency | `pyproject.toml:29` | PLANNED |
+| R-7 | `stratum_gate_resolve` complete path returns no `output` field; `stratum_step_done` complete path does — decide canonical shape and align | `server.py:259`, `server.py:151` | PLANNED |
+| R-8 | No tests for `stratum_draft_pipeline` MCP tool | `server.py:518` | PLANNED |
+
+### Cleanup (low risk, do while here)
+
+| ID | Item | Location | Status |
+|---|---|---|---|
+| R-9 | `first_step_id` computed but never used after `round_start_step_id=None` change | `executor.py:492` | PLANNED |
+| R-10 | `import importlib.resources` dead import inside `_cmd_setup` | `server.py:731` | PLANNED |
+
+---
+
 ## Prioritization Notes
 
 **Next up (as of 2026-03-05):**
-- T2-19 through T2-23 now complete — IR v0.2 gate/round/skip runtime fully implemented
-- D-4 (MCP registry) — discovery channel, low effort
-- D-5 (post to HN) — T1-11 confirmed passing, T2-19 IR v0.2 is a meaningful new capability to highlight
-- Publish `stratum-mcp` 0.2.0 to PyPI with IR v0.2
+- R-1 through R-10 — pre-release debt cleanup before `stratum-mcp` 0.2.0
+- Then: publish 0.2.0 to PyPI, D-4 (MCP registry), D-5 (HN/r/ClaudeAI post)
 
 **Longer horizon:**
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort
