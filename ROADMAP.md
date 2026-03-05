@@ -204,20 +204,19 @@ never by writing `.stratum.yaml` by hand. See `docs/features/pipeline-authoring/
 
 ---
 
-## Track 6 — stratum-ui
+## Track 6 — stratum-ui *(SUPERSEDED)*
 
-Separate project. First-party reference UI for Stratum. Four responsibilities: monitor pipeline
-runs, approve/reject gate-blocked phases, edit pipeline definitions visually, generate output
-(`stratum.toml`, `@pipeline` Python, or `.stratum.yaml` IR). Talks directly to the filesystem
-via a thin local HTTP server — not an MCP client.
+**Removed 2026-03-05.** stratum-ui (FastAPI + React, `:7821`) has been deleted. Pipeline monitoring
+and gate approval now live in Compose, which integrates with stratum via the stable query/gate CLI
+contract (`stratum-mcp query`, `stratum-mcp gate`) rather than direct file access or an HTTP server.
 
 | ID | Item | Status |
 |---|---|---|
-| T6-1 | Project scaffold — FastAPI + uvicorn, src layout, `/api/status` `/api/runs` `/api/gates` endpoints | COMPLETE |
-| T6-2 | Monitor view — `GET /` run list, `GET /runs/{id}` phase detail with auto-refresh | COMPLETE |
-| T6-3 | Gate queue — `GET /gates` view with approve/reject forms, `POST /gates/{id}/{phase}/approve|reject` | COMPLETE |
-| T6-4 | Pipeline editor — `GET /editor` form UI, phase CRUD + reorder, draft persisted to `.stratum/pipeline-draft.json` | COMPLETE |
-| T6-5 | Generate — export to `stratum.toml`, `@pipeline` Python, `.stratum.yaml` IR | COMPLETE |
+| T6-1 | Project scaffold | SUPERSEDED |
+| T6-2 | Monitor view | SUPERSEDED |
+| T6-3 | Gate queue | SUPERSEDED |
+| T6-4 | Pipeline editor | SUPERSEDED |
+| T6-5 | Generate | SUPERSEDED |
 
 ---
 
