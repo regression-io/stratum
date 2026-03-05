@@ -617,3 +617,43 @@ def test_generate_python_hyphenated_input_name_is_valid_identifier() -> None:
     out = _generate_python({"name": "p", "phases": phases})
     assert "async def impl(self, pre_gate)" in out
     assert "async def impl(self, pre-gate)" not in out
+
+
+# ---------------------------------------------------------------------------
+# CORS / allowed_origins
+# ---------------------------------------------------------------------------
+
+def test_cors_defaults_to_wildcard(project_dir: Path) -> None:
+    """No allowed_origins → Access-Control-Allow-Origin: * on preflight."""
+    client = TestClient(create_app(project_dir, allowed_origins=None), raise_server_exceptions=False)
+    resp = client.options(
+        "/api/status",
+        headers={"Origin": "https://example.com", "Access-Control-Request-Method": "GET"},
+    )
+    assert resp.headers.get("access-control-allow-origin") == "*"
+
+
+def test_cors_explicit_origin_is_reflected(project_dir: Path) -> None:
+    """Explicit allowed_origins list → that origin is reflected, others blocked."""
+    client = TestClient(
+        create_app(project_dir, allowed_origins=["https://app.example.com"]),
+        raise_server_exceptions=False,
+    )
+    resp = client.options(
+        "/api/status",
+        headers={"Origin": "https://app.example.com", "Access-Control-Request-Method": "GET"},
+    )
+    assert resp.headers.get("access-control-allow-origin") == "https://app.example.com"
+
+
+def test_cors_disallowed_origin_not_reflected(project_dir: Path) -> None:
+    """Origin not in the allowlist is not echoed back."""
+    client = TestClient(
+        create_app(project_dir, allowed_origins=["https://app.example.com"]),
+        raise_server_exceptions=False,
+    )
+    resp = client.options(
+        "/api/status",
+        headers={"Origin": "https://evil.example.com", "Access-Control-Request-Method": "GET"},
+    )
+    assert resp.headers.get("access-control-allow-origin", "") != "https://evil.example.com"

@@ -921,18 +921,7 @@ def _cmd_validate(arg: str) -> None:
 
 def _cmd_serve(args: list[str]) -> None:
     import argparse
-    try:
-        from .serve import run_serve
-    except ModuleNotFoundError as exc:
-        if exc.name in {"fastapi", "uvicorn", "pydantic"}:
-            print(
-                "ERROR: stratum-mcp[serve] is not installed.\n"
-                "Install it with:  pip install stratum-mcp[serve]",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        raise  # unrelated import bug inside serve.py — surface the real traceback
-
+    # Parse args first so --help works even without [serve] extras installed.
     parser = argparse.ArgumentParser(prog="stratum-mcp serve")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=7821)
@@ -953,6 +942,19 @@ def _cmd_serve(args: list[str]) -> None:
     if host not in loopback and not token:
         print("ERROR: non-loopback --host requires --token. Refusing to start.", file=sys.stderr)
         sys.exit(1)
+
+    # Import after argparse so --help is available without [serve] extras.
+    try:
+        from .serve import run_serve
+    except ModuleNotFoundError as exc:
+        if exc.name in {"fastapi", "uvicorn", "pydantic"}:
+            print(
+                "ERROR: stratum-mcp[serve] is not installed.\n"
+                "Install it with:  pip install stratum-mcp[serve]",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raise  # unrelated import bug inside serve.py — surface the real traceback
 
     run_serve(
         host=host,
