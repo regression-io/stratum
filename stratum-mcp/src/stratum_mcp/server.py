@@ -923,19 +923,25 @@ def _cmd_serve(args: list[str]) -> None:
     import argparse
     try:
         from .serve import run_serve
-    except ImportError:
-        print(
-            "ERROR: stratum-mcp[serve] is not installed.\n"
-            "Install it with:  pip install stratum-mcp[serve]",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    except ModuleNotFoundError as exc:
+        if exc.name in {"fastapi", "uvicorn", "pydantic"}:
+            print(
+                "ERROR: stratum-mcp[serve] is not installed.\n"
+                "Install it with:  pip install stratum-mcp[serve]",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raise  # unrelated import bug inside serve.py — surface the real traceback
 
     parser = argparse.ArgumentParser(prog="stratum-mcp serve")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=7821)
     parser.add_argument("--token", default=None)
     parser.add_argument("--project-dir", default=".")
+    parser.add_argument(
+        "--allow-origin", dest="allow_origins", action="append", metavar="ORIGIN",
+        help="Allowed CORS origin (repeatable). Defaults to * for loopback.",
+    )
     parser.add_argument("--tls-cert", default=None, metavar="PATH", help="TLS certificate file (PEM)")
     parser.add_argument("--tls-key", default=None, metavar="PATH", help="TLS private key file (PEM)")
     parsed = parser.parse_args(args)
@@ -953,6 +959,7 @@ def _cmd_serve(args: list[str]) -> None:
         port=parsed.port,
         token=token,
         project_dir=Path(parsed.project_dir),
+        allowed_origins=parsed.allow_origins,  # None → wildcard default in create_app
         tls_cert=parsed.tls_cert,
         tls_key=parsed.tls_key,
     )
