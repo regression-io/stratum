@@ -410,6 +410,10 @@ async def stratum_check_timeouts(flow_id: str, ctx: Context) -> dict[str, Any]:
 
     if result_status == "execute_step":
         next_step = get_current_step_info(state)  # may skip; persist after
+        next_step = _apply_policy_loop(state, next_step)
+        if next_step is not None and next_step.get("status") == "complete":
+            delete_persisted_flow(flow_id)
+            return next_step
         persist_flow(state)
         return next_step
 
