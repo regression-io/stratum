@@ -251,17 +251,55 @@ def _topological_sort(flow_def: IRFlowDef) -> list[IRStepDef]:
 
 
 def _step_mode(step) -> str:
-    """Return 'function' or 'inline'. Raise on flow_ref (not yet supported)."""
+    """Return 'function', 'inline', or 'flow'."""
     if step.function:
         return "function"
     if step.intent:
         return "inline"
     if step.flow_ref:
-        raise MCPExecutionError(
-            f"Step '{step.id}' uses flow_ref '{step.flow_ref}' — "
-            f"flow composition is not yet supported (requires STRAT-ENG-5)"
-        )
+        return "flow"
     raise MCPExecutionError(f"Step '{step.id}' has no execution mode")
+
+
+def _find_step_idx(state: "FlowState", target_id: str) -> int:
+    """Find step index by id. Raise MCPExecutionError if not found."""
+    idx = next((i for i, s in enumerate(state.ordered_steps) if s.id == target_id), None)
+    if idx is None:
+        raise MCPExecutionError(f"Step '{target_id}' not found in flow")
+    return idx
+
+
+def _clear_from(state: "FlowState", target_idx: int, preserve: set[str] | None = None) -> None:
+    """Clear attempts, outputs, and iteration state from target_idx onward.
+
+    Used by on_fail, next, and resolve_gate (on_revise). This is a within-round
+    clear — it does NOT archive rounds or iterations. resolve_gate handles
+    archival separately before calling this.
+
+    preserve: step ids to exclude from clearing. Used by on_fail to keep the
+    failed step's output accessible to the recovery step even when the target
+    is topologically before the failed step.
+    """
+    steps_to_clear = {s.id for s in state.ordered_steps[target_idx:]}
+    if preserve:
+        steps_to_clear -= preserve
+    for sid in list(state.step_outputs.keys()):
+        if sid in steps_to_clear:
+            del state.step_outputs[sid]
+    for sid in list(state.attempts.keys()):
+        if sid in steps_to_clear:
+            del state.attempts[sid]
+    for sid in steps_to_clear:
+        state.iteration_outcome.pop(sid, None)
+    # Clear per-step iteration history for affected steps (ENG-4)
+    for sid in steps_to_clear:
+        state.iterations.pop(sid, None)
+    # Clear active_iteration if it belongs to an affected step
+    if state.active_iteration and state.active_iteration.get("step_id") in steps_to_clear:
+        state.active_iteration = None
+    # Clear active child flow if it belongs to an affected flow_ref step
+    if hasattr(state, "active_child_flow_id") and state.active_child_flow_id is not None:
+        state.active_child_flow_id = None
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +318,7 @@ class StepRecord:
     round_start_step_id: str | None = None
     agent: str | None = None
     step_mode: str = "function"
+    child_flow_id: str | None = None
 
 
 @dataclass
@@ -355,6 +394,7 @@ def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord | PolicyR
         round_start_step_id=r.get("round_start_step_id"),
         agent=r.get("agent"),
         step_mode=r.get("step_mode", "function"),
+        child_flow_id=r.get("child_flow_id"),
     )
 
 
@@ -384,6 +424,11 @@ class FlowState:
     archived_iterations: list[dict[str, list[dict]]] = field(default_factory=list)
     active_iteration: dict[str, Any] | None = None
     iteration_outcome: dict[str, str] = field(default_factory=dict)
+    # v0.2 STRAT-ENG-5: flow composition
+    parent_flow_id: str | None = None
+    parent_step_id: str | None = None
+    active_child_flow_id: str | None = None
+    child_audits: dict[str, list[dict]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +467,10 @@ def persist_flow(state: FlowState) -> None:
         "archived_iterations": state.archived_iterations,
         "active_iteration":   state.active_iteration,
         "iteration_outcome":  state.iteration_outcome,
+        "parent_flow_id":     state.parent_flow_id,
+        "parent_step_id":     state.parent_step_id,
+        "active_child_flow_id": state.active_child_flow_id,
+        "child_audits":       state.child_audits,
     }
     (_FLOWS_DIR / f"{state.flow_id}.json").write_text(json.dumps(payload, indent=2))
 
@@ -475,6 +524,10 @@ def restore_flow(flow_id: str) -> "FlowState | None":
         archived_iterations=payload.get("archived_iterations", []),
         active_iteration=payload.get("active_iteration"),
         iteration_outcome=payload.get("iteration_outcome", {}),
+        parent_flow_id=payload.get("parent_flow_id"),
+        parent_step_id=payload.get("parent_step_id"),
+        active_child_flow_id=payload.get("active_child_flow_id"),
+        child_audits=payload.get("child_audits", {}),
     )
 
 
@@ -495,7 +548,8 @@ def commit_checkpoint(state: FlowState, label: str) -> None:
     Snapshot current mutable state under ``label``.
 
     Stores step_outputs, attempts, records, current_idx, round, rounds,
-    round_start_step_id, and terminal_status.
+    round_start_step_id, terminal_status, iteration state, and flow
+    composition state (active_child_flow_id, child_audits).
     Overwrites any existing checkpoint with the same label.
     Persists the updated flow to disk.
     """
@@ -512,6 +566,8 @@ def commit_checkpoint(state: FlowState, label: str) -> None:
         "archived_iterations": copy.deepcopy(state.archived_iterations),
         "active_iteration":   copy.deepcopy(state.active_iteration),
         "iteration_outcome":  dict(state.iteration_outcome),
+        "active_child_flow_id": state.active_child_flow_id,
+        "child_audits":       copy.deepcopy(state.child_audits),
     }
     persist_flow(state)
 
@@ -538,6 +594,8 @@ def revert_checkpoint(state: FlowState, label: str) -> bool:
     state.archived_iterations = copy.deepcopy(snap.get("archived_iterations", []))
     state.active_iteration   = copy.deepcopy(snap.get("active_iteration"))
     state.iteration_outcome  = dict(snap.get("iteration_outcome", {}))
+    state.active_child_flow_id = snap.get("active_child_flow_id")
+    state.child_audits       = copy.deepcopy(snap.get("child_audits", {}))
     persist_flow(state)
     return True
 
@@ -688,6 +746,50 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
             "model": step.step_model,
         }
 
+    elif mode == "flow":
+        child_state = None
+
+        # Resume: if a child flow is tracked, try to restore it
+        if state.active_child_flow_id:
+            child_state = _flows.get(state.active_child_flow_id)
+            if child_state is None:
+                child_state = restore_flow(state.active_child_flow_id)
+            if child_state is not None:
+                _flows[child_state.flow_id] = child_state
+            else:
+                # Child is gone (crash between child completion and parent update).
+                # Clear stale pointer — a new child will be created below.
+                state.active_child_flow_id = None
+
+        # Create: no existing child — resolve inputs and create fresh
+        if child_state is None:
+            child_state = create_flow_state(
+                spec=state.spec,
+                flow_name=step.flow_ref,
+                inputs=resolved,
+                raw_spec=state.raw_spec,
+            )
+            child_state.parent_flow_id = state.flow_id
+            child_state.parent_step_id = step.id
+            _flows[child_state.flow_id] = child_state
+            state.active_child_flow_id = child_state.flow_id
+            persist_flow(child_state)
+            persist_flow(state)
+
+        # Get child's current step
+        child_step = get_current_step_info(child_state)
+
+        return {
+            "status": "execute_flow",
+            "parent_flow_id": state.flow_id,
+            "parent_step_id": step.id,
+            "child_flow_id": child_state.flow_id,
+            "child_flow_name": step.flow_ref,
+            "child_step": child_step,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+        }
+
 
 def process_step_result(
     state: FlowState,
@@ -719,7 +821,7 @@ def process_step_result(
         max_retries = fn_def.retries
         output_schema = step.output_schema
         fn_name = fn_def.name
-    else:  # mode == "inline"
+    else:  # mode in ("inline", "flow")
         ensure_exprs = step.step_ensure or []
         max_retries = step.step_retries or 1
         output_schema = None
@@ -738,6 +840,7 @@ def process_step_result(
             round_start_step_id=state.round_start_step_id,
             agent=step.agent,
             step_mode=mode,
+            child_flow_id=state.active_child_flow_id if mode == "flow" else None,
         )
 
     # Schema validation runs before ensures — structural errors are caught first.
@@ -748,6 +851,12 @@ def process_step_result(
                 dispatched = state.dispatched_at.get(step_id, state.flow_start)
                 duration_ms = int((time.monotonic() - dispatched) * 1000)
                 state.records.append(_make_record(duration_ms))
+                if step.on_fail:
+                    state.step_outputs[step_id] = result
+                    target_idx = _find_step_idx(state, step.on_fail)
+                    _clear_from(state, target_idx, preserve={step_id})
+                    state.current_idx = target_idx
+                    return ("on_fail_routed", schema_errors)
                 return ("retries_exhausted", schema_errors)
             return ("schema_failed", schema_errors)
 
@@ -766,12 +875,25 @@ def process_step_result(
     if violations:
         if attempt >= max_retries:
             state.records.append(_make_record(duration_ms))
+            if step.on_fail:
+                state.step_outputs[step_id] = result
+                target_idx = _find_step_idx(state, step.on_fail)
+                _clear_from(state, target_idx, preserve={step_id})
+                state.current_idx = target_idx
+                return ("on_fail_routed", violations)
             return ("retries_exhausted", violations)
         return ("ensure_failed", violations)
 
     state.step_outputs[step_id] = result
     state.records.append(_make_record(duration_ms))
-    state.current_idx += 1
+    if mode == "flow":
+        state.active_child_flow_id = None
+    if step.next:
+        target_idx = _find_step_idx(state, step.next)
+        _clear_from(state, target_idx)
+        state.current_idx = target_idx
+    else:
+        state.current_idx += 1
     return ("ok", [])
 
 
@@ -882,10 +1004,9 @@ def resolve_gate(
             })
 
         target_id = step.on_revise
-        target_idx = next(
-            (i for i, s in enumerate(state.ordered_steps) if s.id == target_id), None
-        )
-        if target_idx is None:
+        try:
+            target_idx = _find_step_idx(state, target_id)
+        except MCPExecutionError:
             return ("error", {
                 "code": "step_not_found",
                 "message": f"on_revise target '{target_id}' not found in flow",
@@ -900,15 +1021,7 @@ def resolve_gate(
         state.active_iteration = None
 
         # Clear active state from on_revise target onward
-        steps_to_clear = {s.id for s in state.ordered_steps[target_idx:]}
-        for sid in list(state.step_outputs.keys()):
-            if sid in steps_to_clear:
-                del state.step_outputs[sid]
-        for sid in list(state.attempts.keys()):
-            if sid in steps_to_clear:
-                del state.attempts[sid]
-        for sid in steps_to_clear:
-            state.iteration_outcome.pop(sid, None)
+        _clear_from(state, target_idx)
         state.records = []
         state.current_idx = target_idx
         state.round += 1

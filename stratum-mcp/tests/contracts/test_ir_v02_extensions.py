@@ -928,3 +928,69 @@ flows:
 """
     with pytest.raises(IRSemanticError, match="dunder"):
         parse_and_validate(ir)
+
+
+# ---------------------------------------------------------------------------
+# STRAT-ENG-5: on_fail on function steps with function-level ensure
+# ---------------------------------------------------------------------------
+
+def test_on_fail_function_step_with_function_ensure_accepted():
+    """Function step with on_fail should be accepted when the function has ensure."""
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  checker:
+    mode: infer
+    intent: "Check something"
+    input: {}
+    output: Out
+    ensure:
+      - "result.v != ''"
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: check
+        function: checker
+        inputs: {}
+        on_fail: recover
+      - id: recover
+        intent: "Recover from failure"
+        depends_on: []
+"""
+    spec = parse_and_validate(ir)
+    step = spec.flows["main"].steps[0]
+    assert step.on_fail == "recover"
+
+
+def test_on_fail_function_step_without_any_ensure_rejected():
+    """Function step with on_fail but no ensure (step or function) should be rejected."""
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  worker:
+    mode: infer
+    intent: "Do work"
+    input: {}
+    output: Out
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: work
+        function: worker
+        inputs: {}
+        on_fail: recover
+      - id: recover
+        intent: "Recover"
+"""
+    with pytest.raises(IRSemanticError, match="on_fail.*no ensure"):
+        parse_and_validate(ir)

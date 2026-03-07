@@ -143,11 +143,10 @@ def test_step_mode_inline():
     assert _step_mode(step) == "inline"
 
 
-def test_step_mode_flow_ref_raises():
+def test_step_mode_flow_ref_returns_flow():
     spec = parse_and_validate(_FLOW_REF_SPEC)
     step = spec.flows["main"].steps[0]  # flow_ref step
-    with pytest.raises(MCPExecutionError, match="STRAT-ENG-5"):
-        _step_mode(step)
+    assert _step_mode(step) == "flow"
 
 
 def test_step_mode_no_mode_raises():
@@ -430,57 +429,9 @@ _GATE_SPEC = textwrap.dedent("""\
 
 
 # ---------------------------------------------------------------------------
-# P1 fix: flow_ref steps return structured error through MCP tools
+# flow_ref steps: _step_mode returns "flow" (STRAT-ENG-5)
+# Full flow_ref dispatch tested in test_flow_composition.py
 # ---------------------------------------------------------------------------
-
-def test_plan_flow_ref_step_returns_structured_error():
-    """stratum_plan with a flow_ref first step returns error, not exception."""
-    result = _run(stratum_plan(spec=_FLOW_REF_SPEC, flow="main", inputs={}, ctx=None))
-    assert result["status"] == "error"
-    assert "STRAT-ENG-5" in result.get("message", "")
-
-
-def test_step_done_next_flow_ref_returns_structured_error():
-    """After completing a step, if the next step is flow_ref, return error."""
-    # Spec: function step then flow_ref step
-    spec_yaml = textwrap.dedent("""\
-        version: "0.2"
-        contracts:
-          Out:
-            v: {type: string}
-        functions:
-          work:
-            mode: infer
-            intent: "Do it"
-            input: {}
-            output: Out
-        flows:
-          sub:
-            input: {}
-            output: Out
-            steps:
-              - id: h1
-                function: work
-                inputs: {}
-          main:
-            input: {}
-            steps:
-              - id: s1
-                function: work
-                inputs: {}
-              - id: s2
-                flow: sub
-                depends_on: [s1]
-    """)
-    result = _run(stratum_plan(spec=spec_yaml, flow="main", inputs={}, ctx=None))
-    flow_id = result["flow_id"]
-    try:
-        result = _run(stratum_step_done(flow_id, "s1", {"v": "ok"}, ctx=None))
-        assert result["status"] == "error"
-        assert "STRAT-ENG-5" in result.get("message", "")
-    finally:
-        _flows.pop(flow_id, None)
-        delete_persisted_flow(flow_id)
 
 
 # ---------------------------------------------------------------------------

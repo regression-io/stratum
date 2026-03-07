@@ -14,6 +14,7 @@ from .errors import IRParseError, IRValidationError, IRSemanticError, MCPExecuti
 from .executor import (
     FlowState,
     _flows,
+    _step_mode,
     create_flow_state,
     get_current_step_info,
     process_step_result,
@@ -149,12 +150,42 @@ async def stratum_step_done(
                 ),
             }
 
+    # Flow_ref step unwrapping: capture child audit and unwrap result
+    _is_flow_step = (
+        state.current_idx < len(state.ordered_steps)
+        and _step_mode(state.ordered_steps[state.current_idx]) == "flow"
+    )
+    _child_audit = None
+    _child_fid_before = state.active_child_flow_id if _is_flow_step else None
+    if _is_flow_step:
+        child_st = _flows.get(_child_fid_before) if _child_fid_before else None
+        if child_st is not None:
+            _child_audit = _build_audit_snapshot(child_st)
+        # Unwrap child result: extract output, None on failure
+        result = result.get("output") if isinstance(result, dict) else result
+
     try:
         status, violations = process_step_result(state, step_id, result)
     except MCPExecutionError as exc:
         return {"status": "error", **exception_to_mcp_error(exc)}
 
+    # Accumulate child audit on every flow step completion (success or failure)
+    if _is_flow_step and _child_audit is not None:
+        state.child_audits.setdefault(step_id, []).append(_child_audit)
+
+    def _cleanup_child():
+        """Remove child flow from memory and disk after parent processes result."""
+        # Use pre-captured child ID since process_step_result may have cleared
+        # active_child_flow_id via _clear_from (e.g., on_fail_routed path)
+        fid = _child_fid_before
+        if fid:
+            _flows.pop(fid, None)
+            delete_persisted_flow(fid)
+            state.active_child_flow_id = None
+
     if status == "retries_exhausted":
+        if _is_flow_step:
+            _cleanup_child()
         delete_persisted_flow(flow_id)
         _step = state.ordered_steps[state.current_idx]
         return {
@@ -162,13 +193,31 @@ async def stratum_step_done(
             "error_type": "retries_exhausted",
             "flow_id": flow_id,
             "step_id": step_id,
-            "step_mode": "inline" if _step.intent else "function",
+            "step_mode": _step_mode(_step),
             "agent": _step.agent,
             "message": f"Step '{step_id}' exhausted all retries",
             "violations": violations,
         }
 
+    if status == "on_fail_routed":
+        if _is_flow_step:
+            _cleanup_child()
+        try:
+            next_step = get_current_step_info(state)
+            next_step = _apply_policy_loop(state, next_step)
+        except MCPExecutionError as exc:
+            return {"status": "error", **exception_to_mcp_error(exc)}
+        persist_flow(state)
+        return {
+            **(next_step or {}),
+            "routed_from": step_id,
+            "violations": violations,
+        }
+
     if status in ("ensure_failed", "schema_failed"):
+        if _is_flow_step:
+            # Delete child — next retry creates a new child
+            _cleanup_child()
         # Persist incremented attempts so retry budget survives an MCP server restart.
         # current_idx has not advanced — get_current_step_info returns the same step
         # with updated retries_remaining. Persist AFTER get_current_step_info in case
@@ -185,6 +234,8 @@ async def stratum_step_done(
         }
 
     # "ok" — current_idx was advanced by process_step_result
+    if _is_flow_step:
+        _cleanup_child()
     # Consume iteration outcome (ENG-5 will read before clearing)
     state.iteration_outcome.pop(step_id, None)
     try:
@@ -233,6 +284,15 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
             }
         _flows[flow_id] = state
 
+    return _build_audit_snapshot(state)
+
+
+def _build_audit_snapshot(state: FlowState) -> dict[str, Any]:
+    """Build a full audit snapshot from a FlowState.
+
+    Used by stratum_audit and by flow composition to capture child flow audits
+    before deletion.
+    """
     total_ms = int((time.monotonic() - state.flow_start) * 1000)
     is_complete = state.current_idx >= len(state.ordered_steps)
 
@@ -252,9 +312,7 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
         "trace": [dataclasses.asdict(r) for r in state.records],
         "total_duration_ms": total_ms,
         "round": state.round,
-        # rounds: always present; each element is {"round": N, "steps": [...record dicts]}
         "rounds": [{"round": i, "steps": r} for i, r in enumerate(state.rounds)],
-        # STRAT-ENG-4: per-step iteration history (strip result payloads for compact audit)
         "iterations": {
             sid: [
                 {k: v for k, v in entry.items() if k != "result"}
@@ -272,6 +330,7 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
             }
             for archive in state.archived_iterations
         ],
+        "child_audits": state.child_audits,
     }
 
 

@@ -729,8 +729,14 @@ def _validate_semantics(spec: IRSpec) -> None:
                             f"Step '{step.id}' is not a gate step but has '{field_name}' set",
                             path=f"flows.{flow_name}.steps.{step.id}.{field_name}"
                         )
-                # on_fail requires ensure (otherwise it never triggers)
-                if step.on_fail and not step.step_ensure:
+                # on_fail requires ensure or output_schema (otherwise it never triggers)
+                # For function steps, check the function's ensure; for inline/flow, check step_ensure
+                has_ensure = bool(step.step_ensure)
+                if not has_ensure and step.function:
+                    fn = spec.functions.get(step.function)
+                    has_ensure = bool(fn and fn.ensure)
+                has_validation = has_ensure or bool(step.output_schema)
+                if step.on_fail and not has_validation:
                     raise IRSemanticError(
                         f"Step '{step.id}' has on_fail but no ensure — on_fail can never trigger",
                         path=f"flows.{flow_name}.steps.{step.id}.on_fail"

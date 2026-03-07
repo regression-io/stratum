@@ -1,6 +1,6 @@
 # Stratum Roadmap
 
-**Last updated:** 2026-03-05
+**Last updated:** 2026-03-07
 
 ---
 
@@ -56,6 +56,7 @@
 | T2-22 | IR v0.2 semantic validation — gate function/step invariants, `on_revise` topological ordering, `declared_routing`, `retries_explicit` | COMPLETE |
 | T2-23 | 305 passing tests; `test_gate_api.py`, `test_gate_revise.py`, v0.2 invariant tests in `test_ir_schema.py` | COMPLETE |
 | T2-24 | STRAT-ENG-4: Per-step iteration — `max_iterations`, `exit_criterion`, `start/report/abort_iteration`, `iteration_outcome` handoff, `archived_iterations`; 378 tests | COMPLETE |
+| T2-25 | STRAT-ENG-5: Routing and composition — `on_fail`/`next` step routing, `flow:` sub-execution with child FlowState lifecycle, child audit snapshots, result unwrapping; 414 tests | COMPLETE |
 
 ### Compose Integration
 

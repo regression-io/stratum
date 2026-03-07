@@ -142,6 +142,22 @@
 
 **Testing:** 378 tests passing (+29); new file: `test_iterations.py` (24 tests); `test_ir_v02_extensions.py` +5 contract tests
 
+**STRAT-ENG-5: Executor — routing and flow composition**
+
+- `on_fail` routing — when a step exhausts retries (ensure or schema failure), routes to the named recovery step instead of terminating; failed step output preserved via `_clear_from(preserve=)` for downstream access
+- `next` routing — overrides linear step advancement on success; enables review→fix→review loops; target step's attempts cleared for fresh execution
+- `on_fail` validator fix — now accepts function-level `fn_def.ensure` and `output_schema` as valid triggers (previously only checked `step_ensure`)
+- `_find_step_idx` / `_clear_from` helpers — extracted from `resolve_gate` on_revise; reused by `on_fail`, `next`, and flow composition; `_clear_from` clears attempts, outputs, iteration state, and `active_child_flow_id`
+- `flow:` sub-execution — `_step_mode` returns `"flow"` for `flow_ref` steps; `get_current_step_info` creates child FlowState, returns `execute_flow` status; idempotent (reuses existing child); stale child recovery (clear and re-create)
+- Result unwrapping — server extracts `result.get("output")` from child payload before calling `process_step_result`; `None` on child failure triggers parent ensure/on_fail chain
+- Child audit snapshots — `_build_audit_snapshot` helper captures full child state (trace, rounds, iterations) before deletion; accumulated in `FlowState.child_audits[step_id]` across retries
+- `StepRecord.child_flow_id` — set for flow_ref steps; persisted and restored
+- FlowState fields — `parent_flow_id`, `parent_step_id`, `active_child_flow_id`, `child_audits`; included in persist/restore and checkpoint commit/revert
+- `stratum_step_done` — `on_fail_routed` branch (same as `"ok"` + routing metadata); flow_ref child cleanup on all completion paths (ok, retries_exhausted, ensure_failed, on_fail_routed)
+- `stratum_audit` — includes `child_audits` in response
+
+**Testing:** 414 tests passing (+36); new files: `test_routing.py` (13 tests), `test_flow_composition.py` (20 tests); `test_ir_v02_extensions.py` +2 contract tests; `test_inline_steps.py` updated for flow_ref
+
 ---
 
 ## [0.1.3] — 2026-02-23
