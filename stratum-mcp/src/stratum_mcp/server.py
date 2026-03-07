@@ -254,9 +254,24 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
         "round": state.round,
         # rounds: always present; each element is {"round": N, "steps": [...record dicts]}
         "rounds": [{"round": i, "steps": r} for i, r in enumerate(state.rounds)],
-        # STRAT-ENG-4: per-step iteration history
-        "iterations": state.iterations,
-        "archived_iterations": state.archived_iterations,
+        # STRAT-ENG-4: per-step iteration history (strip result payloads for compact audit)
+        "iterations": {
+            sid: [
+                {k: v for k, v in entry.items() if k != "result"}
+                for entry in entries
+            ]
+            for sid, entries in state.iterations.items()
+        },
+        "archived_iterations": [
+            {
+                sid: [
+                    {k: v for k, v in entry.items() if k != "result"}
+                    for entry in entries
+                ]
+                for sid, entries in archive.items()
+            }
+            for archive in state.archived_iterations
+        ],
     }
 
 

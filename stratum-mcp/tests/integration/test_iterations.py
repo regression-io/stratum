@@ -216,6 +216,25 @@ def test_iteration_audit_output():
     assert audit["archived_iterations"] == []
 
 
+def test_iteration_audit_strips_result_payloads():
+    """Audit output must not contain full result dicts (compact contract)."""
+    spec = parse_and_validate(_ITER_SPEC)
+    state = create_flow_state(spec, "main", {}, raw_spec=_ITER_SPEC)
+    _flows[state.flow_id] = state
+    get_current_step_info(state)
+
+    start_iteration(state, "s1")
+    report_iteration(state, "s1", {"v": "sensitive_data"})
+    report_iteration(state, "s1", {"v": "done"})
+
+    audit = _run(stratum_audit(state.flow_id, None))
+    for entry in audit["iterations"]["s1"]:
+        assert "result" not in entry
+
+    # Verify result is still in internal state (not destroyed)
+    assert state.iterations["s1"][0]["result"] == {"v": "sensitive_data"}
+
+
 # ---------------------------------------------------------------------------
 # Revise: iteration history archived
 # ---------------------------------------------------------------------------
@@ -473,6 +492,35 @@ def test_iteration_report_after_exit():
 
     with pytest.raises(MCPExecutionError, match="No active iteration"):
         report_iteration(state, "s1", {"v": "more"})
+
+
+def test_iteration_restart_blocked_before_step_done():
+    """Cannot start a new iteration loop while iteration_outcome is pending."""
+    spec = parse_and_validate(_ITER_SPEC)
+    state = create_flow_state(spec, "main", {}, raw_spec=_ITER_SPEC)
+    get_current_step_info(state)
+
+    start_iteration(state, "s1")
+    report_iteration(state, "s1", {"v": "done"})  # exits with exit_success
+    assert state.iteration_outcome["s1"] == "exit_success"
+
+    with pytest.raises(MCPExecutionError, match="pending iteration outcome"):
+        start_iteration(state, "s1")
+
+
+def test_iteration_restart_blocked_after_exit_max():
+    """Same guard applies after exit_max."""
+    spec = parse_and_validate(_ITER_SPEC)
+    state = create_flow_state(spec, "main", {}, raw_spec=_ITER_SPEC)
+    get_current_step_info(state)
+
+    start_iteration(state, "s1")
+    for _ in range(3):
+        report_iteration(state, "s1", {"v": "wip"})
+    assert state.iteration_outcome["s1"] == "exit_max"
+
+    with pytest.raises(MCPExecutionError, match="pending iteration outcome"):
+        start_iteration(state, "s1")
 
 
 def test_iteration_report_wrong_step_id():

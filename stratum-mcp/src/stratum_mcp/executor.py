@@ -1039,6 +1039,12 @@ def start_iteration(state: FlowState, step_id: str) -> dict[str, Any]:
             f"Iteration loop already active on step '{state.active_iteration['step_id']}'"
         )
 
+    if step_id in state.iteration_outcome:
+        raise MCPExecutionError(
+            f"Step '{step_id}' already has a pending iteration outcome "
+            f"('{state.iteration_outcome[step_id]}') — call stratum_step_done first"
+        )
+
     state.active_iteration = {
         "step_id": step_id,
         "round": state.round,
