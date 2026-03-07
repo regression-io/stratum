@@ -173,7 +173,7 @@ async def test_step_done_returns_error_for_gate_step():
     result = await stratum_step_done(flow_id, "gate", {"outcome": "approve"}, ctx)
 
     assert result["status"] == "error"
-    assert result["code"] == "gate_step_requires_gate_resolve"
+    assert result["error_type"] == "gate_step_requires_gate_resolve"
     assert "stratum_gate_resolve" in result["message"]
     # State unchanged
     assert len(state.records) == records_before, "no record must be written"
@@ -209,7 +209,7 @@ async def test_gate_resolve_returns_error_for_infer_step():
     result = await stratum_gate_resolve(flow_id, "work", "approve", "wrong api", "human", ctx)
 
     assert result["status"] == "error"
-    assert result["code"] == "not_a_gate_step"
+    assert result["error_type"] == "not_a_gate_step"
     assert len(state.records) == records_before, "no record must be written on rejected call"
 
 

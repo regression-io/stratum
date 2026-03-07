@@ -158,6 +158,22 @@
 
 **Testing:** 414 tests passing (+36); new files: `test_routing.py` (13 tests), `test_flow_composition.py` (20 tests); `test_ir_v02_extensions.py` +2 contract tests; `test_inline_steps.py` updated for flow_ref
 
+**STRAT-ENG-6: Contract freeze**
+
+- Frozen contract document — `docs/features/STRAT-ENG-6/design.md` covers spec shape (IR v0.2), MCP tool signatures, flow state (persisted JSON), and audit output
+- Normalized error envelope — all error responses now use `error_type` consistently; `resolve_gate()` errors and inline server errors previously used `code`
+- `stratum_audit` flow-not-found — now returns `status: "error"` (previously omitted)
+- CLI gate handler — updated to read `error_type` from executor return dicts (was `code`)
+
+**STRAT-ENG-HOOKS: Centralized hook installation**
+
+- Hook scripts install to `~/.stratum/hooks/` — single copy shared across projects (was per-project `.claude/hooks/`)
+- Absolute paths in settings.json — `bash /abs/path/to/script.sh` (was relative `bash .claude/hooks/script.sh`)
+- Migration — `stratum-mcp install` auto-cleans old per-project copies and replaces relative-path settings entries
+- Mixed entry safety — migration and uninstall filter individual commands from hook entries, preserving colocated non-Stratum hooks
+
+**Testing:** 418 tests passing (+4)
+
 ---
 
 ## [0.1.3] — 2026-02-23

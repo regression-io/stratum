@@ -926,29 +926,29 @@ def resolve_gate(
     """
     if outcome not in _VALID_OUTCOMES:
         return ("error", {
-            "code": "invalid_outcome",
+            "error_type": "invalid_outcome",
             "message": f"outcome must be one of {sorted(_VALID_OUTCOMES)}, got {outcome!r}",
         })
     if resolved_by not in _VALID_RESOLVERS:
         return ("error", {
-            "code": "invalid_resolved_by",
+            "error_type": "invalid_resolved_by",
             "message": f"resolved_by must be one of {sorted(_VALID_RESOLVERS)}, got {resolved_by!r}",
         })
 
     if state.current_idx >= len(state.ordered_steps):
-        return ("error", {"code": "flow_already_complete", "message": "Flow is already complete"})
+        return ("error", {"error_type": "flow_already_complete", "message": "Flow is already complete"})
 
     step = state.ordered_steps[state.current_idx]
     if step.id != step_id:
         return ("error", {
-            "code": "wrong_step",
+            "error_type": "wrong_step",
             "message": f"Expected gate step '{step.id}', got '{step_id}'",
         })
 
     fn_def = state.spec.functions[step.function]
     if fn_def.mode != "gate":
         return ("error", {
-            "code": "not_a_gate_step",
+            "error_type": "not_a_gate_step",
             "message": f"Step '{step_id}' is not a gate step (mode={fn_def.mode!r})",
         })
 
@@ -978,7 +978,7 @@ def resolve_gate(
         )
         if target_idx is None:
             return ("error", {
-                "code": "step_not_found",
+                "error_type": "step_not_found",
                 "message": f"on_approve target '{step.on_approve}' not found in flow",
             })
         state.current_idx = target_idx
@@ -992,14 +992,14 @@ def resolve_gate(
         flow_def = state.spec.flows[state.flow_name]
         if flow_def.max_rounds is not None and state.round >= flow_def.max_rounds:
             return ("max_rounds_exceeded", {
-                "code": "max_rounds_exceeded",
+                "error_type": "max_rounds_exceeded",
                 "message": f"Maximum rounds ({flow_def.max_rounds}) exceeded",
                 "round": state.round,
             })
 
         if step.on_revise is None:
             return ("error", {
-                "code": "missing_on_revise",
+                "error_type": "missing_on_revise",
                 "message": f"Gate step '{step_id}' has no on_revise target configured",
             })
 
@@ -1008,7 +1008,7 @@ def resolve_gate(
             target_idx = _find_step_idx(state, target_id)
         except MCPExecutionError:
             return ("error", {
-                "code": "step_not_found",
+                "error_type": "step_not_found",
                 "message": f"on_revise target '{target_id}' not found in flow",
             })
 
@@ -1042,7 +1042,7 @@ def resolve_gate(
         )
         if target_idx is None:
             return ("error", {
-                "code": "step_not_found",
+                "error_type": "step_not_found",
                 "message": f"on_kill target '{step.on_kill}' not found in flow",
             })
         state.current_idx = target_idx

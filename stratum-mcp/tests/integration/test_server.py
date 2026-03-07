@@ -223,4 +223,5 @@ async def test_audit_unknown_flow_id():
     from stratum_mcp.server import stratum_audit
     ctx = MagicMock()
     result = await stratum_audit("no-such-id", ctx)
+    assert result["status"] == "error"
     assert result["error_type"] == "flow_not_found"

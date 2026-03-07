@@ -143,7 +143,7 @@ async def stratum_step_done(
         if _fn and _fn.mode == "gate":
             return {
                 "status": "error",
-                "code": "gate_step_requires_gate_resolve",
+                "error_type": "gate_step_requires_gate_resolve",
                 "message": (
                     f"Step '{_cur.id}' is a gate step. "
                     "Use stratum_gate_resolve to resolve it."
@@ -279,6 +279,7 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
         state = restore_flow(flow_id)
         if state is None:
             return {
+                "status": "error",
                 "error_type": "flow_not_found",
                 "message": f"No active flow with id '{flow_id}'",
             }
@@ -368,7 +369,7 @@ async def stratum_gate_resolve(
     if state.current_idx >= len(state.ordered_steps):
         return {
             "status": "error",
-            "code": "flow_already_complete",
+            "error_type": "flow_already_complete",
             "message": "Flow is already complete",
         }
     current_step = state.ordered_steps[state.current_idx]
@@ -376,7 +377,7 @@ async def stratum_gate_resolve(
     if current_fn is None or current_fn.mode != "gate":
         return {
             "status": "error",
-            "code": "not_a_gate_step",
+            "error_type": "not_a_gate_step",
             "message": f"Step '{current_step.id}' is not a gate step",
         }
 
@@ -910,28 +911,39 @@ _HOOK_SCRIPTS: dict[str, str] = {
 }
 
 
+_STRATUM_HOOKS_DIR = Path.home() / ".stratum" / "hooks"
+
+
 def _install_hooks(root: Path, changed: list[str]) -> None:
-    """Copy hook scripts to {root}/.claude/hooks/ and register them in settings.json."""
+    """Copy hook scripts to ~/.stratum/hooks/ and register them in settings.json with absolute paths."""
     import json
 
-    hooks_dest = root / ".claude" / "hooks"
-    hooks_dest.mkdir(parents=True, exist_ok=True)
+    _STRATUM_HOOKS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Copy each script file, make executable
+    # Copy each script file to ~/.stratum/hooks/, make executable
     for script_name in _HOOK_SCRIPTS.values():
         src = _HOOKS_DIR / script_name
-        dst = hooks_dest / script_name
+        dst = _STRATUM_HOOKS_DIR / script_name
         if not src.exists():
             continue
         content = src.read_text()
         if dst.exists() and dst.read_text() == content:
-            print(f"  .claude/hooks/{script_name}: already up to date — skipped")
+            print(f"  ~/.stratum/hooks/{script_name}: already up to date — skipped")
         else:
             verb = "updated" if dst.exists() else "installed"
             dst.write_text(content)
             dst.chmod(0o755)
-            print(f"  .claude/hooks/{script_name}: {verb}")
-            changed.append(f".claude/hooks/{script_name}")
+            print(f"  ~/.stratum/hooks/{script_name}: {verb}")
+            changed.append(f"~/.stratum/hooks/{script_name}")
+
+    # Migrate: clean up old per-project hook scripts
+    old_hooks_dir = root / ".claude" / "hooks"
+    for script_name in _HOOK_SCRIPTS.values():
+        old_dst = old_hooks_dir / script_name
+        if old_dst.exists():
+            old_dst.unlink()
+            print(f"  .claude/hooks/{script_name}: migrated (removed old copy)")
+            changed.append(f".claude/hooks/{script_name} (migrated)")
 
     # Register in .claude/settings.json
     settings_file = root / ".claude" / "settings.json"
@@ -944,9 +956,21 @@ def _install_hooks(root: Path, changed: list[str]) -> None:
     registered_any = False
 
     for event, script_name in _HOOK_SCRIPTS.items():
-        command = f"bash .claude/hooks/{script_name}"
+        command = f"bash {_STRATUM_HOOKS_DIR / script_name}"
+        old_command = f"bash .claude/hooks/{script_name}"
         event_hooks: list = hooks_cfg.setdefault(event, [])
-        # Check if our command is already present under this event
+
+        # Remove old relative-path commands from entries (migration)
+        for entry in event_hooks:
+            entry_hooks = entry.get("hooks", [])
+            filtered = [h for h in entry_hooks if h.get("command") != old_command]
+            if len(filtered) < len(entry_hooks):
+                entry["hooks"] = filtered
+                registered_any = True  # will rewrite file
+        # Drop entries whose hooks list is now empty
+        event_hooks[:] = [e for e in event_hooks if e.get("hooks")]
+
+        # Check if new absolute-path entry is already present
         already = any(
             any(h.get("command") == command for h in entry.get("hooks", []))
             for entry in event_hooks
@@ -969,16 +993,24 @@ def _remove_hooks(root: Path, removed: list[str]) -> None:
     """Remove hook scripts and their settings.json entries written by setup."""
     import json
 
-    # Remove script files
-    hooks_dest = root / ".claude" / "hooks"
+    # Remove script files from ~/.stratum/hooks/ (new location)
     for script_name in _HOOK_SCRIPTS.values():
-        dst = hooks_dest / script_name
+        dst = _STRATUM_HOOKS_DIR / script_name
         if dst.exists():
             dst.unlink()
-            print(f"  .claude/hooks/{script_name}: removed")
-            removed.append(f".claude/hooks/{script_name}")
+            print(f"  ~/.stratum/hooks/{script_name}: removed")
+            removed.append(f"~/.stratum/hooks/{script_name}")
         else:
-            print(f"  .claude/hooks/{script_name}: not found — skipped")
+            print(f"  ~/.stratum/hooks/{script_name}: not found — skipped")
+
+    # Also clean up old per-project copies if they exist
+    old_hooks_dir = root / ".claude" / "hooks"
+    for script_name in _HOOK_SCRIPTS.values():
+        old_dst = old_hooks_dir / script_name
+        if old_dst.exists():
+            old_dst.unlink()
+            print(f"  .claude/hooks/{script_name}: removed (old location)")
+            removed.append(f".claude/hooks/{script_name}")
 
     # Remove entries from .claude/settings.json
     settings_file = root / ".claude" / "settings.json"
@@ -994,16 +1026,22 @@ def _remove_hooks(root: Path, removed: list[str]) -> None:
     hooks_cfg = settings.get("hooks", {})
     changed = False
     for event, script_name in _HOOK_SCRIPTS.items():
-        command = f"bash .claude/hooks/{script_name}"
+        # Match both old relative and new absolute path entries
+        new_command = f"bash {_STRATUM_HOOKS_DIR / script_name}"
+        old_command = f"bash .claude/hooks/{script_name}"
         if event not in hooks_cfg:
             continue
-        before = len(hooks_cfg[event])
-        hooks_cfg[event] = [
-            entry for entry in hooks_cfg[event]
-            if not any(h.get("command") == command for h in entry.get("hooks", []))
-        ]
-        if len(hooks_cfg[event]) < before:
-            changed = True
+        for entry in hooks_cfg[event]:
+            entry_hooks = entry.get("hooks", [])
+            filtered = [
+                h for h in entry_hooks
+                if h.get("command") not in (new_command, old_command)
+            ]
+            if len(filtered) < len(entry_hooks):
+                entry["hooks"] = filtered
+                changed = True
+        # Drop entries whose hooks list is now empty
+        hooks_cfg[event] = [e for e in hooks_cfg[event] if e.get("hooks")]
         if not hooks_cfg[event]:
             del hooks_cfg[event]
 
@@ -1425,7 +1463,7 @@ def _cmd_gate(args: list[str]) -> None:
     if status == "error":
         # Idempotency conflicts: gate already resolved (flow moved past it)
         conflict_codes = {"flow_already_complete", "wrong_step"}
-        if extra.get("code") in conflict_codes:
+        if extra.get("error_type") in conflict_codes:
             print(json.dumps({
                 "conflict": True,
                 "flow_id":  parsed.flow_id,
@@ -1435,7 +1473,7 @@ def _cmd_gate(args: list[str]) -> None:
             sys.exit(2)
         # Other domain errors (bad step id, invalid state, etc.)
         print(json.dumps({
-            "error": {"code": extra.get("code", "INVALID"), "message": extra.get("message", "")},
+            "error": {"code": extra.get("error_type", "INVALID"), "message": extra.get("message", "")},
         }))
         sys.exit(1)
 
