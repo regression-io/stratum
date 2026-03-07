@@ -379,6 +379,11 @@ class FlowState:
     round_start_step_id: str | None = None  # first step id of the current round
     # v0.2: terminal status — set to "killed" when gate kill fires with null on_kill
     terminal_status: str | None = None
+    # v0.2 STRAT-ENG-4: per-step iteration tracking
+    iterations: dict[str, list[dict]] = field(default_factory=dict)
+    archived_iterations: list[dict[str, list[dict]]] = field(default_factory=list)
+    active_iteration: dict[str, Any] | None = None
+    iteration_outcome: dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -413,6 +418,10 @@ def persist_flow(state: FlowState) -> None:
         "rounds":             state.rounds,
         "round_start_step_id": state.round_start_step_id,
         "terminal_status":    state.terminal_status,
+        "iterations":         state.iterations,
+        "archived_iterations": state.archived_iterations,
+        "active_iteration":   state.active_iteration,
+        "iteration_outcome":  state.iteration_outcome,
     }
     (_FLOWS_DIR / f"{state.flow_id}.json").write_text(json.dumps(payload, indent=2))
 
@@ -462,6 +471,10 @@ def restore_flow(flow_id: str) -> "FlowState | None":
         rounds=payload.get("rounds", []),
         round_start_step_id=payload.get("round_start_step_id"),
         terminal_status=payload.get("terminal_status"),
+        iterations=payload.get("iterations", {}),
+        archived_iterations=payload.get("archived_iterations", []),
+        active_iteration=payload.get("active_iteration"),
+        iteration_outcome=payload.get("iteration_outcome", {}),
     )
 
 
@@ -495,6 +508,10 @@ def commit_checkpoint(state: FlowState, label: str) -> None:
         "rounds":             copy.deepcopy(state.rounds),
         "round_start_step_id": state.round_start_step_id,
         "terminal_status":    state.terminal_status,
+        "iterations":         copy.deepcopy(state.iterations),
+        "archived_iterations": copy.deepcopy(state.archived_iterations),
+        "active_iteration":   copy.deepcopy(state.active_iteration),
+        "iteration_outcome":  dict(state.iteration_outcome),
     }
     persist_flow(state)
 
@@ -517,6 +534,10 @@ def revert_checkpoint(state: FlowState, label: str) -> bool:
     state.rounds             = copy.deepcopy(snap.get("rounds", []))
     state.round_start_step_id = snap.get("round_start_step_id")
     state.terminal_status    = snap.get("terminal_status")
+    state.iterations         = copy.deepcopy(snap.get("iterations", {}))
+    state.archived_iterations = copy.deepcopy(snap.get("archived_iterations", []))
+    state.active_iteration   = copy.deepcopy(snap.get("active_iteration"))
+    state.iteration_outcome  = dict(snap.get("iteration_outcome", {}))
     persist_flow(state)
     return True
 
@@ -873,6 +894,11 @@ def resolve_gate(
         # Archive current active records (including the GateRecord just appended)
         state.rounds.append([dataclasses.asdict(r) for r in state.records])
 
+        # Archive current-round iteration data (parallel to rounds[])
+        state.archived_iterations.append(state.iterations)
+        state.iterations = {}
+        state.active_iteration = None
+
         # Clear active state from on_revise target onward
         steps_to_clear = {s.id for s in state.ordered_steps[target_idx:]}
         for sid in list(state.step_outputs.keys()):
@@ -881,6 +907,8 @@ def resolve_gate(
         for sid in list(state.attempts.keys()):
             if sid in steps_to_clear:
                 del state.attempts[sid]
+        for sid in steps_to_clear:
+            state.iteration_outcome.pop(sid, None)
         state.records = []
         state.current_idx = target_idx
         state.round += 1
@@ -975,3 +1003,172 @@ def apply_gate_policy(
         )
     state.current_idx = target_idx
     return get_current_step_info(state)
+
+
+# ---------------------------------------------------------------------------
+# Per-step iteration (STRAT-ENG-4)
+# ---------------------------------------------------------------------------
+
+def start_iteration(state: FlowState, step_id: str) -> dict[str, Any]:
+    """Start an iteration loop on the current step.
+
+    The step must have max_iterations defined. Only one iteration loop can be
+    active at a time. Gate steps cannot have iterations.
+    """
+    if state.current_idx >= len(state.ordered_steps):
+        raise MCPExecutionError("Flow is already complete")
+
+    step = state.ordered_steps[state.current_idx]
+    if step.id != step_id:
+        raise MCPExecutionError(f"Expected step '{step.id}', got '{step_id}'")
+
+    # Gate check
+    fn_def = state.spec.functions.get(step.function) if step.function else None
+    if fn_def is not None and fn_def.mode == "gate":
+        raise MCPExecutionError(
+            f"Step '{step_id}' is a gate step — cannot start iteration loop"
+        )
+
+    if step.max_iterations is None:
+        raise MCPExecutionError(
+            f"Step '{step_id}' does not have max_iterations defined"
+        )
+
+    if state.active_iteration is not None:
+        raise MCPExecutionError(
+            f"Iteration loop already active on step '{state.active_iteration['step_id']}'"
+        )
+
+    state.active_iteration = {
+        "step_id": step_id,
+        "round": state.round,
+        "max_iterations": step.max_iterations,
+        "exit_criterion": step.exit_criterion,
+        "count": 0,
+        "started_at": time.monotonic(),
+        "status": "active",
+    }
+
+    persist_flow(state)
+
+    return {
+        "status": "iteration_started",
+        "flow_id": state.flow_id,
+        "step_id": step_id,
+        "max_iterations": step.max_iterations,
+        "exit_criterion": step.exit_criterion,
+        "iteration": 0,
+    }
+
+
+def report_iteration(
+    state: FlowState,
+    step_id: str,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    """Report one iteration result. Evaluates exit_criterion, enforces max."""
+    if state.active_iteration is None:
+        raise MCPExecutionError("No active iteration loop")
+    if state.active_iteration["step_id"] != step_id:
+        raise MCPExecutionError(
+            f"Active iteration is on step '{state.active_iteration['step_id']}', "
+            f"got report for '{step_id}'"
+        )
+
+    ai = state.active_iteration
+    ai["count"] += 1
+    count = ai["count"]
+    max_iter = ai["max_iterations"]
+
+    # Evaluate exit criterion
+    exit_met = False
+    exit_criterion_error: str | None = None
+    if ai["exit_criterion"]:
+        try:
+            fn = compile_ensure(ai["exit_criterion"])
+            exit_met = fn(result)
+        except EnsureCompileError as exc:
+            exit_met = False
+            exit_criterion_error = str(exc)
+
+    # Determine outcome
+    if exit_met:
+        outcome = "exit_success"
+    elif count >= max_iter:
+        outcome = "exit_max"
+    else:
+        outcome = "continue"
+
+    # Append report to history
+    report = {
+        "iteration": count,
+        "round": state.round,
+        "result": result,
+        "exit_criterion_met": exit_met,
+        "outcome": outcome,
+        "timestamp": time.monotonic(),
+    }
+    state.iterations.setdefault(step_id, []).append(report)
+
+    # On exit: write outcome, clear active
+    if outcome != "continue":
+        state.iteration_outcome[step_id] = outcome
+        state.active_iteration = None
+
+    persist_flow(state)
+
+    response: dict[str, Any] = {
+        "status": "iteration_continue" if outcome == "continue" else "iteration_exit",
+        "flow_id": state.flow_id,
+        "step_id": step_id,
+        "iteration": count,
+        "max_iterations": max_iter,
+        "exit_criterion_met": exit_met,
+        "outcome": outcome,
+    }
+    if exit_criterion_error:
+        response["exit_criterion_error"] = exit_criterion_error
+    if outcome != "continue":
+        response["final_result"] = result
+    return response
+
+
+def abort_iteration(
+    state: FlowState,
+    step_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Abort an active iteration loop before completion."""
+    if state.active_iteration is None:
+        raise MCPExecutionError("No active iteration loop")
+    if state.active_iteration["step_id"] != step_id:
+        raise MCPExecutionError(
+            f"Active iteration is on step '{state.active_iteration['step_id']}', "
+            f"got abort for '{step_id}'"
+        )
+
+    count = state.active_iteration["count"]
+
+    # Append abort report — uses count (not count+1) because abort is not a real iteration
+    report = {
+        "iteration": count,
+        "round": state.round,
+        "result": {"aborted": True, "reason": reason},
+        "exit_criterion_met": False,
+        "outcome": "exit_abort",
+        "timestamp": time.monotonic(),
+    }
+    state.iterations.setdefault(step_id, []).append(report)
+
+    state.iteration_outcome[step_id] = "exit_abort"
+    state.active_iteration = None
+
+    persist_flow(state)
+
+    return {
+        "status": "iteration_aborted",
+        "flow_id": state.flow_id,
+        "step_id": step_id,
+        "iteration": count,
+        "reason": reason,
+    }

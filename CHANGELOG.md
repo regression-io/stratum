@@ -129,6 +129,19 @@
 
 **Testing:** 349 tests passing (+44 from ENG-1/2/3); new file: `test_policy_skip.py` (29 tests)
 
+**STRAT-ENG-4: Executor — per-step iteration tracking**
+
+- `max_iterations` and `exit_criterion` on steps — counted sub-loops with automatic exit on criterion met or max reached; semantic validation (gate steps forbidden, `exit_criterion` requires `max_iterations`, dunder guard)
+- `start_iteration()` / `report_iteration()` / `abort_iteration()` — executor functions for iteration lifecycle; `compile_ensure`-based criterion evaluation; append-only history in `state.iterations`
+- `stratum_iteration_start` / `stratum_iteration_report` / `stratum_iteration_abort` MCP tools — full tool interface for iteration control
+- `iteration_outcome` handoff — persists between iteration exit and `stratum_step_done` for ENG-5 routing; consumed on step completion, cleared on revise
+- `archived_iterations` — parallel list to `rounds[]` preserving iteration history across gate revise cycles without breaking `rounds[]` shape
+- Persistence — iteration state included in `persist_flow`, `restore_flow`, `commit_checkpoint`, `revert_checkpoint`
+- `stratum_audit` — returns `iterations` and `archived_iterations` in audit output
+- Inline steps support iteration (agent-based steps with `max_iterations`)
+
+**Testing:** 378 tests passing (+29); new file: `test_iterations.py` (24 tests); `test_ir_v02_extensions.py` +5 contract tests
+
 ---
 
 ## [0.1.3] — 2026-02-23

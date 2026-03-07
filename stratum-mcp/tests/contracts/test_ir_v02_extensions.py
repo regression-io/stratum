@@ -780,3 +780,151 @@ flows:
 """
     with pytest.raises(IRSemanticError, match="on_fail.*no ensure"):
         parse_and_validate(ir)
+
+
+# ---------------------------------------------------------------------------
+# STRAT-ENG-4: Per-step iteration fields
+# ---------------------------------------------------------------------------
+
+def test_max_iterations_parsed():
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Do it"
+    input: {}
+    output: Out
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+        max_iterations: 10
+        exit_criterion: "result.v == 'done'"
+"""
+    spec = parse_and_validate(ir)
+    step = spec.flows["main"].steps[0]
+    assert step.max_iterations == 10
+    assert step.exit_criterion == "result.v == 'done'"
+
+
+def test_max_iterations_without_exit_criterion():
+    """max_iterations alone (no exit_criterion) is valid."""
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Do it"
+    input: {}
+    output: Out
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+        max_iterations: 5
+"""
+    spec = parse_and_validate(ir)
+    step = spec.flows["main"].steps[0]
+    assert step.max_iterations == 5
+    assert step.exit_criterion is None
+
+
+def test_max_iterations_forbidden_on_gate_steps():
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Do it"
+    input: {}
+    output: Out
+  gate_fn:
+    mode: gate
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+      - id: g1
+        function: gate_fn
+        on_approve: ~
+        on_revise: s1
+        on_kill: ~
+        max_iterations: 10
+"""
+    with pytest.raises(IRSemanticError, match="must not have max_iterations"):
+        parse_and_validate(ir)
+
+
+def test_exit_criterion_requires_max_iterations():
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Do it"
+    input: {}
+    output: Out
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+        exit_criterion: "result.v == 'done'"
+"""
+    with pytest.raises(IRSemanticError, match="exit_criterion but no max_iterations"):
+        parse_and_validate(ir)
+
+
+def test_exit_criterion_dunder_blocked():
+    ir = """
+version: "0.2"
+contracts:
+  Out:
+    v: {type: string}
+functions:
+  work:
+    mode: infer
+    intent: "Do it"
+    input: {}
+    output: Out
+flows:
+  main:
+    input: {}
+    output: Out
+    steps:
+      - id: s1
+        function: work
+        inputs: {}
+        max_iterations: 5
+        exit_criterion: "result.__class__.__name__ == 'dict'"
+"""
+    with pytest.raises(IRSemanticError, match="dunder"):
+        parse_and_validate(ir)

@@ -87,6 +87,9 @@ class IRStepDef:
     output_contract: str | None = None
     step_model: str | None = None
     step_budget: IRBudgetDef | None = None
+    # v0.2 STRAT-ENG-4: per-step iteration
+    max_iterations: int | None = None
+    exit_criterion: str | None = None
 
 
 @dataclass(frozen=True)
@@ -320,6 +323,9 @@ _IR_SCHEMA_V02: dict = {
                 "output_contract": {"type": "string"},
                 "model": {"type": "string"},
                 "budget": {"$ref": "#/$defs/BudgetDef"},
+                # Per-step iteration (STRAT-ENG-4)
+                "max_iterations": {"type": "integer", "minimum": 1},
+                "exit_criterion": {"type": "string"},
             }
         },
         "FlowDef": {
@@ -478,6 +484,8 @@ def _build_step(s: dict) -> IRStepDef:
         output_contract=s.get("output_contract"),
         step_model=s.get("model"),
         step_budget=step_budget,
+        max_iterations=s.get("max_iterations"),
+        exit_criterion=s.get("exit_criterion"),
     )
 
 
@@ -636,6 +644,11 @@ def _validate_semantics(spec: IRSpec) -> None:
                             f"Gate step '{step.id}' may not have output_schema (gates produce no output)",
                             path=f"flows.{flow_name}.steps.{step.id}.output_schema"
                         )
+                    if step.max_iterations is not None:
+                        raise IRSemanticError(
+                            f"Gate step '{step.id}' must not have max_iterations (gates have their own revise cycle)",
+                            path=f"flows.{flow_name}.steps.{step.id}.max_iterations"
+                        )
                     if step.skip_if:
                         raise IRSemanticError(
                             f"Gate step '{step.id}' may not have skip_if (gate steps cannot be skipped)",
@@ -744,6 +757,18 @@ def _validate_semantics(spec: IRSpec) -> None:
                     raise IRSemanticError(
                         f"Step '{step.id}' has policy_fallback but is not a gate step",
                         path=f"flows.{flow_name}.steps.{step.id}.policy_fallback"
+                    )
+                # exit_criterion requires max_iterations
+                if step.exit_criterion and not step.max_iterations:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' has exit_criterion but no max_iterations",
+                        path=f"flows.{flow_name}.steps.{step.id}.exit_criterion"
+                    )
+                # exit_criterion dunder guard
+                if step.exit_criterion and "__" in step.exit_criterion:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' exit_criterion must not contain dunder attributes",
+                        path=f"flows.{flow_name}.steps.{step.id}.exit_criterion"
                     )
             else:
                 # Gate steps: on_fail and next are gate-incompatible

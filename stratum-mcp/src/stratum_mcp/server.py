@@ -20,6 +20,9 @@ from .executor import (
     resolve_gate,
     apply_gate_policy,
     skip_step,
+    start_iteration,
+    report_iteration,
+    abort_iteration,
     persist_flow,
     restore_flow,
     delete_persisted_flow,
@@ -182,6 +185,8 @@ async def stratum_step_done(
         }
 
     # "ok" — current_idx was advanced by process_step_result
+    # Consume iteration outcome (ENG-5 will read before clearing)
+    state.iteration_outcome.pop(step_id, None)
     try:
         next_step = get_current_step_info(state)
         next_step = _apply_policy_loop(state, next_step)
@@ -249,6 +254,9 @@ async def stratum_audit(flow_id: str, ctx: Context) -> dict[str, Any]:
         "round": state.round,
         # rounds: always present; each element is {"round": N, "steps": [...record dicts]}
         "rounds": [{"round": i, "steps": r} for i, r in enumerate(state.rounds)],
+        # STRAT-ENG-4: per-step iteration history
+        "iterations": state.iterations,
+        "archived_iterations": state.archived_iterations,
     }
 
 
@@ -476,6 +484,101 @@ async def stratum_skip_step(
 
     persist_flow(state)
     return next_info
+
+
+# ---------------------------------------------------------------------------
+# Per-step iteration tools (STRAT-ENG-4)
+# ---------------------------------------------------------------------------
+
+@mcp.tool(description=(
+    "Start an iteration loop on the current step. "
+    "Inputs: flow_id (str), step_id (str, must be the current step). "
+    "The step must have max_iterations defined in the spec. "
+    "Returns iteration_started with max_iterations and exit_criterion."
+))
+async def stratum_iteration_start(
+    flow_id: str,
+    step_id: str,
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    try:
+        result = start_iteration(state, step_id)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    return result
+
+
+@mcp.tool(description=(
+    "Report one iteration result. Evaluates exit_criterion, increments count, "
+    "checks max_iterations. "
+    "Inputs: flow_id (str), step_id (str), result (dict). "
+    "Returns iteration_continue or iteration_exit with outcome."
+))
+async def stratum_iteration_report(
+    flow_id: str,
+    step_id: str,
+    result: dict[str, Any],
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    try:
+        response = report_iteration(state, step_id, result)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    return response
+
+
+@mcp.tool(description=(
+    "Abort an active iteration loop before completion. "
+    "Inputs: flow_id (str), step_id (str), reason (str). "
+    "Returns iteration_aborted with the current count."
+))
+async def stratum_iteration_abort(
+    flow_id: str,
+    step_id: str,
+    reason: str,
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    try:
+        response = abort_iteration(state, step_id, reason)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    return response
 
 
 @mcp.tool(description=(

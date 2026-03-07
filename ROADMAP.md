@@ -55,6 +55,7 @@
 | T2-21 | `stratum_check_timeouts` MCP tool — auto-kill gate steps that exceed `timeout`; `resolved_by: system` | COMPLETE |
 | T2-22 | IR v0.2 semantic validation — gate function/step invariants, `on_revise` topological ordering, `declared_routing`, `retries_explicit` | COMPLETE |
 | T2-23 | 305 passing tests; `test_gate_api.py`, `test_gate_revise.py`, v0.2 invariant tests in `test_ir_schema.py` | COMPLETE |
+| T2-24 | STRAT-ENG-4: Per-step iteration — `max_iterations`, `exit_criterion`, `start/report/abort_iteration`, `iteration_outcome` handoff, `archived_iterations`; 378 tests | COMPLETE |
 
 ### Compose Integration
 
