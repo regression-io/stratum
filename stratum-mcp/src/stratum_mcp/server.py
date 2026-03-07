@@ -72,7 +72,10 @@ async def stratum_plan(
         return {"status": "error", **exception_to_mcp_error(exc)}
 
     _flows[state.flow_id] = state
-    step_info = get_current_step_info(state)  # may skip steps, mutating state
+    try:
+        step_info = get_current_step_info(state)  # may skip steps, mutating state
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
     persist_flow(state)                        # persist AFTER skip mutations
     return step_info  # always non-None: schema enforces minItems: 1
 
@@ -122,11 +125,14 @@ async def stratum_step_done(
 
     if status == "retries_exhausted":
         delete_persisted_flow(flow_id)
+        _step = state.ordered_steps[state.current_idx]
         return {
             "status": "error",
             "error_type": "retries_exhausted",
             "flow_id": flow_id,
             "step_id": step_id,
+            "step_mode": "inline" if _step.intent else "function",
+            "agent": _step.agent,
             "message": f"Step '{step_id}' exhausted all retries",
             "violations": violations,
         }
@@ -136,7 +142,10 @@ async def stratum_step_done(
         # current_idx has not advanced — get_current_step_info returns the same step
         # with updated retries_remaining. Persist AFTER get_current_step_info in case
         # skip mutations occur on subsequent steps (consistent with stratum_plan ordering).
-        step_info = get_current_step_info(state)
+        try:
+            step_info = get_current_step_info(state)
+        except MCPExecutionError as exc:
+            return {"status": "error", **exception_to_mcp_error(exc)}
         persist_flow(state)
         return {
             **step_info,
@@ -145,7 +154,10 @@ async def stratum_step_done(
         }
 
     # "ok" — current_idx was advanced by process_step_result
-    next_step = get_current_step_info(state)
+    try:
+        next_step = get_current_step_info(state)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
     if next_step is None:
         # Flow complete — clean up persistence
         delete_persisted_flow(flow_id)

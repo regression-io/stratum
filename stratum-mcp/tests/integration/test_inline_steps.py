@@ -429,6 +429,83 @@ _GATE_SPEC = textwrap.dedent("""\
 """)
 
 
+# ---------------------------------------------------------------------------
+# P1 fix: flow_ref steps return structured error through MCP tools
+# ---------------------------------------------------------------------------
+
+def test_plan_flow_ref_step_returns_structured_error():
+    """stratum_plan with a flow_ref first step returns error, not exception."""
+    result = _run(stratum_plan(spec=_FLOW_REF_SPEC, flow="main", inputs={}, ctx=None))
+    assert result["status"] == "error"
+    assert "STRAT-ENG-5" in result.get("message", "")
+
+
+def test_step_done_next_flow_ref_returns_structured_error():
+    """After completing a step, if the next step is flow_ref, return error."""
+    # Spec: function step then flow_ref step
+    spec_yaml = textwrap.dedent("""\
+        version: "0.2"
+        contracts:
+          Out:
+            v: {type: string}
+        functions:
+          work:
+            mode: infer
+            intent: "Do it"
+            input: {}
+            output: Out
+        flows:
+          sub:
+            input: {}
+            output: Out
+            steps:
+              - id: h1
+                function: work
+                inputs: {}
+          main:
+            input: {}
+            steps:
+              - id: s1
+                function: work
+                inputs: {}
+              - id: s2
+                flow: sub
+                depends_on: [s1]
+    """)
+    result = _run(stratum_plan(spec=spec_yaml, flow="main", inputs={}, ctx=None))
+    flow_id = result["flow_id"]
+    try:
+        result = _run(stratum_step_done(flow_id, "s1", {"v": "ok"}, ctx=None))
+        assert result["status"] == "error"
+        assert "STRAT-ENG-5" in result.get("message", "")
+    finally:
+        _flows.pop(flow_id, None)
+        delete_persisted_flow(flow_id)
+
+
+# ---------------------------------------------------------------------------
+# P2 fix: retries_exhausted includes step_mode and agent
+# ---------------------------------------------------------------------------
+
+def test_retries_exhausted_includes_step_mode_and_agent():
+    result = _run(stratum_plan(spec=_INLINE_SPEC, flow="main", inputs={}, ctx=None))
+    flow_id = result["flow_id"]
+    try:
+        _run(stratum_step_done(flow_id, "s1", {"done": False}, ctx=None))
+        result = _run(stratum_step_done(flow_id, "s1", {"done": False}, ctx=None))
+        assert result["status"] == "error"
+        assert result["error_type"] == "retries_exhausted"
+        assert result["step_mode"] == "inline"
+        assert result["agent"] == "claude"
+    finally:
+        _flows.pop(flow_id, None)
+        delete_persisted_flow(flow_id)
+
+
+# ---------------------------------------------------------------------------
+# Gate step new fields
+# ---------------------------------------------------------------------------
+
 def test_gate_step_info_includes_agent_and_step_mode():
     spec = parse_and_validate(_GATE_SPEC)
     state = create_flow_state(spec, "main", {}, raw_spec=_GATE_SPEC)
