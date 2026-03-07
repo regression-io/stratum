@@ -18,6 +18,8 @@ from .executor import (
     get_current_step_info,
     process_step_result,
     resolve_gate,
+    apply_gate_policy,
+    skip_step,
     persist_flow,
     restore_flow,
     delete_persisted_flow,
@@ -34,6 +36,28 @@ mcp = FastMCP(
         "and tracks step results with ensure postcondition enforcement."
     ),
 )
+
+
+def _apply_policy_loop(
+    state: FlowState,
+    step_info: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Apply gate policy in a loop until a non-auto-resolvable state is reached.
+
+    Handles chained flag/skip gates. Bounded by visited-set to prevent
+    on_approve routing cycles from hanging.
+    """
+    visited: set[str] = set()
+    while step_info is not None and step_info.get("status") == "await_gate":
+        gate_step_id = step_info["step_id"]
+        if gate_step_id in visited:
+            break  # cycle detected — treat as gate (require manual resolution)
+        visited.add(gate_step_id)
+        policy_result = apply_gate_policy(state, gate_step_id)
+        if policy_result is None:
+            break  # policy is "gate" — return await_gate to caller
+        step_info = policy_result
+    return step_info
 
 
 @mcp.tool(description=(
@@ -74,9 +98,13 @@ async def stratum_plan(
     _flows[state.flow_id] = state
     try:
         step_info = get_current_step_info(state)  # may skip steps, mutating state
+        step_info = _apply_policy_loop(state, step_info)
     except MCPExecutionError as exc:
         return {"status": "error", **exception_to_mcp_error(exc)}
-    persist_flow(state)                        # persist AFTER skip mutations
+    if step_info is not None and step_info.get("status") == "complete":
+        delete_persisted_flow(state.flow_id)
+        return step_info
+    persist_flow(state)                        # persist AFTER skip/policy mutations
     return step_info  # always non-None: schema enforces minItems: 1
 
 
@@ -156,8 +184,12 @@ async def stratum_step_done(
     # "ok" — current_idx was advanced by process_step_result
     try:
         next_step = get_current_step_info(state)
+        next_step = _apply_policy_loop(state, next_step)
     except MCPExecutionError as exc:
         return {"status": "error", **exception_to_mcp_error(exc)}
+    if next_step is not None and next_step.get("status") == "complete":
+        delete_persisted_flow(flow_id)
+        return next_step
     if next_step is None:
         # Flow complete — clean up persistence
         delete_persisted_flow(flow_id)
@@ -305,6 +337,10 @@ async def stratum_gate_resolve(
     # "execute_step" — route to the target step; persist AFTER get_current_step_info
     # in case the routed-to step has skip_if that fires (mutating state).
     next_step = get_current_step_info(state)
+    next_step = _apply_policy_loop(state, next_step)
+    if next_step is not None and next_step.get("status") == "complete":
+        delete_persisted_flow(flow_id)
+        return next_step
     persist_flow(state)
     return next_step
 
@@ -378,6 +414,64 @@ async def stratum_check_timeouts(flow_id: str, ctx: Context) -> dict[str, Any]:
         return next_step
 
     return {"status": "error", "message": f"Unexpected gate result: {result_status}"}
+
+
+@mcp.tool(description=(
+    "Explicitly skip the current step in a flow. "
+    "Inputs: flow_id (str), step_id (str, must be the current step), "
+    "reason (str, recorded in audit trail). "
+    "Cannot skip gate steps — use stratum_gate_resolve instead. "
+    "Returns next step to execute or flow completion."
+))
+async def stratum_skip_step(
+    flow_id: str,
+    step_id: str,
+    reason: str,
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    try:
+        skip_step(state, step_id, reason)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    try:
+        next_info = get_current_step_info(state)
+        next_info = _apply_policy_loop(state, next_info)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    if next_info is not None and next_info.get("status") == "complete":
+        delete_persisted_flow(flow_id)
+        return next_info
+    if next_info is None:
+        delete_persisted_flow(flow_id)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        output = next(
+            (state.step_outputs[s.id] for s in reversed(state.ordered_steps)
+             if s.id in state.step_outputs and state.step_outputs[s.id] is not None),
+            None,
+        )
+        return {
+            "status": state.terminal_status or "complete",
+            "flow_id": state.flow_id,
+            "output": output,
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    persist_flow(state)
+    return next_info
 
 
 @mcp.tool(description=(

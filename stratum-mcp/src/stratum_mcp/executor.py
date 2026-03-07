@@ -305,7 +305,19 @@ class SkipRecord:
     round_start_step_id: str | None = None
 
 
-def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord:
+@dataclass
+class PolicyRecord:
+    """Trace entry written when a gate step is auto-resolved by policy (flag or skip)."""
+    step_id: str
+    effective_policy: str    # "flag" or "skip"
+    resolved_outcome: str    # always "approve"
+    rationale: str
+    type: str = "policy"     # noqa: A003
+    round: int = 0
+    round_start_step_id: str | None = None
+
+
+def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord | PolicyRecord:
     """Reconstruct a StepRecord, GateRecord, or SkipRecord from a persisted dict."""
     rec_type = r.get("type", "step")
     if rec_type == "gate":
@@ -322,6 +334,15 @@ def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord:
         return SkipRecord(
             step_id=r["step_id"],
             skip_reason=r["skip_reason"],
+            round=r.get("round", 0),
+            round_start_step_id=r.get("round_start_step_id"),
+        )
+    if rec_type == "policy":
+        return PolicyRecord(
+            step_id=r["step_id"],
+            effective_policy=r["effective_policy"],
+            resolved_outcome=r["resolved_outcome"],
+            rationale=r["rationale"],
             round=r.get("round", 0),
             round_start_step_id=r.get("round_start_step_id"),
         )
@@ -346,7 +367,7 @@ class FlowState:
     ordered_steps: list[IRStepDef]
     inputs: dict[str, Any]           # flow-level inputs
     step_outputs: dict[str, Any]     # accumulated: step_id → output (None for skipped)
-    records: list[StepRecord | GateRecord | SkipRecord]  # active round's completed records
+    records: list[StepRecord | GateRecord | SkipRecord | PolicyRecord]  # active round's completed records
     attempts: dict[str, int]         # current attempt count per step_id
     dispatched_at: dict[str, float]  # when each step was sent to Claude Code
     flow_start: float
@@ -523,6 +544,33 @@ def create_flow_state(spec: IRSpec, flow_name: str, inputs: dict[str, Any], raw_
     )
 
 
+def skip_step(state: FlowState, step_id: str, reason: str) -> None:
+    """Skip the current step: write SkipRecord, set output to None, advance.
+
+    Raises MCPExecutionError if step_id doesn't match current step or if the
+    step is a gate step (gates must be resolved via stratum_gate_resolve).
+    """
+    if state.current_idx >= len(state.ordered_steps):
+        raise MCPExecutionError("Flow is already complete")
+    step = state.ordered_steps[state.current_idx]
+    if step.id != step_id:
+        raise MCPExecutionError(f"Expected step '{step.id}', got '{step_id}'")
+    # Gate steps cannot be skipped — they must be resolved via gate_resolve or policy.
+    fn_def = state.spec.functions.get(step.function) if step.function else None
+    if fn_def is not None and fn_def.mode == "gate":
+        raise MCPExecutionError(
+            f"Step '{step_id}' is a gate step — use stratum_gate_resolve to resolve it"
+        )
+    state.step_outputs[step.id] = None
+    state.records.append(SkipRecord(
+        step_id=step.id,
+        skip_reason=reason,
+        round=state.round,
+        round_start_step_id=state.round_start_step_id,
+    ))
+    state.current_idx += 1
+
+
 def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
     """
     Return the current step as a dict Claude Code can act on, with resolved inputs.
@@ -546,14 +594,7 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
     if step.skip_if and not is_gate:
         should_skip = evaluate_skip_if(step.skip_if, state.inputs, state.step_outputs)
         if should_skip:
-            state.step_outputs[step.id] = None
-            state.records.append(SkipRecord(
-                step_id=step.id,
-                skip_reason=step.skip_reason or f"skip_if: {step.skip_if}",
-                round=state.round,
-                round_start_step_id=state.round_start_step_id,
-            ))
-            state.current_idx += 1
+            skip_step(state, step.id, step.skip_reason or f"skip_if: {step.skip_if}")
             return get_current_step_info(state)  # tail-recurse for next step
 
     mode = _step_mode(step)
@@ -866,3 +907,71 @@ def resolve_gate(
         state.current_idx = target_idx
         state.terminal_status = "killed"  # flow is killed even when routing to a cleanup step
         return ("execute_step", {"target_step_id": step.on_kill})
+
+
+# ---------------------------------------------------------------------------
+# Gate policy evaluation (IR v0.2)
+# ---------------------------------------------------------------------------
+
+def apply_gate_policy(
+    state: FlowState,
+    step_id: str,
+) -> dict[str, Any] | None:
+    """
+    Check policy on the current gate step and auto-resolve if flag or skip.
+
+    Called by the server layer after get_current_step_info returns await_gate.
+    Does NOT call resolve_gate (avoids writing a GateRecord).
+
+    Returns:
+      None              — policy is "gate" (default); caller returns await_gate as-is
+      {"status": ...}   — auto-resolved; dict is complete or next step info
+    """
+    if state.current_idx >= len(state.ordered_steps):
+        return None
+
+    step = state.ordered_steps[state.current_idx]
+    if step.id != step_id:
+        return None  # defensive — should not happen
+
+    effective_policy = step.policy or "gate"
+    if effective_policy == "gate":
+        return None
+
+    # Auto-approve: write PolicyRecord, handle on_approve routing.
+    state.records.append(PolicyRecord(
+        step_id=step_id,
+        effective_policy=effective_policy,
+        resolved_outcome="approve",
+        rationale=f"policy: {effective_policy} — auto-approved",
+        round=state.round,
+        round_start_step_id=state.round_start_step_id,
+    ))
+
+    if step.on_approve is None:
+        # Null on_approve → complete the flow
+        state.current_idx = len(state.ordered_steps)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        output = next(
+            (state.step_outputs[s.id] for s in reversed(state.ordered_steps)
+             if s.id in state.step_outputs and state.step_outputs[s.id] is not None),
+            None,
+        )
+        return {
+            "status": "complete",
+            "flow_id": state.flow_id,
+            "output": output,
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    # Named on_approve → route to that step
+    target_idx = next(
+        (i for i, s in enumerate(state.ordered_steps) if s.id == step.on_approve), None
+    )
+    if target_idx is None:
+        raise MCPExecutionError(
+            f"on_approve target '{step.on_approve}' not found in flow"
+        )
+    state.current_idx = target_idx
+    return get_current_step_info(state)
