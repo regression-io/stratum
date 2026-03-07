@@ -3,7 +3,7 @@ import json
 import pytest
 from pathlib import Path
 
-from stratum_mcp.server import _cmd_setup, _CLAUDE_MD_MARKER, _CLAUDE_MD_BLOCK, _HOOK_SCRIPTS
+from stratum_mcp.server import _cmd_setup, _CLAUDE_MD_MARKER, _CLAUDE_MD_BLOCK, _HOOK_SCRIPTS, _STRATUM_HOOKS_DIR
 
 
 def _run_setup(tmp_path: Path) -> None:
@@ -218,24 +218,32 @@ def test_setup_skill_idempotent(tmp_path, capsys):
 # Hooks (T2-M2/M3/M4)
 # ---------------------------------------------------------------------------
 
-def test_setup_installs_all_hook_scripts(tmp_path, capsys):
+@pytest.fixture(autouse=False)
+def isolated_hooks_dir(tmp_path, monkeypatch):
+    """Redirect _STRATUM_HOOKS_DIR to a temp dir so hook tests are isolated."""
+    hooks_dir = tmp_path / ".stratum-hooks-test"
+    hooks_dir.mkdir()
+    import stratum_mcp.server as srv
+    monkeypatch.setattr(srv, "_STRATUM_HOOKS_DIR", hooks_dir)
+    return hooks_dir
+
+
+def test_setup_installs_all_hook_scripts(tmp_path, capsys, isolated_hooks_dir):
     _run_setup(tmp_path)
-    hooks_dir = tmp_path / ".claude" / "hooks"
     for script_name in _HOOK_SCRIPTS.values():
-        assert (hooks_dir / script_name).exists(), f"Missing hook: {script_name}"
+        assert (isolated_hooks_dir / script_name).exists(), f"Missing hook: {script_name}"
 
 
-def test_setup_hook_scripts_are_executable(tmp_path, capsys):
+def test_setup_hook_scripts_are_executable(tmp_path, capsys, isolated_hooks_dir):
     _run_setup(tmp_path)
-    hooks_dir = tmp_path / ".claude" / "hooks"
     import stat
     for script_name in _HOOK_SCRIPTS.values():
-        path = hooks_dir / script_name
+        path = isolated_hooks_dir / script_name
         mode = path.stat().st_mode
         assert mode & stat.S_IXUSR, f"{script_name} is not user-executable"
 
 
-def test_setup_registers_hooks_in_settings_json(tmp_path, capsys):
+def test_setup_hooks_use_absolute_paths_in_settings(tmp_path, capsys, isolated_hooks_dir):
     _run_setup(tmp_path)
     settings_file = tmp_path / ".claude" / "settings.json"
     assert settings_file.exists()
@@ -248,11 +256,12 @@ def test_setup_registers_hooks_in_settings_json(tmp_path, capsys):
             for entry in hooks[event]
             for h in entry.get("hooks", [])
         ]
-        assert any(script_name in cmd for cmd in commands), \
-            f"settings.json hooks.{event} missing {script_name}"
+        expected = f"bash {isolated_hooks_dir / script_name}"
+        assert expected in commands, \
+            f"settings.json hooks.{event} missing absolute path for {script_name}"
 
 
-def test_setup_hooks_merge_with_existing_settings(tmp_path):
+def test_setup_hooks_merge_with_existing_settings(tmp_path, isolated_hooks_dir):
     settings_file = tmp_path / ".claude" / "settings.json"
     (tmp_path / ".claude").mkdir(parents=True)
     existing = {"permissions": {"allow": ["Bash(pytest:*)"]}}
@@ -267,7 +276,7 @@ def test_setup_hooks_merge_with_existing_settings(tmp_path):
     assert "hooks" in settings
 
 
-def test_setup_hooks_idempotent(tmp_path, capsys):
+def test_setup_hooks_idempotent(tmp_path, capsys, isolated_hooks_dir):
     _run_setup(tmp_path)
     _run_setup(tmp_path)
 
@@ -284,11 +293,84 @@ def test_setup_hooks_idempotent(tmp_path, capsys):
             f"hooks.{event} has {len(matching)} entries for {script_name} (expected 1)"
 
 
-def test_setup_reports_installed_not_updated_on_first_run(tmp_path, capsys):
+def test_setup_reports_installed_not_updated_on_first_run(tmp_path, capsys, isolated_hooks_dir):
     """P3: first install must log 'installed', not 'updated'."""
     _run_setup(tmp_path)
     out = capsys.readouterr().out
     for script_name in _HOOK_SCRIPTS.values():
-        assert f".claude/hooks/{script_name}: installed" in out, \
+        assert f"{script_name}: installed" in out, \
             f"Expected 'installed' for {script_name}, got: {out}"
-        assert f".claude/hooks/{script_name}: updated" not in out
+        assert f"{script_name}: updated" not in out
+
+
+def test_setup_migrates_old_per_project_hooks(tmp_path, capsys, isolated_hooks_dir):
+    """Old per-project hooks in .claude/hooks/ are cleaned up on install."""
+    # Simulate old-style install: put scripts in .claude/hooks/
+    old_hooks = tmp_path / ".claude" / "hooks"
+    old_hooks.mkdir(parents=True)
+    for script_name in _HOOK_SCRIPTS.values():
+        (old_hooks / script_name).write_text("#!/bin/bash\n# old")
+
+    # Also write old-style settings.json entries
+    settings_file = tmp_path / ".claude" / "settings.json"
+    old_settings = {"hooks": {}}
+    for event, script_name in _HOOK_SCRIPTS.items():
+        old_settings["hooks"][event] = [
+            {"hooks": [{"type": "command", "command": f"bash .claude/hooks/{script_name}"}]}
+        ]
+    settings_file.write_text(json.dumps(old_settings))
+
+    _run_setup(tmp_path)
+    out = capsys.readouterr().out
+
+    # Old scripts removed
+    for script_name in _HOOK_SCRIPTS.values():
+        assert not (old_hooks / script_name).exists(), \
+            f"Old hook still present: {script_name}"
+        assert "migrated" in out
+
+    # New scripts installed to isolated hooks dir
+    for script_name in _HOOK_SCRIPTS.values():
+        assert (isolated_hooks_dir / script_name).exists()
+
+    # Settings now use absolute paths
+    settings = json.loads(settings_file.read_text())
+    for event, script_name in _HOOK_SCRIPTS.items():
+        commands = [
+            h.get("command", "")
+            for entry in settings["hooks"].get(event, [])
+            for h in entry.get("hooks", [])
+        ]
+        expected = f"bash {isolated_hooks_dir / script_name}"
+        assert expected in commands, f"Expected absolute path for {event}"
+        old_cmd = f"bash .claude/hooks/{script_name}"
+        assert old_cmd not in commands, f"Old relative path still in {event}"
+
+
+def test_setup_migration_preserves_colocated_hooks(tmp_path, capsys, isolated_hooks_dir):
+    """Migration must not drop non-Stratum hooks that share a hooks entry."""
+    settings_file = tmp_path / ".claude" / "settings.json"
+    (tmp_path / ".claude").mkdir(parents=True)
+
+    # A single entry with both old Stratum hook AND a foreign hook
+    mixed_entry = {"hooks": [
+        {"type": "command", "command": "bash .claude/hooks/stratum-session-start.sh"},
+        {"type": "command", "command": "bash my-custom-hook.sh"},
+    ]}
+    settings_file.write_text(json.dumps({
+        "hooks": {"SessionStart": [mixed_entry]}
+    }))
+
+    _run_setup(tmp_path)
+
+    settings = json.loads(settings_file.read_text())
+    all_commands = [
+        h.get("command", "")
+        for entry in settings["hooks"]["SessionStart"]
+        for h in entry.get("hooks", [])
+    ]
+    # Foreign hook must survive
+    assert "bash my-custom-hook.sh" in all_commands, \
+        "Foreign hook in mixed entry was lost during migration"
+    # Old Stratum hook must be gone
+    assert "bash .claude/hooks/stratum-session-start.sh" not in all_commands

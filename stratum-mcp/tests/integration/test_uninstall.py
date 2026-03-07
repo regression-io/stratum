@@ -157,7 +157,7 @@ def test_uninstall_keep_skills_flag(tmp_path, capsys):
 # Roundtrip: setup → uninstall → setup
 # ---------------------------------------------------------------------------
 
-def test_setup_after_uninstall_works(tmp_path):
+def test_setup_after_uninstall_works(tmp_path, isolated_hooks_dir):
     _setup(tmp_path)
     _uninstall(tmp_path)
     _setup(tmp_path)
@@ -191,21 +191,30 @@ def test_uninstall_prints_nothing_to_remove_when_already_clean(tmp_path, capsys)
 # Hooks (T2-M2/M3/M4)
 # ---------------------------------------------------------------------------
 
-from stratum_mcp.server import _HOOK_SCRIPTS
+from stratum_mcp.server import _HOOK_SCRIPTS, _STRATUM_HOOKS_DIR
 
 
-def test_uninstall_removes_hook_scripts(tmp_path, capsys):
+@pytest.fixture(autouse=False)
+def isolated_hooks_dir(tmp_path, monkeypatch):
+    """Redirect _STRATUM_HOOKS_DIR to a temp dir so hook tests are isolated."""
+    hooks_dir = tmp_path / ".stratum-hooks-test"
+    hooks_dir.mkdir()
+    import stratum_mcp.server as srv
+    monkeypatch.setattr(srv, "_STRATUM_HOOKS_DIR", hooks_dir)
+    return hooks_dir
+
+
+def test_uninstall_removes_hook_scripts(tmp_path, capsys, isolated_hooks_dir):
     _run(tmp_path, _cmd_setup)
     capsys.readouterr()
     _uninstall(tmp_path)
 
-    hooks_dir = tmp_path / ".claude" / "hooks"
     for script_name in _HOOK_SCRIPTS.values():
-        assert not (hooks_dir / script_name).exists(), \
+        assert not (isolated_hooks_dir / script_name).exists(), \
             f"Hook script still present after uninstall: {script_name}"
 
 
-def test_uninstall_removes_hooks_from_settings_json(tmp_path, capsys):
+def test_uninstall_removes_hooks_from_settings_json(tmp_path, capsys, isolated_hooks_dir):
     _run(tmp_path, _cmd_setup)
     capsys.readouterr()
     _uninstall(tmp_path)
@@ -225,7 +234,7 @@ def test_uninstall_removes_hooks_from_settings_json(tmp_path, capsys):
                 f"hooks.{event} still has {script_name} after uninstall"
 
 
-def test_uninstall_preserves_other_hooks_in_settings_json(tmp_path, capsys):
+def test_uninstall_preserves_other_hooks_in_settings_json(tmp_path, capsys, isolated_hooks_dir):
     """Non-stratum hooks must survive uninstall."""
     # Seed settings.json with a foreign hook before setup
     settings_file = tmp_path / ".claude" / "settings.json"
@@ -250,7 +259,7 @@ def test_uninstall_preserves_other_hooks_in_settings_json(tmp_path, capsys):
     assert "bash other-hook.sh" in commands, "Foreign hook was removed by uninstall"
 
 
-def test_uninstall_does_not_crash_when_settings_json_has_no_hooks_key(tmp_path, capsys):
+def test_uninstall_does_not_crash_when_settings_json_has_no_hooks_key(tmp_path, capsys, isolated_hooks_dir):
     """P1: _remove_hooks() must not raise KeyError when settings.json lacks 'hooks'."""
     settings_file = tmp_path / ".claude" / "settings.json"
     (tmp_path / ".claude").mkdir(parents=True)
@@ -261,3 +270,49 @@ def test_uninstall_does_not_crash_when_settings_json_has_no_hooks_key(tmp_path, 
     # permissions key must be preserved
     assert settings_file.exists()
     assert json.loads(settings_file.read_text())["permissions"]["allow"] == ["Bash(pytest:*)"]
+
+
+def test_uninstall_cleans_up_old_per_project_hooks(tmp_path, capsys, isolated_hooks_dir):
+    """Uninstall removes old-style per-project hook scripts too."""
+    # Simulate old-style install
+    old_hooks = tmp_path / ".claude" / "hooks"
+    old_hooks.mkdir(parents=True)
+    for script_name in _HOOK_SCRIPTS.values():
+        (old_hooks / script_name).write_text("#!/bin/bash\n# old")
+
+    _uninstall(tmp_path)
+    out = capsys.readouterr().out
+
+    for script_name in _HOOK_SCRIPTS.values():
+        assert not (old_hooks / script_name).exists(), \
+            f"Old hook still present: {script_name}"
+    assert "old location" in out
+
+
+def test_uninstall_preserves_colocated_hooks_in_mixed_entry(tmp_path, capsys, isolated_hooks_dir):
+    """Uninstall must not drop non-Stratum hooks that share a hooks entry."""
+    _run(tmp_path, _cmd_setup)
+    capsys.readouterr()
+
+    # Manually add a foreign hook into the same entry as a Stratum hook
+    settings_file = tmp_path / ".claude" / "settings.json"
+    settings = json.loads(settings_file.read_text())
+    # Find the SessionStart entry and add a foreign command to its hooks list
+    for entry in settings["hooks"]["SessionStart"]:
+        for h in entry.get("hooks", []):
+            if "stratum" in h.get("command", ""):
+                entry["hooks"].append({"type": "command", "command": "bash my-custom-hook.sh"})
+                break
+    settings_file.write_text(json.dumps(settings, indent=2))
+
+    _uninstall(tmp_path)
+
+    assert settings_file.exists(), "settings.json deleted but foreign hooks remained"
+    settings = json.loads(settings_file.read_text())
+    all_commands = [
+        h.get("command", "")
+        for entry in settings.get("hooks", {}).get("SessionStart", [])
+        for h in entry.get("hooks", [])
+    ]
+    assert "bash my-custom-hook.sh" in all_commands, \
+        "Foreign hook in mixed entry was lost during uninstall"
