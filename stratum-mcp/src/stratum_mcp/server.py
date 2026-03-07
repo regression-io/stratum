@@ -549,6 +549,55 @@ async def stratum_draft_pipeline(
     return {"status": "saved", "path": str(draft_path)}
 
 
+@mcp.tool(description=(
+    "List registered workflow specs from a directory. "
+    "Scans for *.stratum.yaml files with a workflow: block. "
+    "Returns {workflows: [{name, description, input, path}], errors: [str]}."
+))
+async def stratum_list_workflows(
+    workflows_dir: str = ".",
+    ctx: Context = None,
+) -> dict[str, Any]:
+    from pathlib import Path as _Path
+    import yaml as _yaml
+
+    root = _Path(workflows_dir).resolve()
+    workflows: list[dict[str, Any]] = []
+    errors: list[str] = []
+    seen_names: dict[str, str] = {}  # name → first path
+
+    for yaml_path in sorted(root.glob("*.stratum.yaml")):
+        try:
+            raw = yaml_path.read_text()
+            spec = parse_and_validate(raw)
+        except Exception as exc:
+            errors.append(f"{yaml_path.name}: {exc}")
+            continue
+
+        if spec.workflow is None:
+            continue
+
+        name = spec.workflow.name
+        path_str = str(yaml_path)
+
+        if name in seen_names:
+            errors.append(
+                f"Duplicate workflow name '{name}': "
+                f"{seen_names[name]} and {path_str}"
+            )
+            continue
+
+        seen_names[name] = path_str
+        workflows.append({
+            "name": name,
+            "description": spec.workflow.description,
+            "input": spec.workflow.input_schema,
+            "path": path_str,
+        })
+
+    return {"workflows": workflows, "errors": errors}
+
+
 _CLAUDE_MD_MARKER = "## Stratum Execution Model"
 
 _CLAUDE_MD_BLOCK = """

@@ -53,9 +53,10 @@ class IRFunctionDef:
 @dataclass(frozen=True)
 class IRStepDef:
     id: str
-    function: str
-    inputs: dict[str, str]
-    depends_on: list[str]
+    # v0.2: function is optional — inline steps use intent, composed steps use flow_ref
+    function: str = ""
+    inputs: dict[str, str] = field(default_factory=dict)
+    depends_on: list[str] = field(default_factory=list)
     output_schema: dict[str, Any] | None = None
     # v0.2: gate routing — all nullable; on_revise required for gate steps (semantic validation)
     on_approve: str | None = None
@@ -67,6 +68,25 @@ class IRStepDef:
     # v0.2: tracks which routing fields were explicitly declared in YAML
     # (distinguishes absent-from-YAML vs explicitly-null for on_approve / on_kill)
     declared_routing: frozenset = field(default_factory=frozenset)
+    # v0.2 STRAT-ENG-1: per-step agent assignment
+    agent: str | None = None
+    # v0.2 STRAT-ENG-1: inline step intent (prompt) — mutually exclusive with function and flow_ref
+    intent: str | None = None
+    # v0.2 STRAT-ENG-1: non-gate routing
+    on_fail: str | None = None
+    next: str | None = None
+    # v0.2 STRAT-ENG-1: sub-workflow invocation — mutually exclusive with function and intent
+    flow_ref: str | None = None
+    # v0.2 STRAT-ENG-1: policy enforcement on gate steps
+    policy: str | None = None
+    policy_fallback: str | None = None
+    # v0.2 STRAT-ENG-1: step-level execution fields for inline steps
+    # (function steps get these from IRFunctionDef; flow_ref steps only allow ensure)
+    step_ensure: list[str] | None = None
+    step_retries: int | None = None
+    output_contract: str | None = None
+    step_model: str | None = None
+    step_budget: IRBudgetDef | None = None
 
 
 @dataclass(frozen=True)
@@ -81,11 +101,21 @@ class IRFlowDef:
 
 
 @dataclass(frozen=True)
+class IRWorkflowDef:
+    """v0.2 STRAT-ENG-1: self-registering workflow declaration."""
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class IRSpec:
     version: str
     contracts: dict[str, IRContractDef]
     functions: dict[str, IRFunctionDef]
     flows: dict[str, IRFlowDef]
+    # v0.2 STRAT-ENG-1: workflow declaration (None for internal specs)
+    workflow: IRWorkflowDef | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +203,7 @@ _IR_SCHEMA_V01: dict = {
 }
 
 # v0.2: adds mode:gate, gate routing fields, skip_if/skip_reason, max_rounds,
-#        and relaxes required fields for gate functions/flows.
+#        inline steps (agent/intent), flow composition, policy, workflow declaration.
 _IR_SCHEMA_V02: dict = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -202,7 +232,30 @@ _IR_SCHEMA_V02: dict = {
         "flows": {
             "type": "object",
             "additionalProperties": {"$ref": "#/$defs/FlowDef"}
-        }
+        },
+        "workflow": {
+            "type": "object",
+            "required": ["name", "description", "input"],
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                "description": {"type": "string", "minLength": 1},
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string", "enum": [
+                                "string", "boolean", "integer", "number", "array", "object"
+                            ]},
+                            "required": {"type": "boolean"},
+                            "default": {},
+                        },
+                        "required": ["type"],
+                    }
+                },
+            }
+        },
     },
     "$defs": {
         "BudgetDef": {
@@ -232,13 +285,19 @@ _IR_SCHEMA_V02: dict = {
             }
         },
         "StepDef": {
-            # Gate steps do not have "inputs" — only id and function are required.
+            # v0.2: only "id" is required — steps can use function, intent, or flow
             "type": "object",
-            "required": ["id", "function"],
+            "required": ["id"],
             "additionalProperties": False,
             "properties": {
                 "id": {"type": "string"},
+                # Step mode: exactly one of function, intent, or flow (semantic validation)
                 "function": {"type": "string"},
+                "intent": {"type": "string"},
+                "flow": {"type": "string"},
+                # Agent assignment
+                "agent": {"type": "string"},
+                # Inputs and dependencies
                 "inputs": {"type": "object", "additionalProperties": {"type": "string"}},
                 "depends_on": {"type": "array", "items": {"type": "string"}},
                 "output_schema": {"type": "object"},
@@ -246,9 +305,21 @@ _IR_SCHEMA_V02: dict = {
                 "on_approve": {"type": ["string", "null"]},
                 "on_revise":  {"type": ["string", "null"]},
                 "on_kill":    {"type": ["string", "null"]},
+                # Non-gate routing
+                "on_fail": {"type": "string"},
+                "next": {"type": "string"},
                 # Conditional skip
                 "skip_if":     {"type": "string"},
                 "skip_reason": {"type": "string"},
+                # Policy enforcement (gate steps only)
+                "policy": {"type": "string", "enum": ["gate", "flag", "skip"]},
+                "policy_fallback": {"type": "string", "enum": ["gate", "flag", "skip"]},
+                # Step-level execution fields (inline steps only — semantic validation)
+                "ensure": {"type": "array", "items": {"type": "string"}},
+                "retries": {"type": "integer", "minimum": 1},
+                "output_contract": {"type": "string"},
+                "model": {"type": "string"},
+                "budget": {"$ref": "#/$defs/BudgetDef"},
             }
         },
         "FlowDef": {
@@ -331,7 +402,19 @@ def _build_spec(doc: dict) -> IRSpec:
         name: _build_flow(name, d)
         for name, d in (doc.get("flows") or {}).items()
     }
-    return IRSpec(version=doc["version"], contracts=contracts, functions=functions, flows=flows)
+    wf = doc.get("workflow")
+    workflow = IRWorkflowDef(
+        name=wf["name"],
+        description=wf["description"],
+        input_schema=wf.get("input", {}),
+    ) if wf else None
+    return IRSpec(
+        version=doc["version"],
+        contracts=contracts,
+        functions=functions,
+        flows=flows,
+        workflow=workflow,
+    )
 
 
 def _build_function(name: str, d: dict) -> IRFunctionDef:
@@ -355,24 +438,7 @@ def _build_function(name: str, d: dict) -> IRFunctionDef:
 def _build_flow(name: str, d: dict) -> IRFlowDef:
     b = d.get("budget")
     budget = IRBudgetDef(ms=b.get("ms"), usd=b.get("usd")) if b else None
-    steps = [
-        IRStepDef(
-            id=s["id"],
-            function=s["function"],
-            inputs=s.get("inputs", {}),
-            depends_on=s.get("depends_on", []),
-            output_schema=s.get("output_schema"),
-            on_approve=s.get("on_approve"),
-            on_revise=s.get("on_revise"),
-            on_kill=s.get("on_kill"),
-            skip_if=s.get("skip_if"),
-            skip_reason=s.get("skip_reason"),
-            declared_routing=frozenset(
-                f for f in ("on_approve", "on_revise", "on_kill") if f in s
-            ),
-        )
-        for s in d.get("steps", [])
-    ]
+    steps = [_build_step(s) for s in d.get("steps", [])]
     return IRFlowDef(
         name=name,
         input_schema=d.get("input", {}),
@@ -380,6 +446,38 @@ def _build_flow(name: str, d: dict) -> IRFlowDef:
         budget=budget,
         steps=steps,
         max_rounds=d.get("max_rounds"),
+    )
+
+
+def _build_step(s: dict) -> IRStepDef:
+    sb = s.get("budget")
+    step_budget = IRBudgetDef(ms=sb.get("ms"), usd=sb.get("usd")) if sb else None
+    return IRStepDef(
+        id=s["id"],
+        function=s.get("function", ""),
+        inputs=s.get("inputs", {}),
+        depends_on=s.get("depends_on", []),
+        output_schema=s.get("output_schema"),
+        on_approve=s.get("on_approve"),
+        on_revise=s.get("on_revise"),
+        on_kill=s.get("on_kill"),
+        skip_if=s.get("skip_if"),
+        skip_reason=s.get("skip_reason"),
+        declared_routing=frozenset(
+            f for f in ("on_approve", "on_revise", "on_kill") if f in s
+        ),
+        agent=s.get("agent"),
+        intent=s.get("intent"),
+        on_fail=s.get("on_fail"),
+        next=s.get("next"),
+        flow_ref=s.get("flow"),  # YAML key "flow" → field "flow_ref"
+        policy=s.get("policy"),
+        policy_fallback=s.get("policy_fallback"),
+        step_ensure=s.get("ensure"),
+        step_retries=s.get("retries"),
+        output_contract=s.get("output_contract"),
+        step_model=s.get("model"),
+        step_budget=step_budget,
     )
 
 
@@ -408,14 +506,34 @@ def _topo_positions(steps: list[IRStepDef]) -> dict[str, int]:
     return positions
 
 
+def _check_recursive_flow_refs(spec: IRSpec, flow_name: str, step_flow_ref: str) -> None:
+    """Detect recursive flow references (direct or indirect)."""
+    visited = {flow_name}
+    queue = [step_flow_ref]
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            raise IRSemanticError(
+                f"Recursive flow reference detected: '{current}' is referenced "
+                f"from within its own call chain",
+                path=f"flows.{flow_name}"
+            )
+        visited.add(current)
+        flow = spec.flows.get(current)
+        if flow:
+            for s in flow.steps:
+                if s.flow_ref:
+                    queue.append(s.flow_ref)
+
+
 def _validate_semantics(spec: IRSpec) -> None:
     known_contracts = set(spec.contracts)
     known_functions = set(spec.functions)
+    known_flow_names = set(spec.flows)
 
+    # --- Function-level validation (unchanged) ---
     for fn_name, fn in spec.functions.items():
         if fn.mode == "gate":
-            # Gate functions must not declare ensure expressions or a budget —
-            # they produce no output and must not enforce postconditions.
             if fn.ensure:
                 raise IRSemanticError(
                     f"Gate function '{fn_name}' must not have ensure expressions",
@@ -438,6 +556,31 @@ def _validate_semantics(spec: IRSpec) -> None:
                 path=f"functions.{fn_name}.output"
             )
 
+    # --- Workflow-level validation ---
+    if spec.workflow:
+        # Entry flow: must match workflow.name or be the only flow
+        entry_flow_name = spec.workflow.name if spec.workflow.name in known_flow_names else None
+        if entry_flow_name is None:
+            if len(spec.flows) == 1:
+                entry_flow_name = next(iter(spec.flows))
+            else:
+                raise IRSemanticError(
+                    f"Workflow '{spec.workflow.name}' has no matching flow and spec "
+                    f"has {len(spec.flows)} flows — cannot determine entry flow",
+                    path="workflow.name"
+                )
+        # Input schema keys must match entry flow's input schema keys
+        entry_flow = spec.flows[entry_flow_name]
+        wf_keys = set(spec.workflow.input_schema.keys())
+        flow_keys = set(entry_flow.input_schema.keys())
+        if wf_keys != flow_keys:
+            raise IRSemanticError(
+                f"Workflow input keys {sorted(wf_keys)} do not match "
+                f"entry flow '{entry_flow_name}' input keys {sorted(flow_keys)}",
+                path="workflow.input"
+            )
+
+    # --- Flow-level and step-level validation ---
     for flow_name, flow in spec.flows.items():
         # output_contract is optional for gate flows (empty string = no contract)
         if flow.output_contract and flow.output_contract not in known_contracts:
@@ -445,93 +588,181 @@ def _validate_semantics(spec: IRSpec) -> None:
                 f"Flow '{flow_name}' output contract '{flow.output_contract}' not defined",
                 path=f"flows.{flow_name}.output"
             )
-        # Collect all step IDs first so depends_on can reference steps in any YAML order.
-        # Existence is validated here; cycle detection is handled by _topological_sort.
         known_step_ids = {step.id for step in flow.steps}
-        # Topological positions for on_revise ordering validation (computed once per flow).
         topo_pos = _topo_positions(flow.steps)
+
         for step in flow.steps:
-            if step.function not in known_functions:
+            # --- 1. Mode exclusion: exactly one of function, intent, flow_ref ---
+            modes = [bool(step.function), bool(step.intent), bool(step.flow_ref)]
+            if sum(modes) != 1:
                 raise IRSemanticError(
-                    f"Step '{step.id}' references undefined function '{step.function}'",
-                    path=f"flows.{flow_name}.steps.{step.id}.function"
+                    f"Step '{step.id}' must have exactly one of function, intent, or flow",
+                    path=f"flows.{flow_name}.steps.{step.id}"
                 )
+
+            # --- 2. depends_on targets exist (common to all modes) ---
             for dep in step.depends_on:
                 if dep not in known_step_ids:
                     raise IRSemanticError(
                         f"Step '{step.id}' depends_on unknown step '{dep}'",
                         path=f"flows.{flow_name}.steps.{step.id}.depends_on"
                     )
-            # v0.2 gate invariants
-            fn_def = spec.functions.get(step.function)
-            if fn_def and fn_def.mode == "gate":
-                # Gate steps must not carry output_schema (gates produce no output)
-                if step.output_schema is not None:
+
+            # --- 3. Mode-specific validation ---
+            is_gate_step = False
+
+            if step.function:
+                # Function must exist
+                if step.function not in known_functions:
                     raise IRSemanticError(
-                        f"Gate step '{step.id}' may not have output_schema (gates produce no output)",
-                        path=f"flows.{flow_name}.steps.{step.id}.output_schema"
+                        f"Step '{step.id}' references undefined function '{step.function}'",
+                        path=f"flows.{flow_name}.steps.{step.id}.function"
                     )
-                # Gate steps must not carry skip_if (gates cannot be skipped)
-                if step.skip_if:
-                    raise IRSemanticError(
-                        f"Gate step '{step.id}' may not have skip_if (gate steps cannot be skipped)",
-                        path=f"flows.{flow_name}.steps.{step.id}.skip_if"
-                    )
-                # Gate steps require on_approve and on_kill to be explicitly declared
-                # (even if null is acceptable — absence means the author forgot them)
-                for routing_field in ("on_approve", "on_kill"):
-                    if routing_field not in step.declared_routing:
+                # Step-level execution fields forbidden on function steps
+                for field_name in ("step_ensure", "step_retries", "output_contract", "step_model", "step_budget"):
+                    if getattr(step, field_name) is not None:
+                        yaml_name = field_name.replace("step_", "")
                         raise IRSemanticError(
-                            f"Gate step '{step.id}' must explicitly declare '{routing_field}' "
-                            f"(use null for default terminal behaviour)",
-                            path=f"flows.{flow_name}.steps.{step.id}.{routing_field}"
+                            f"Step '{step.id}' uses function '{step.function}' — "
+                            f"'{yaml_name}' must be on the function, not the step",
+                            path=f"flows.{flow_name}.steps.{step.id}.{yaml_name}"
                         )
-                # Gate steps require on_revise to be set (non-null) so revise is always possible
-                if step.on_revise is None:
-                    raise IRSemanticError(
-                        f"Gate step '{step.id}' must have on_revise set to a step id",
-                        path=f"flows.{flow_name}.steps.{step.id}.on_revise"
-                    )
-                # on_revise must not target the gate step itself
-                if step.on_revise == step.id:
-                    raise IRSemanticError(
-                        f"Gate step '{step.id}' on_revise may not target itself",
-                        path=f"flows.{flow_name}.steps.{step.id}.on_revise"
-                    )
-                # on_revise must target a topologically-earlier step (rollback semantics).
-                # If topo positions are available for both steps (no cycle), enforce ordering.
-                gate_topo = topo_pos.get(step.id)
-                revise_topo = topo_pos.get(step.on_revise)
-                if gate_topo is not None and revise_topo is not None:
-                    if revise_topo >= gate_topo:
+                # Gate-specific checks
+                fn_def = spec.functions[step.function]
+                if fn_def.mode == "gate":
+                    is_gate_step = True
+                    if step.output_schema is not None:
                         raise IRSemanticError(
-                            f"Gate step '{step.id}' on_revise must target a topologically-earlier "
-                            f"step, but '{step.on_revise}' executes at or after '{step.id}'",
+                            f"Gate step '{step.id}' may not have output_schema (gates produce no output)",
+                            path=f"flows.{flow_name}.steps.{step.id}.output_schema"
+                        )
+                    if step.skip_if:
+                        raise IRSemanticError(
+                            f"Gate step '{step.id}' may not have skip_if (gate steps cannot be skipped)",
+                            path=f"flows.{flow_name}.steps.{step.id}.skip_if"
+                        )
+                    for routing_field in ("on_approve", "on_kill"):
+                        if routing_field not in step.declared_routing:
+                            raise IRSemanticError(
+                                f"Gate step '{step.id}' must explicitly declare '{routing_field}' "
+                                f"(use null for default terminal behaviour)",
+                                path=f"flows.{flow_name}.steps.{step.id}.{routing_field}"
+                            )
+                    if step.on_revise is None:
+                        raise IRSemanticError(
+                            f"Gate step '{step.id}' must have on_revise set to a step id",
                             path=f"flows.{flow_name}.steps.{step.id}.on_revise"
                         )
-                # Validate routing target existence
-                for field_name, target in [
-                    ("on_approve", step.on_approve),
-                    ("on_revise",  step.on_revise),
-                    ("on_kill",    step.on_kill),
-                ]:
-                    if target is not None and target not in known_step_ids:
+                    if step.on_revise == step.id:
                         raise IRSemanticError(
-                            f"Step '{step.id}' {field_name} references unknown step '{target}'",
-                            path=f"flows.{flow_name}.steps.{step.id}.{field_name}"
+                            f"Gate step '{step.id}' on_revise may not target itself",
+                            path=f"flows.{flow_name}.steps.{step.id}.on_revise"
                         )
-            else:
-                # Non-gate steps must not carry gate routing fields
-                for field_name, value in [
-                    ("on_approve", step.on_approve),
-                    ("on_revise",  step.on_revise),
-                    ("on_kill",    step.on_kill),
-                ]:
-                    if value is not None:
+                    gate_topo = topo_pos.get(step.id)
+                    revise_topo = topo_pos.get(step.on_revise)
+                    if gate_topo is not None and revise_topo is not None:
+                        if revise_topo >= gate_topo:
+                            raise IRSemanticError(
+                                f"Gate step '{step.id}' on_revise must target a topologically-earlier "
+                                f"step, but '{step.on_revise}' executes at or after '{step.id}'",
+                                path=f"flows.{flow_name}.steps.{step.id}.on_revise"
+                            )
+                    for field_name, target in [
+                        ("on_approve", step.on_approve),
+                        ("on_revise",  step.on_revise),
+                        ("on_kill",    step.on_kill),
+                    ]:
+                        if target is not None and target not in known_step_ids:
+                            raise IRSemanticError(
+                                f"Step '{step.id}' {field_name} references unknown step '{target}'",
+                                path=f"flows.{flow_name}.steps.{step.id}.{field_name}"
+                            )
+
+            elif step.intent:
+                pass  # Inline step: no additional mode-specific checks
+
+            elif step.flow_ref:
+                # Must reference a known flow
+                if step.flow_ref not in known_flow_names:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' references undefined flow '{step.flow_ref}'",
+                        path=f"flows.{flow_name}.steps.{step.id}.flow"
+                    )
+                # Must not have agent (sub-flow steps define their own agents)
+                if step.agent:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' uses flow '{step.flow_ref}' — "
+                        f"agent must not be set (sub-flow steps define their own)",
+                        path=f"flows.{flow_name}.steps.{step.id}.agent"
+                    )
+                # Must not have retries, model, budget
+                for field_name in ("step_retries", "step_model", "step_budget"):
+                    if getattr(step, field_name) is not None:
+                        yaml_name = field_name.replace("step_", "")
+                        raise IRSemanticError(
+                            f"Step '{step.id}' uses flow '{step.flow_ref}' — "
+                            f"'{yaml_name}' must not be set on flow steps",
+                            path=f"flows.{flow_name}.steps.{step.id}.{yaml_name}"
+                        )
+                # No recursive references
+                _check_recursive_flow_refs(spec, flow_name, step.flow_ref)
+
+            # --- 4. Common checks (all non-gate modes) ---
+            if not is_gate_step:
+                # Gate routing fields forbidden on non-gate steps
+                for field_name in ("on_approve", "on_revise", "on_kill"):
+                    if getattr(step, field_name) is not None:
                         raise IRSemanticError(
                             f"Step '{step.id}' is not a gate step but has '{field_name}' set",
                             path=f"flows.{flow_name}.steps.{step.id}.{field_name}"
                         )
+                # on_fail requires ensure (otherwise it never triggers)
+                if step.on_fail and not step.step_ensure:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' has on_fail but no ensure — on_fail can never trigger",
+                        path=f"flows.{flow_name}.steps.{step.id}.on_fail"
+                    )
+                # on_fail target must exist
+                if step.on_fail and step.on_fail not in known_step_ids:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' on_fail references unknown step '{step.on_fail}'",
+                        path=f"flows.{flow_name}.steps.{step.id}.on_fail"
+                    )
+                # next target must exist
+                if step.next and step.next not in known_step_ids:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' next references unknown step '{step.next}'",
+                        path=f"flows.{flow_name}.steps.{step.id}.next"
+                    )
+                # policy only on gate steps
+                if step.policy:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' has policy but is not a gate step",
+                        path=f"flows.{flow_name}.steps.{step.id}.policy"
+                    )
+                if step.policy_fallback:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' has policy_fallback but is not a gate step",
+                        path=f"flows.{flow_name}.steps.{step.id}.policy_fallback"
+                    )
+            else:
+                # Gate steps: on_fail and next are gate-incompatible
+                if step.on_fail:
+                    raise IRSemanticError(
+                        f"Gate step '{step.id}' must not have on_fail (use on_revise for gates)",
+                        path=f"flows.{flow_name}.steps.{step.id}.on_fail"
+                    )
+                if step.next:
+                    raise IRSemanticError(
+                        f"Gate step '{step.id}' must not have next (use on_approve for gates)",
+                        path=f"flows.{flow_name}.steps.{step.id}.next"
+                    )
+                # policy_fallback requires policy
+                if step.policy_fallback and not step.policy:
+                    raise IRSemanticError(
+                        f"Gate step '{step.id}' has policy_fallback but no policy",
+                        path=f"flows.{flow_name}.steps.{step.id}.policy_fallback"
+                    )
 
 
 def _suggest_fix(error: Any) -> str:
