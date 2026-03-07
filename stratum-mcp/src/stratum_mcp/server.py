@@ -104,7 +104,7 @@ async def stratum_step_done(
     # This check fires before process_step_result so no state is mutated on rejection.
     if state.current_idx < len(state.ordered_steps):
         _cur = state.ordered_steps[state.current_idx]
-        _fn = state.spec.functions.get(_cur.function)
+        _fn = state.spec.functions.get(_cur.function) if _cur.function else None
         if _fn and _fn.mode == "gate":
             return {
                 "status": "error",

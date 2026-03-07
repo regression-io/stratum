@@ -250,6 +250,20 @@ def _topological_sort(flow_def: IRFlowDef) -> list[IRStepDef]:
     return ordered
 
 
+def _step_mode(step) -> str:
+    """Return 'function' or 'inline'. Raise on flow_ref (not yet supported)."""
+    if step.function:
+        return "function"
+    if step.intent:
+        return "inline"
+    if step.flow_ref:
+        raise MCPExecutionError(
+            f"Step '{step.id}' uses flow_ref '{step.flow_ref}' — "
+            f"flow composition is not yet supported (requires STRAT-ENG-5)"
+        )
+    raise MCPExecutionError(f"Step '{step.id}' has no execution mode")
+
+
 # ---------------------------------------------------------------------------
 # Flow controller state
 # ---------------------------------------------------------------------------
@@ -264,6 +278,8 @@ class StepRecord:
     type: str = "step"  # noqa: A003 — shadows builtin intentionally for API contract
     round: int = 0
     round_start_step_id: str | None = None
+    agent: str | None = None
+    step_mode: str = "function"
 
 
 @dataclass
@@ -316,6 +332,8 @@ def _record_from_dict(r: dict) -> StepRecord | GateRecord | SkipRecord:
         duration_ms=r["duration_ms"],
         round=r.get("round", 0),
         round_start_step_id=r.get("round_start_step_id"),
+        agent=r.get("agent"),
+        step_mode=r.get("step_mode", "function"),
     )
 
 
@@ -518,10 +536,14 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
         return None
 
     step = state.ordered_steps[state.current_idx]
-    fn_def = state.spec.functions[step.function]
 
-    # Evaluate skip_if before dispatching (non-gate steps only; gates cannot be skipped).
-    if step.skip_if and fn_def.mode != "gate":
+    # Gate check: only function steps can be gates.
+    fn_def = state.spec.functions.get(step.function) if step.function else None
+    is_gate = fn_def is not None and fn_def.mode == "gate"
+
+    # skip_if evaluation: mode-agnostic, runs before dispatch.
+    # Gates cannot be skipped (validator rejects skip_if on gate steps).
+    if step.skip_if and not is_gate:
         should_skip = evaluate_skip_if(step.skip_if, state.inputs, state.step_outputs)
         if should_skip:
             state.step_outputs[step.id] = None
@@ -534,7 +556,9 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
             state.current_idx += 1
             return get_current_step_info(state)  # tail-recurse for next step
 
-    if fn_def.mode == "gate":
+    mode = _step_mode(step)
+
+    if is_gate:
         # Use wall-clock time for gate dispatch so timeout detection works correctly.
         state.dispatched_at[step.id] = time.time()
         return {
@@ -543,7 +567,9 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
             "step_number": state.current_idx + 1,
             "total_steps": len(state.ordered_steps),
             "step_id": step.id,
+            "step_mode": "function",
             "function": step.function,
+            "agent": step.agent,
             "on_approve": step.on_approve,
             "on_revise": step.on_revise,
             "on_kill": step.on_kill,
@@ -558,24 +584,47 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
     state.dispatched_at[step.id] = time.monotonic()
     attempts_so_far = state.attempts.get(step.id, 0)
 
-    contract = state.spec.contracts.get(fn_def.output_contract)
-    output_fields = {k: v.get("type", "any") for k, v in contract.fields.items()} if contract else {}
+    if mode == "function":
+        contract = state.spec.contracts.get(fn_def.output_contract)
+        output_fields = {k: v.get("type", "any") for k, v in contract.fields.items()} if contract else {}
+        return {
+            "status": "execute_step",
+            "flow_id": state.flow_id,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+            "step_id": step.id,
+            "step_mode": "function",
+            "function": step.function,
+            "agent": step.agent,
+            "mode": fn_def.mode,
+            "intent": fn_def.intent,
+            "inputs": resolved,
+            "output_contract": fn_def.output_contract,
+            "output_fields": output_fields,
+            "ensure": fn_def.ensure,
+            "retries_remaining": fn_def.retries - attempts_so_far,
+        }
 
-    return {
-        "status": "execute_step",
-        "flow_id": state.flow_id,
-        "step_number": state.current_idx + 1,
-        "total_steps": len(state.ordered_steps),
-        "step_id": step.id,
-        "function": step.function,
-        "mode": fn_def.mode,
-        "intent": fn_def.intent,
-        "inputs": resolved,
-        "output_contract": fn_def.output_contract,
-        "output_fields": output_fields,
-        "ensure": fn_def.ensure,
-        "retries_remaining": fn_def.retries - attempts_so_far,
-    }
+    elif mode == "inline":
+        max_retries = step.step_retries or 1
+        contract = state.spec.contracts.get(step.output_contract or "")
+        output_fields = {k: v.get("type", "any") for k, v in contract.fields.items()} if contract else {}
+        return {
+            "status": "execute_step",
+            "flow_id": state.flow_id,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+            "step_id": step.id,
+            "step_mode": "inline",
+            "intent": step.intent,
+            "agent": step.agent,
+            "inputs": resolved,
+            "output_contract": step.output_contract,
+            "output_fields": output_fields,
+            "ensure": step.step_ensure or [],
+            "retries_remaining": max_retries - attempts_so_far,
+            "model": step.step_model,
+        }
 
 
 def process_step_result(
@@ -600,30 +649,48 @@ def process_step_result(
             f"Expected step '{step.id}', got '{step_id}'"
         )
 
-    fn_def = state.spec.functions[step.function]
+    mode = _step_mode(step)
+
+    if mode == "function":
+        fn_def = state.spec.functions[step.function]
+        ensure_exprs = fn_def.ensure
+        max_retries = fn_def.retries
+        output_schema = step.output_schema
+        fn_name = fn_def.name
+    else:  # mode == "inline"
+        ensure_exprs = step.step_ensure or []
+        max_retries = step.step_retries or 1
+        output_schema = None
+        fn_name = ""
+
     state.attempts[step_id] = state.attempts.get(step_id, 0) + 1
     attempt = state.attempts[step_id]
 
+    def _make_record(dur_ms: int) -> StepRecord:
+        return StepRecord(
+            step_id=step_id,
+            function_name=fn_name,
+            attempts=attempt,
+            duration_ms=dur_ms,
+            round=state.round,
+            round_start_step_id=state.round_start_step_id,
+            agent=step.agent,
+            step_mode=mode,
+        )
+
     # Schema validation runs before ensures — structural errors are caught first.
-    if step.output_schema is not None:
-        schema_errors = _validate_output_schema(result, step.output_schema)
+    if output_schema is not None:
+        schema_errors = _validate_output_schema(result, output_schema)
         if schema_errors:
-            if attempt >= fn_def.retries:
+            if attempt >= max_retries:
                 dispatched = state.dispatched_at.get(step_id, state.flow_start)
                 duration_ms = int((time.monotonic() - dispatched) * 1000)
-                state.records.append(StepRecord(
-                    step_id=step_id,
-                    function_name=fn_def.name,
-                    attempts=attempt,
-                    duration_ms=duration_ms,
-                    round=state.round,
-                    round_start_step_id=state.round_start_step_id,
-                ))
+                state.records.append(_make_record(duration_ms))
                 return ("retries_exhausted", schema_errors)
             return ("schema_failed", schema_errors)
 
     violations: list[str] = []
-    for expr in fn_def.ensure:
+    for expr in ensure_exprs:
         try:
             fn = compile_ensure(expr)
             if not fn(result):
@@ -635,27 +702,13 @@ def process_step_result(
     duration_ms = int((time.monotonic() - dispatched) * 1000)
 
     if violations:
-        if attempt >= fn_def.retries:
-            state.records.append(StepRecord(
-                step_id=step_id,
-                function_name=fn_def.name,
-                attempts=attempt,
-                duration_ms=duration_ms,
-                round=state.round,
-                round_start_step_id=state.round_start_step_id,
-            ))
+        if attempt >= max_retries:
+            state.records.append(_make_record(duration_ms))
             return ("retries_exhausted", violations)
         return ("ensure_failed", violations)
 
     state.step_outputs[step_id] = result
-    state.records.append(StepRecord(
-        step_id=step_id,
-        function_name=fn_def.name,
-        attempts=attempt,
-        duration_ms=duration_ms,
-        round=state.round,
-        round_start_step_id=state.round_start_step_id,
-    ))
+    state.records.append(_make_record(duration_ms))
     state.current_idx += 1
     return ("ok", [])
 
