@@ -93,6 +93,42 @@
 
 **Testing:** 305 tests passing (+94); new files: `test_gate_api.py` (9 contract tests), `test_gate_revise.py` (6 integration tests); `test_ir_schema.py` +12 v0.2 semantic invariant tests
 
+**STRAT-ENG-1: IR v0.2 inline steps, workflow declarations, flow composition**
+
+- `workflow:` block — self-registering workflow declaration with name, description, input schema
+- `stratum_list_workflows` MCP tool — scans a directory for `*.stratum.yaml` files with `workflow:` blocks; returns name/description/input/path; detects duplicate names
+- Inline steps — `intent:` + `agent:` on steps (mutually exclusive with `function:` and `flow:`); step-level `ensure`, `retries`, `output_contract`, `model`, `budget`
+- `flow:` composition — `flow_ref` on steps for sub-workflow invocation (parsed and validated; execution deferred to STRAT-ENG-5)
+- `on_fail` / `next` routing on non-gate steps — `on_fail` requires `ensure`; `on_fail` without `ensure` rejected on both inline and flow_ref steps
+- `policy` / `policy_fallback` on gate steps — parsed and validated (`policy_fallback` requires `policy`); evaluation deferred to STRAT-ENG-3
+- Mode exclusion validation — exactly one of `function`, `intent`, `flow` required per step
+- Workflow input validation — `workflow.input` keys must exactly match entry flow input keys
+
+**Testing:** +33 tests; new files: `test_ir_v02_extensions.py` (29 tests), `test_list_workflows.py` (4 tests)
+
+**STRAT-ENG-2: Executor — state model, agent passthrough, inline step execution**
+
+- `_step_mode()` helper — returns `"function"` or `"inline"`; raises `MCPExecutionError` for `flow_ref` (deferred to STRAT-ENG-5)
+- `StepRecord` extended — `agent: str | None` and `step_mode: str` fields with backward-compatible defaults
+- `get_current_step_info` restructured — mode-branched dispatch; function steps use `fn_def.ensure/retries`, inline steps use `step.step_ensure/step_retries`; `fn_def` lookup moved after `skip_if` evaluation
+- `process_step_result` restructured — mode-branched for ensure/retries/output_schema; `_make_record()` helper for StepRecord creation
+- `stratum_step_done` gate guard updated — handles inline steps (`function=""`)
+- `MCPExecutionError` handling — all `get_current_step_info` call sites wrapped in server.py (3 locations)
+- `retries_exhausted` response enriched — includes `step_mode` and `agent` fields
+
+**Testing:** +27 tests; new file: `test_inline_steps.py` (27 tests)
+
+**STRAT-ENG-3: Executor — gate policy evaluation, explicit skip**
+
+- `PolicyRecord` — new audit trace type (`type: "policy"`) for auto-resolved gates; `_record_from_dict` updated for persistence
+- `apply_gate_policy()` — evaluates `step.policy ?? "gate"`; `skip`/`flag` auto-approve with PolicyRecord and on_approve routing; does NOT call `resolve_gate` (no GateRecord for auto-approved gates)
+- `_apply_policy_loop()` — server-layer loop handling chained auto-approved gates with visited-set cycle detection
+- `skip_step()` — extracted helper from `get_current_step_info` skip_if path; gate steps rejected
+- `stratum_skip_step` MCP tool — explicit step skipping with reason; gate steps return error
+- Policy loop wired into `stratum_plan`, `stratum_step_done`, `stratum_gate_resolve`, `stratum_check_timeouts`
+
+**Testing:** 349 tests passing (+44 from ENG-1/2/3); new file: `test_policy_skip.py` (29 tests)
+
 ---
 
 ## [0.1.3] — 2026-02-23
