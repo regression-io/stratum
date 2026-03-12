@@ -13,7 +13,7 @@ from stratum_mcp.executor import (
     restore_flow,
     delete_persisted_flow,
 )
-from stratum_mcp.server import stratum_plan, stratum_step_done, stratum_audit, _flows
+from stratum_mcp.server import stratum_plan, stratum_step_done, stratum_audit, stratum_resume, stratum_gate_resolve, _flows
 from stratum_mcp.spec import parse_and_validate
 
 
@@ -452,3 +452,124 @@ async def test_full_two_step_restart_recovery(patch_flows_dir):
     assert done["output"] == {"summary": "It is positive."}
     assert len(done["trace"]) == 2
     assert not (patch_flows_dir / f"{flow_id}.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# stratum_resume tests
+# ---------------------------------------------------------------------------
+
+GATE_IR = """
+version: "0.2"
+
+contracts:
+  Out:
+    value: {type: string}
+
+functions:
+  do_work:
+    mode: infer
+    intent: "Do work"
+    input: {text: {type: string}}
+    output: Out
+  cleanup:
+    mode: infer
+    intent: "Cleanup on kill"
+    input: {}
+    output: Out
+  review_gate:
+    mode: gate
+
+flows:
+  run:
+    input: {text: {type: string}}
+    output: Out
+    steps:
+      - id: work
+        function: do_work
+        inputs: {text: "$.input.text"}
+      - id: gate
+        function: review_gate
+        on_approve: ~
+        on_revise: work
+        on_kill: do_cleanup
+      - id: do_cleanup
+        function: cleanup
+"""
+
+
+@pytest.mark.asyncio
+async def test_stratum_resume_returns_execute_step_for_current_step(patch_flows_dir):
+    ctx = MagicMock()
+    plan = await stratum_plan(TWO_STEP_IR, "pipeline", {"text": "resume test"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Evict from in-memory cache
+    _flows.pop(flow_id, None)
+
+    result = await stratum_resume(flow_id, ctx)
+    assert result["status"] == "execute_step"
+    assert result["step_id"] == "s1"
+
+
+@pytest.mark.asyncio
+async def test_stratum_resume_returns_correct_step_after_partial_progress(patch_flows_dir):
+    ctx = MagicMock()
+    plan = await stratum_plan(TWO_STEP_IR, "pipeline", {"text": "partial"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Complete s1
+    step2 = await stratum_step_done(flow_id, "s1", {"label": "positive"}, ctx)
+    assert step2["status"] == "execute_step"
+    assert step2["step_id"] == "s2"
+
+    # Evict from in-memory cache
+    _flows.pop(flow_id, None)
+
+    result = await stratum_resume(flow_id, ctx)
+    assert result["status"] == "execute_step"
+    assert result["step_id"] == "s2"
+    assert result["inputs"]["label"] == "positive"
+
+
+@pytest.mark.asyncio
+async def test_stratum_resume_returns_error_for_completed_flow(patch_flows_dir):
+    ctx = MagicMock()
+    plan = await stratum_plan(SIMPLE_IR, "run", {"text": "done"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Complete the flow (persistence file is deleted on completion)
+    await stratum_step_done(flow_id, "s1", {"value": "finished"}, ctx)
+
+    # Evict from in-memory cache
+    _flows.pop(flow_id, None)
+
+    result = await stratum_resume(flow_id, ctx)
+    assert result["status"] == "error"
+    assert result["error_type"] == "flow_not_found"
+
+
+@pytest.mark.asyncio
+async def test_stratum_resume_returns_error_for_unknown_flow_id(patch_flows_dir):
+    ctx = MagicMock()
+    result = await stratum_resume("nonexistent-uuid", ctx)
+    assert result["status"] == "error"
+    assert result["error_type"] == "flow_not_found"
+
+
+@pytest.mark.asyncio
+async def test_stratum_resume_returns_killed_for_killed_flow(patch_flows_dir):
+    ctx = MagicMock()
+    plan = await stratum_plan(GATE_IR, "run", {"text": "gate test"}, ctx)
+    flow_id = plan["flow_id"]
+
+    # Complete the work step to reach the gate
+    await stratum_step_done(flow_id, "work", {"value": "done"}, ctx)
+
+    # Kill the flow via gate resolve
+    await stratum_gate_resolve(flow_id, "gate", "kill", "test", "human", ctx)
+
+    # Evict from in-memory cache
+    _flows.pop(flow_id, None)
+
+    result = await stratum_resume(flow_id, ctx)
+    assert result["status"] == "killed"

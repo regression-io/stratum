@@ -113,6 +113,42 @@ async def stratum_plan(
 
 
 @mcp.tool(description=(
+    "Resume an in-progress flow. Loads the persisted flow state and returns "
+    "the current step dispatch (execute_step, await_gate, execute_flow, or "
+    "flow completion). Use this instead of stratum_plan when a flow_id already "
+    "exists from a previous session. "
+    "Input: flow_id (str). "
+    "Returns the same dispatch format as stratum_plan / stratum_step_done."
+))
+async def stratum_resume(flow_id: str, ctx: Context) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    if state.terminal_status == "killed":
+        return {"status": "killed", "flow_id": flow_id}
+
+    if state.current_idx >= len(state.ordered_steps):
+        delete_persisted_flow(flow_id)
+        return {"status": "complete", "flow_id": flow_id}
+
+    try:
+        step_info = get_current_step_info(state)
+        step_info = _apply_policy_loop(state, step_info)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+    persist_flow(state)
+    return step_info
+
+
+@mcp.tool(description=(
     "Report a completed step result. "
     "Inputs: flow_id (str), step_id (str), result (dict matching the step's output contract). "
     "Checks ensure postconditions. Returns next step to execute, ensure failure with retry "
