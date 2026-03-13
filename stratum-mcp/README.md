@@ -81,4 +81,4 @@ Tutorial: [claude-code-tutorial.md](https://github.com/regression-io/stratum/blo
 
 Apache 2.0
 
-<!-- mcp-name: io.github.regression-io/stratum-mcp -->
+<!-- mcp-name: io.github.ruze00/stratum-mcp -->
