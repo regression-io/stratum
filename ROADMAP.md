@@ -42,8 +42,8 @@
 | T2-8 | Kahn's topological sort on `depends_on` + implicit refs | COMPLETE |
 | T2-9 | `stratum-mcp install` CLI command | COMPLETE |
 | T2-10 | `stratum-mcp validate <file>` CLI command | COMPLETE |
-| T2-11 | Published to PyPI as `stratum-mcp` 0.1.2 | COMPLETE |
-| T2-12 | 202 passing tests (contracts, invariants, integration) | COMPLETE |
+| T2-11 | Published to PyPI as `stratum-mcp` 0.2.3 | COMPLETE |
+| T2-12 | 449 passing tests (contracts, invariants, integration) | COMPLETE |
 | T2-13 | `stratum-mcp uninstall` command | COMPLETE |
 | T2-14 | FlowState persistence (survive MCP server restart) | COMPLETE |
 | T2-15 | `ensure` file-aware builtins (`file_exists`, `file_contains`) | COMPLETE |
@@ -57,6 +57,8 @@
 | T2-23 | 305 passing tests; `test_gate_api.py`, `test_gate_revise.py`, v0.2 invariant tests in `test_ir_schema.py` | COMPLETE |
 | T2-24 | STRAT-ENG-4: Per-step iteration — `max_iterations`, `exit_criterion`, `start/report/abort_iteration`, `iteration_outcome` handoff, `archived_iterations`; 378 tests | COMPLETE |
 | T2-25 | STRAT-ENG-5: Routing and composition — `on_fail`/`next` step routing, `flow:` sub-execution with child FlowState lifecycle, child audit snapshots, result unwrapping; 414 tests | COMPLETE |
+| T2-26 | Stagnation detection: SHA256 fingerprinting of iteration results, configurable window, `exit_stagnation` priority ordering | COMPLETE |
+| T2-27 | Pre-execution guardrails: regex patterns on functions/steps, fail-closed semantics, ReDoS timeout, parse-time validation | COMPLETE |
 
 ### Parallel Execution (IR v0.3)
 
@@ -309,9 +311,9 @@ Must be resolved before publishing 0.2.0 to PyPI.
 
 ## Prioritization Notes
 
-**Next up (as of 2026-03-05):**
+**Next up (as of 2026-03-13):**
 - R-1 through R-10 complete — pre-release debt resolved
-- Publish `stratum-mcp` 0.2.0 to PyPI (bump version, tag, push)
+- `stratum-mcp` 0.2.3 published to PyPI (stagnation detection + guardrails)
 - D-4 (MCP registry), D-5 (HN/r/ClaudeAI post)
 
 **Longer horizon:**
