@@ -271,13 +271,14 @@ def test_gate_function_with_retries_raises():
 
 # --- Gate step constraints ---
 
-def test_gate_step_with_skip_if_raises():
+def test_gate_step_with_skip_if_allowed():
+    """Gate steps CAN have skip_if (e.g., file_exists-based .approved markers)."""
     ir = _VALID_GATE_IR.replace(
         "        on_kill: ~",
-        "        on_kill: ~\n        skip_if: \"true\"",
+        "        on_kill: ~\n        skip_if: \"true\"\n        skip_reason: \"already approved\"",
     )
-    with pytest.raises(IRSemanticError, match="skip_if"):
-        parse_and_validate(ir)
+    spec = parse_and_validate(ir)
+    assert spec is not None
 
 
 def test_gate_step_missing_on_approve_raises():

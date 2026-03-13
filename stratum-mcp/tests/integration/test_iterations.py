@@ -509,14 +509,14 @@ def test_iteration_restart_blocked_before_step_done():
 
 
 def test_iteration_restart_blocked_after_exit_max():
-    """Same guard applies after exit_max."""
+    """Same guard applies after exit_max (use varying results to avoid stagnation)."""
     spec = parse_and_validate(_ITER_SPEC)
     state = create_flow_state(spec, "main", {}, raw_spec=_ITER_SPEC)
     get_current_step_info(state)
 
     start_iteration(state, "s1")
-    for _ in range(3):
-        report_iteration(state, "s1", {"v": "wip"})
+    for i in range(3):
+        report_iteration(state, "s1", {"v": f"wip_{i}"})
     assert state.iteration_outcome["s1"] == "exit_max"
 
     with pytest.raises(MCPExecutionError, match="pending iteration outcome"):

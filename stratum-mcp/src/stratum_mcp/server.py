@@ -250,7 +250,7 @@ async def stratum_step_done(
             "violations": violations,
         }
 
-    if status in ("ensure_failed", "schema_failed"):
+    if status in ("ensure_failed", "schema_failed", "guardrail_blocked"):
         if _is_flow_step:
             # Delete child — next retry creates a new child
             _cleanup_child()

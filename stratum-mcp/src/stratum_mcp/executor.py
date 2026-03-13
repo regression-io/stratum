@@ -1,7 +1,9 @@
 """Flow controller: plan state management, $ reference resolution, ensure compilation."""
 from __future__ import annotations
 
+import concurrent.futures
 import copy
+import hashlib
 import json
 import os
 import re
@@ -17,6 +19,52 @@ from jsonschema import Draft202012Validator
 
 from .errors import MCPExecutionError
 from .spec import IRSpec, IRFlowDef, IRStepDef
+
+
+# ---------------------------------------------------------------------------
+# Stagnation detection — default consecutive-duplicate threshold
+# ---------------------------------------------------------------------------
+
+_STAGNATION_WINDOW = 3  # halt after N identical consecutive iteration results
+
+
+# ---------------------------------------------------------------------------
+# Guardrail scanning — deterministic, no LLM in the safety path
+# ---------------------------------------------------------------------------
+
+_GUARDRAIL_SEARCH_TIMEOUT_S = 1.0  # per-pattern wall-clock timeout
+
+def _scan_guardrails(patterns: list[re.Pattern[str]], text: str) -> list[str]:
+    """Run pre-compiled regex patterns against text. Return list of matched pattern strings.
+
+    Each pattern search is bounded by a wall-clock timeout to prevent ReDoS.
+    Patterns that timeout or error are treated as matches (fail-closed).
+    """
+    hits: list[str] = []
+    for compiled in patterns:
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
+            future = pool.submit(compiled.search, text)
+            match = future.result(timeout=_GUARDRAIL_SEARCH_TIMEOUT_S)
+            if match:
+                hits.append(compiled.pattern)
+        except concurrent.futures.TimeoutError:
+            # ReDoS or slow pattern — fail-closed: treat as match
+            hits.append(compiled.pattern)
+        except Exception:
+            # Any other error — fail-closed
+            hits.append(compiled.pattern)
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+    return hits
+
+
+def compile_guardrails(patterns: list[str]) -> list[re.Pattern[str]]:
+    """Compile guardrail regex patterns. Raises re.error on invalid patterns."""
+    compiled: list[re.Pattern[str]] = []
+    for pat in patterns:
+        compiled.append(re.compile(pat, re.IGNORECASE | re.MULTILINE))
+    return compiled
 
 
 # ---------------------------------------------------------------------------
@@ -158,9 +206,20 @@ def resolve_ref(ref: str, flow_inputs: dict[str, Any], step_outputs: dict[str, A
             if output is None:
                 return None
             if isinstance(output, dict):
-                output = output[key]
+                try:
+                    output = output[key]
+                except KeyError:
+                    raise RefResolutionError(
+                        f"Key '{key}' not found in $.steps.{step_id}.output — "
+                        f"available keys: {sorted(output.keys())}"
+                    )
             else:
-                output = getattr(output, key)
+                try:
+                    output = getattr(output, key)
+                except AttributeError:
+                    raise RefResolutionError(
+                        f"Attribute '{key}' not found on $.steps.{step_id}.output"
+                    )
         return output
     raise RefResolutionError(f"Unknown $ prefix '{parts[0]}' in {ref!r}")
 
@@ -211,7 +270,8 @@ def evaluate_skip_if(
     try:
         code = compile(processed, "<skip_if>", "eval")
         return bool(eval(code, {"__builtins__": {}, "None": None, "True": True, "False": False,
-                                "true": True, "false": False, "null": None}))
+                                "true": True, "false": False, "null": None,
+                                **_ENSURE_BUILTINS}))
     except Exception:
         return False
 
@@ -676,6 +736,29 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
             skip_step(state, step.id, step.skip_reason or f"skip_if: {step.skip_if}")
             return get_current_step_info(state)  # tail-recurse for next step
 
+    # Gate skip_if: gates can now use skip_if (file_exists-based markers).
+    # When a gate's skip_if evaluates to true, auto-approve via PolicyRecord.
+    if is_gate and step.skip_if:
+        should_skip = evaluate_skip_if(step.skip_if, state.inputs, state.step_outputs)
+        if should_skip:
+            state.records.append(PolicyRecord(
+                step_id=step.id,
+                effective_policy="skip_if",
+                resolved_outcome="approve",
+                rationale=step.skip_reason or f"skip_if: {step.skip_if}",
+                round=state.round,
+                round_start_step_id=state.round_start_step_id,
+            ))
+            if step.on_approve is not None:
+                target_idx = next(
+                    (i for i, s in enumerate(state.ordered_steps) if s.id == step.on_approve), None
+                )
+                state.current_idx = target_idx if target_idx is not None else state.current_idx + 1
+            else:
+                state.current_idx = len(state.ordered_steps)
+            state.step_outputs[step.id] = None
+            return get_current_step_info(state)  # tail-recurse for next step
+
     mode = _step_mode(step)
 
     if is_gate:
@@ -821,11 +904,13 @@ def process_step_result(
         max_retries = fn_def.retries
         output_schema = step.output_schema
         fn_name = fn_def.name
+        guardrail_patterns = fn_def.guardrails
     else:  # mode in ("inline", "flow")
         ensure_exprs = step.step_ensure or []
         max_retries = step.step_retries or 1
         output_schema = None
         fn_name = ""
+        guardrail_patterns = step.step_guardrails or []
 
     state.attempts[step_id] = state.attempts.get(step_id, 0) + 1
     attempt = state.attempts[step_id]
@@ -859,6 +944,29 @@ def process_step_result(
                     return ("on_fail_routed", schema_errors)
                 return ("retries_exhausted", schema_errors)
             return ("schema_failed", schema_errors)
+
+    # Guardrail scan: regex patterns checked against serialized result before acceptance.
+    # Runs before ensures — blocks dangerous content before any side effects.
+    if guardrail_patterns:
+        result_text = json.dumps(result, sort_keys=True, default=str)
+        compiled = compile_guardrails(guardrail_patterns)
+        guardrail_hits = _scan_guardrails(compiled, result_text)
+        if guardrail_hits:
+            guardrail_violations = [
+                f"guardrail matched: {pat!r}" for pat in guardrail_hits
+            ]
+            if attempt >= max_retries:
+                dispatched = state.dispatched_at.get(step_id, state.flow_start)
+                duration_ms = int((time.monotonic() - dispatched) * 1000)
+                state.records.append(_make_record(duration_ms))
+                if step.on_fail:
+                    state.step_outputs[step_id] = result
+                    target_idx = _find_step_idx(state, step.on_fail)
+                    _clear_from(state, target_idx, preserve={step_id})
+                    state.current_idx = target_idx
+                    return ("on_fail_routed", guardrail_violations)
+                return ("retries_exhausted", guardrail_violations)
+            return ("guardrail_blocked", guardrail_violations)
 
     violations: list[str] = []
     for expr in ensure_exprs:
@@ -1210,9 +1318,27 @@ def report_iteration(
             exit_met = False
             exit_criterion_error = str(exc)
 
+    # Stagnation detection: fingerprint the result and check for consecutive duplicates
+    result_fingerprint = hashlib.sha256(
+        json.dumps(result, sort_keys=True, default=str).encode()
+    ).hexdigest()
+
+    stagnation_detected = False
+    if not exit_met:
+        history = state.iterations.get(step_id, [])
+        # Check last (_STAGNATION_WINDOW - 1) entries — if all have the same fingerprint
+        # as the current result, this is the Nth consecutive duplicate
+        window = _STAGNATION_WINDOW - 1  # need (window) prior + current = _STAGNATION_WINDOW
+        if len(history) >= window:
+            recent = history[-window:]
+            if all(r.get("result_fingerprint") == result_fingerprint for r in recent):
+                stagnation_detected = True
+
     # Determine outcome
     if exit_met:
         outcome = "exit_success"
+    elif stagnation_detected:
+        outcome = "exit_stagnation"
     elif count >= max_iter:
         outcome = "exit_max"
     else:
@@ -1223,6 +1349,7 @@ def report_iteration(
         "iteration": count,
         "round": state.round,
         "result": result,
+        "result_fingerprint": result_fingerprint,
         "exit_criterion_met": exit_met,
         "outcome": outcome,
         "timestamp": time.monotonic(),

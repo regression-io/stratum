@@ -1,6 +1,7 @@
 """IR types, JSON Schema registry, parser, and validator for .stratum.yaml v0.1/v0.2."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -48,6 +49,8 @@ class IRFunctionDef:
     timeout: int | None = None
     # True when "retries" was explicitly present in the YAML dict (not defaulted)
     retries_explicit: bool = False
+    # v0.2: pre-execution guardrails — regex patterns checked against result before acceptance
+    guardrails: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,8 @@ class IRStepDef:
     # v0.2 STRAT-ENG-4: per-step iteration
     max_iterations: int | None = None
     exit_criterion: str | None = None
+    # v0.2: pre-execution guardrails — regex patterns checked against result
+    step_guardrails: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -285,6 +290,7 @@ _IR_SCHEMA_V02: dict = {
                 "retries": {"type": "integer", "minimum": 1},
                 "model": {"type": "string"},
                 "timeout": {"type": "integer", "minimum": 1},
+                "guardrails": {"type": "array", "items": {"type": "string", "minLength": 1}},
             }
         },
         "StepDef": {
@@ -326,6 +332,7 @@ _IR_SCHEMA_V02: dict = {
                 # Per-step iteration (STRAT-ENG-4)
                 "max_iterations": {"type": "integer", "minimum": 1},
                 "exit_criterion": {"type": "string"},
+                "guardrails": {"type": "array", "items": {"type": "string", "minLength": 1}},
             }
         },
         "FlowDef": {
@@ -438,6 +445,7 @@ def _build_function(name: str, d: dict) -> IRFunctionDef:
         model=d.get("model"),
         timeout=d.get("timeout"),
         retries_explicit="retries" in d,
+        guardrails=d.get("guardrails", []),
     )
 
 
@@ -486,6 +494,7 @@ def _build_step(s: dict) -> IRStepDef:
         step_budget=step_budget,
         max_iterations=s.get("max_iterations"),
         exit_criterion=s.get("exit_criterion"),
+        step_guardrails=s.get("guardrails"),
     )
 
 
@@ -557,7 +566,26 @@ def _validate_semantics(spec: IRSpec) -> None:
                     f"Gate function '{fn_name}' must not have retries (gates produce no output to retry)",
                     path=f"functions.{fn_name}.retries"
                 )
+            if fn.guardrails:
+                raise IRSemanticError(
+                    f"Gate function '{fn_name}' must not have guardrails (gates produce no output to scan)",
+                    path=f"functions.{fn_name}.guardrails"
+                )
             continue  # gate functions have no output contract
+        # Validate guardrail regex patterns at parse time
+        for i, pat in enumerate(fn.guardrails):
+            if not pat:
+                raise IRSemanticError(
+                    f"Function '{fn_name}' guardrail[{i}] is empty",
+                    path=f"functions.{fn_name}.guardrails[{i}]"
+                )
+            try:
+                re.compile(pat, re.IGNORECASE | re.MULTILINE)
+            except re.error as exc:
+                raise IRSemanticError(
+                    f"Function '{fn_name}' guardrail[{i}] is not a valid regex: {exc}",
+                    path=f"functions.{fn_name}.guardrails[{i}]"
+                )
         if fn.output_contract not in known_contracts:
             raise IRSemanticError(
                 f"Function '{fn_name}' output contract '{fn.output_contract}' not defined",
@@ -627,7 +655,7 @@ def _validate_semantics(spec: IRSpec) -> None:
                         path=f"flows.{flow_name}.steps.{step.id}.function"
                     )
                 # Step-level execution fields forbidden on function steps
-                for field_name in ("step_ensure", "step_retries", "output_contract", "step_model", "step_budget"):
+                for field_name in ("step_ensure", "step_retries", "output_contract", "step_model", "step_budget", "step_guardrails"):
                     if getattr(step, field_name) is not None:
                         yaml_name = field_name.replace("step_", "")
                         raise IRSemanticError(
@@ -649,11 +677,8 @@ def _validate_semantics(spec: IRSpec) -> None:
                             f"Gate step '{step.id}' must not have max_iterations (gates have their own revise cycle)",
                             path=f"flows.{flow_name}.steps.{step.id}.max_iterations"
                         )
-                    if step.skip_if:
-                        raise IRSemanticError(
-                            f"Gate step '{step.id}' may not have skip_if (gate steps cannot be skipped)",
-                            path=f"flows.{flow_name}.steps.{step.id}.skip_if"
-                        )
+                    # Gate steps CAN have skip_if (e.g., file_exists-based .approved markers).
+                    # When skip_if is true, the gate is auto-approved via PolicyRecord.
                     for routing_field in ("on_approve", "on_kill"):
                         if routing_field not in step.declared_routing:
                             raise IRSemanticError(
@@ -709,7 +734,7 @@ def _validate_semantics(spec: IRSpec) -> None:
                         path=f"flows.{flow_name}.steps.{step.id}.agent"
                     )
                 # Must not have retries, model, budget
-                for field_name in ("step_retries", "step_model", "step_budget"):
+                for field_name in ("step_retries", "step_model", "step_budget", "step_guardrails"):
                     if getattr(step, field_name) is not None:
                         yaml_name = field_name.replace("step_", "")
                         raise IRSemanticError(
@@ -729,16 +754,18 @@ def _validate_semantics(spec: IRSpec) -> None:
                             f"Step '{step.id}' is not a gate step but has '{field_name}' set",
                             path=f"flows.{flow_name}.steps.{step.id}.{field_name}"
                         )
-                # on_fail requires ensure or output_schema (otherwise it never triggers)
-                # For function steps, check the function's ensure; for inline/flow, check step_ensure
+                # on_fail requires ensure, output_schema, or guardrails (otherwise it never triggers)
+                # For function steps, check the function's fields; for inline/flow, check step fields
                 has_ensure = bool(step.step_ensure)
-                if not has_ensure and step.function:
+                has_guardrails = bool(step.step_guardrails)
+                if not has_ensure and not has_guardrails and step.function:
                     fn = spec.functions.get(step.function)
                     has_ensure = bool(fn and fn.ensure)
-                has_validation = has_ensure or bool(step.output_schema)
+                    has_guardrails = bool(fn and fn.guardrails)
+                has_validation = has_ensure or has_guardrails or bool(step.output_schema)
                 if step.on_fail and not has_validation:
                     raise IRSemanticError(
-                        f"Step '{step.id}' has on_fail but no ensure — on_fail can never trigger",
+                        f"Step '{step.id}' has on_fail but no ensure/guardrails — on_fail can never trigger",
                         path=f"flows.{flow_name}.steps.{step.id}.on_fail"
                     )
                 # on_fail target must exist
@@ -764,6 +791,20 @@ def _validate_semantics(spec: IRSpec) -> None:
                         f"Step '{step.id}' has policy_fallback but is not a gate step",
                         path=f"flows.{flow_name}.steps.{step.id}.policy_fallback"
                     )
+                # Validate step-level guardrail regex patterns at parse time
+                for i, pat in enumerate(step.step_guardrails or []):
+                    if not pat:
+                        raise IRSemanticError(
+                            f"Step '{step.id}' guardrail[{i}] is empty",
+                            path=f"flows.{flow_name}.steps.{step.id}.guardrails[{i}]"
+                        )
+                    try:
+                        re.compile(pat, re.IGNORECASE | re.MULTILINE)
+                    except re.error as exc:
+                        raise IRSemanticError(
+                            f"Step '{step.id}' guardrail[{i}] is not a valid regex: {exc}",
+                            path=f"flows.{flow_name}.steps.{step.id}.guardrails[{i}]"
+                        )
                 # exit_criterion requires max_iterations
                 if step.exit_criterion and not step.max_iterations:
                     raise IRSemanticError(
