@@ -1,4 +1,4 @@
-"""IR types, JSON Schema registry, parser, and validator for .stratum.yaml v0.1/v0.2."""
+"""IR types, JSON Schema registry, parser, and validator for .stratum.yaml v0.1/v0.2/v0.3."""
 from __future__ import annotations
 
 import re
@@ -95,6 +95,15 @@ class IRStepDef:
     exit_criterion: str | None = None
     # v0.2: pre-execution guardrails — regex patterns checked against result
     step_guardrails: list[str] | None = None
+    # v0.3 STRAT-PAR: step type — "decompose" or "parallel_dispatch" (None = legacy inferred mode)
+    step_type: str | None = None
+    # v0.3 STRAT-PAR: parallel_dispatch fields
+    source: str | None = None
+    max_concurrent: int | None = None
+    isolation: str | None = None
+    require: str | int | None = None
+    merge: str | None = None
+    intent_template: str | None = None
 
 
 @dataclass(frozen=True)
@@ -351,10 +360,180 @@ _IR_SCHEMA_V02: dict = {
     }
 }
 
+# v0.3: adds decompose/parallel_dispatch step types and TaskGraph contract.
+# Backward-compatible superset of v0.2.
+_IR_SCHEMA_V03: dict = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["version"],
+    "additionalProperties": False,
+    "properties": {
+        "version": {"type": "string", "const": "0.3"},
+        "contracts": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "values": {"type": "array"},
+                    },
+                    "required": ["type"],
+                }
+            }
+        },
+        "functions": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/FunctionDef"}
+        },
+        "flows": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/FlowDef"}
+        },
+        "workflow": {
+            "type": "object",
+            "required": ["name", "description", "input"],
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                "description": {"type": "string", "minLength": 1},
+                "input": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string", "enum": [
+                                "string", "boolean", "integer", "number", "array", "object"
+                            ]},
+                            "required": {"type": "boolean"},
+                            "default": {},
+                        },
+                        "required": ["type"],
+                    }
+                },
+            }
+        },
+    },
+    "$defs": {
+        "BudgetDef": {
+            "type": "object",
+            "properties": {
+                "ms": {"type": "integer", "minimum": 1},
+                "usd": {"type": "number", "minimum": 0},
+            },
+            "additionalProperties": False,
+        },
+        "FunctionDef": {
+            "type": "object",
+            "required": ["mode"],
+            "additionalProperties": False,
+            "properties": {
+                "mode": {"type": "string", "enum": ["infer", "compute", "gate"]},
+                "intent": {"type": "string", "minLength": 1},
+                "input": {"type": "object"},
+                "output": {"type": "string"},
+                "ensure": {"type": "array", "items": {"type": "string"}},
+                "budget": {"$ref": "#/$defs/BudgetDef"},
+                "retries": {"type": "integer", "minimum": 1},
+                "model": {"type": "string"},
+                "timeout": {"type": "integer", "minimum": 1},
+                "guardrails": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            }
+        },
+        "StepDef": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"type": "string"},
+                # Step type: explicit type field for v0.3 step types
+                "type": {"type": "string", "enum": [
+                    "function", "inline", "flow", "decompose", "parallel_dispatch"
+                ]},
+                # Step mode: exactly one of function, intent, or flow (semantic validation)
+                "function": {"type": "string"},
+                "intent": {"type": "string"},
+                "flow": {"type": "string"},
+                # Agent assignment
+                "agent": {"type": "string"},
+                # Inputs and dependencies
+                "inputs": {"type": "object", "additionalProperties": {"type": "string"}},
+                "depends_on": {"type": "array", "items": {"type": "string"}},
+                "output_schema": {"type": "object"},
+                # Gate routing (null = default terminal behaviour)
+                "on_approve": {"type": ["string", "null"]},
+                "on_revise":  {"type": ["string", "null"]},
+                "on_kill":    {"type": ["string", "null"]},
+                # Non-gate routing
+                "on_fail": {"type": "string"},
+                "next": {"type": "string"},
+                # Conditional skip
+                "skip_if":     {"type": "string"},
+                "skip_reason": {"type": "string"},
+                # Policy enforcement (gate steps only)
+                "policy": {"type": "string", "enum": ["gate", "flag", "skip"]},
+                "policy_fallback": {"type": "string", "enum": ["gate", "flag", "skip"]},
+                # Step-level execution fields
+                "ensure": {"type": "array", "items": {"type": "string"}},
+                "retries": {"type": "integer", "minimum": 1},
+                "output_contract": {"type": "string"},
+                "model": {"type": "string"},
+                "budget": {"$ref": "#/$defs/BudgetDef"},
+                # Per-step iteration (STRAT-ENG-4)
+                "max_iterations": {"type": "integer", "minimum": 1},
+                "exit_criterion": {"type": "string"},
+                "guardrails": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                # v0.3 STRAT-PAR: parallel_dispatch fields
+                "source": {"type": "string"},
+                "max_concurrent": {"type": "integer", "minimum": 1},
+                "isolation": {"type": "string", "enum": ["worktree", "branch"]},
+                "require": {"oneOf": [
+                    {"type": "string", "enum": ["all", "any"]},
+                    {"type": "integer", "minimum": 1},
+                ]},
+                "merge": {"type": "string", "enum": ["sequential_apply", "manual"]},
+                "intent_template": {"type": "string"},
+            }
+        },
+        "TaskGraph": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id":          {"type": "string"},
+                            "description": {"type": "string"},
+                            "depends_on":  {"type": "array", "items": {"type": "string"}},
+                            "files_owned": {"type": "array", "items": {"type": "string"}},
+                            "files_read":  {"type": "array", "items": {"type": "string"}},
+                        },
+                    }
+                }
+            }
+        },
+        "FlowDef": {
+            "type": "object",
+            "required": ["input", "steps"],
+            "additionalProperties": False,
+            "properties": {
+                "input": {"type": "object"},
+                "output": {"type": "string"},
+                "budget": {"$ref": "#/$defs/BudgetDef"},
+                "steps": {"type": "array", "items": {"$ref": "#/$defs/StepDef"}, "minItems": 1},
+                "max_rounds": {"type": "integer", "minimum": 1},
+            }
+        }
+    }
+}
+
 # Version registry
 SCHEMAS: dict[str, dict] = {
     "0.1": _IR_SCHEMA_V01,
     "0.2": _IR_SCHEMA_V02,
+    "0.3": _IR_SCHEMA_V03,
 }
 
 
@@ -466,6 +645,11 @@ def _build_flow(name: str, d: dict) -> IRFlowDef:
 def _build_step(s: dict) -> IRStepDef:
     sb = s.get("budget")
     step_budget = IRBudgetDef(ms=sb.get("ms"), usd=sb.get("usd")) if sb else None
+    step_type = s.get("type")  # YAML key "type" → field "step_type"
+    # Default max_concurrent to 3 for parallel_dispatch steps
+    max_concurrent = s.get("max_concurrent")
+    if step_type == "parallel_dispatch" and max_concurrent is None:
+        max_concurrent = 3
     return IRStepDef(
         id=s["id"],
         function=s.get("function", ""),
@@ -495,6 +679,14 @@ def _build_step(s: dict) -> IRStepDef:
         max_iterations=s.get("max_iterations"),
         exit_criterion=s.get("exit_criterion"),
         step_guardrails=s.get("guardrails"),
+        # v0.3 STRAT-PAR fields
+        step_type=step_type,
+        source=s.get("source"),
+        max_concurrent=max_concurrent,
+        isolation=s.get("isolation"),
+        require=s.get("require"),
+        merge=s.get("merge"),
+        intent_template=s.get("intent_template"),
     )
 
 
@@ -628,6 +820,63 @@ def _validate_semantics(spec: IRSpec) -> None:
         topo_pos = _topo_positions(flow.steps)
 
         for step in flow.steps:
+            # --- v0.3 STRAT-PAR: decompose / parallel_dispatch validation ---
+            _parallel_dispatch_only = (
+                "source", "isolation", "require", "merge",
+            )
+            if step.step_type in ("decompose", "parallel_dispatch"):
+                if step.step_type == "decompose":
+                    # decompose needs agent and intent (agent-executed step that produces TaskGraph)
+                    if not step.agent:
+                        raise IRSemanticError(
+                            f"Decompose step '{step.id}' must have 'agent'",
+                            path=f"flows.{flow_name}.steps.{step.id}.agent"
+                        )
+                    if not step.intent:
+                        raise IRSemanticError(
+                            f"Decompose step '{step.id}' must have 'intent'",
+                            path=f"flows.{flow_name}.steps.{step.id}.intent"
+                        )
+                    if not step.output_contract:
+                        raise IRSemanticError(
+                            f"Decompose step '{step.id}' must have 'output_contract'",
+                            path=f"flows.{flow_name}.steps.{step.id}.output_contract"
+                        )
+                    # intent_template forbidden on decompose
+                    if step.intent_template:
+                        raise IRSemanticError(
+                            f"Step '{step.id}' has intent_template but is not a parallel_dispatch step",
+                            path=f"flows.{flow_name}.steps.{step.id}.intent_template"
+                        )
+                    # parallel_dispatch-only fields forbidden on decompose
+                    for pf in _parallel_dispatch_only:
+                        if getattr(step, pf) is not None:
+                            raise IRSemanticError(
+                                f"Step '{step.id}' has '{pf}' but is not a parallel_dispatch step",
+                                path=f"flows.{flow_name}.steps.{step.id}.{pf}"
+                            )
+
+                elif step.step_type == "parallel_dispatch":
+                    if not step.source:
+                        raise IRSemanticError(
+                            f"parallel_dispatch step '{step.id}' must have 'source'",
+                            path=f"flows.{flow_name}.steps.{step.id}.source"
+                        )
+                    if not step.intent_template:
+                        raise IRSemanticError(
+                            f"parallel_dispatch step '{step.id}' must have 'intent_template'",
+                            path=f"flows.{flow_name}.steps.{step.id}.intent_template"
+                        )
+
+                # depends_on check for decompose/parallel_dispatch
+                for dep in step.depends_on:
+                    if dep not in known_step_ids:
+                        raise IRSemanticError(
+                            f"Step '{step.id}' depends_on unknown step '{dep}'",
+                            path=f"flows.{flow_name}.steps.{step.id}.depends_on"
+                        )
+                continue  # skip legacy mode checks
+
             # --- 1. Mode exclusion: exactly one of function, intent, flow_ref ---
             modes = [bool(step.function), bool(step.intent), bool(step.flow_ref)]
             if sum(modes) != 1:
@@ -635,6 +884,14 @@ def _validate_semantics(spec: IRSpec) -> None:
                     f"Step '{step.id}' must have exactly one of function, intent, or flow",
                     path=f"flows.{flow_name}.steps.{step.id}"
                 )
+
+            # --- v0.3: parallel_dispatch-only fields forbidden on legacy step types ---
+            for pf in (*_parallel_dispatch_only, "intent_template"):
+                if getattr(step, pf) is not None:
+                    raise IRSemanticError(
+                        f"Step '{step.id}' has '{pf}' but is not a parallel_dispatch step",
+                        path=f"flows.{flow_name}.steps.{step.id}.{pf}"
+                    )
 
             # --- 2. depends_on targets exist (common to all modes) ---
             for dep in step.depends_on:

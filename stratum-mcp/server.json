@@ -7,12 +7,12 @@
     "url": "https://github.com/regression-io/stratum",
     "source": "github"
   },
-  "version": "0.2.5",
+  "version": "0.2.6",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "stratum-mcp",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "transport": {
         "type": "stdio"
       }

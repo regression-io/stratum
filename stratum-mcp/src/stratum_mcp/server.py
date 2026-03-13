@@ -305,6 +305,224 @@ async def stratum_step_done(
 
 
 @mcp.tool(description=(
+    "Report results for a completed parallel_dispatch step. "
+    "Inputs: flow_id (str), step_id (str), "
+    "task_results (list of {task_id, result, status}), "
+    "merge_status ('clean' or 'conflict'). "
+    "Validates ensure postconditions against the aggregate result and advances the flow."
+))
+async def stratum_parallel_done(
+    flow_id: str,
+    step_id: str,
+    task_results: list[dict[str, Any]],
+    merge_status: str,
+    ctx: Context,
+) -> dict[str, Any]:
+    state = _flows.get(flow_id)
+    if state is None:
+        state = restore_flow(flow_id)
+        if state is None:
+            return {
+                "status": "error",
+                "error_type": "flow_not_found",
+                "message": f"No active flow with id '{flow_id}'",
+            }
+        _flows[flow_id] = state
+
+    # Verify current step is a parallel_dispatch step with matching step_id
+    if state.current_idx >= len(state.ordered_steps):
+        return {
+            "status": "error",
+            "error_type": "flow_complete",
+            "message": "Flow is already complete",
+        }
+
+    cur_step = state.ordered_steps[state.current_idx]
+    if cur_step.id != step_id:
+        return {
+            "status": "error",
+            "error_type": "step_mismatch",
+            "message": f"Expected step '{cur_step.id}', got '{step_id}'",
+        }
+
+    mode = _step_mode(cur_step)
+    if mode != "parallel_dispatch":
+        return {
+            "status": "error",
+            "error_type": "wrong_step_type",
+            "message": (
+                f"Step '{step_id}' is a {mode} step, not parallel_dispatch. "
+                "Use stratum_step_done for non-parallel steps."
+            ),
+        }
+
+    # Build aggregate result
+    completed = [t for t in task_results if t.get("status") == "complete"]
+    failed = [t for t in task_results if t.get("status") != "complete"]
+
+    # Check require semantics
+    require = cur_step.require or "all"
+    if require == "all":
+        all_passed = len(failed) == 0
+    elif require == "any":
+        all_passed = len(completed) > 0
+    elif isinstance(require, int):
+        all_passed = len(completed) >= require
+    else:
+        all_passed = len(failed) == 0  # default to "all"
+
+    aggregate = {
+        "tasks": task_results,
+        "merge_status": merge_status,
+        "completed": completed,
+        "failed": failed,
+        "outcome": "complete" if (all_passed and merge_status != "conflict") else "failed",
+    }
+
+    # Check merge_status
+    if merge_status == "conflict":
+        aggregate["outcome"] = "failed"
+
+    # Process through process_step_result (handles ensure, retries, on_fail)
+    try:
+        status, violations = process_step_result(state, step_id, aggregate)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+
+    # If require or merge failed but ensure passed, we still need to fail
+    if status == "ok" and aggregate["outcome"] == "failed":
+        # Undo the advance — process_step_result already advanced current_idx
+        # We need to treat this as an ensure failure
+        # Revert: remove the output, decrement idx
+        state.step_outputs.pop(step_id, None)
+        state.current_idx = next(
+            i for i, s in enumerate(state.ordered_steps) if s.id == step_id
+        )
+        # Pop the last record (the one just added)
+        if state.records and state.records[-1].step_id == step_id:
+            state.records.pop()
+
+        max_retries = cur_step.step_retries or 2
+        attempt = state.attempts.get(step_id, 0)
+
+        if merge_status == "conflict":
+            fail_reasons = ["merge conflict: merge_status='conflict'"]
+        else:
+            fail_reasons = [f"require='{require}' not satisfied: {len(completed)} completed, {len(failed)} failed"]
+
+        if attempt >= max_retries:
+            if cur_step.on_fail:
+                state.step_outputs[step_id] = aggregate
+                from .executor import _find_step_idx, _clear_from
+                target_idx = _find_step_idx(state, cur_step.on_fail)
+                _clear_from(state, target_idx, preserve={step_id})
+                state.current_idx = target_idx
+                try:
+                    next_step = get_current_step_info(state)
+                    next_step = _apply_policy_loop(state, next_step)
+                except MCPExecutionError as exc:
+                    return {"status": "error", **exception_to_mcp_error(exc)}
+                persist_flow(state)
+                return {
+                    **(next_step or {}),
+                    "routed_from": step_id,
+                    "violations": fail_reasons,
+                }
+            delete_persisted_flow(flow_id)
+            return {
+                "status": "error",
+                "error_type": "retries_exhausted",
+                "flow_id": flow_id,
+                "step_id": step_id,
+                "step_mode": "parallel_dispatch",
+                "agent": cur_step.agent,
+                "message": f"Step '{step_id}' exhausted all retries",
+                "violations": fail_reasons,
+            }
+
+        # Retry available
+        try:
+            step_info = get_current_step_info(state)
+        except MCPExecutionError as exc:
+            return {"status": "error", **exception_to_mcp_error(exc)}
+        persist_flow(state)
+        return {
+            **step_info,
+            "status": "ensure_failed",
+            "violations": fail_reasons,
+        }
+
+    # Standard status handling (same pattern as stratum_step_done)
+    if status == "retries_exhausted":
+        delete_persisted_flow(flow_id)
+        _step = state.ordered_steps[state.current_idx]
+        return {
+            "status": "error",
+            "error_type": "retries_exhausted",
+            "flow_id": flow_id,
+            "step_id": step_id,
+            "step_mode": _step_mode(_step),
+            "agent": _step.agent,
+            "message": f"Step '{step_id}' exhausted all retries",
+            "violations": violations,
+        }
+
+    if status == "on_fail_routed":
+        try:
+            next_step = get_current_step_info(state)
+            next_step = _apply_policy_loop(state, next_step)
+        except MCPExecutionError as exc:
+            return {"status": "error", **exception_to_mcp_error(exc)}
+        persist_flow(state)
+        return {
+            **(next_step or {}),
+            "routed_from": step_id,
+            "violations": violations,
+        }
+
+    if status in ("ensure_failed", "schema_failed", "guardrail_blocked"):
+        try:
+            step_info = get_current_step_info(state)
+        except MCPExecutionError as exc:
+            return {"status": "error", **exception_to_mcp_error(exc)}
+        persist_flow(state)
+        return {
+            **step_info,
+            "status": status,
+            "violations": violations,
+        }
+
+    # "ok" — flow advanced
+    state.iteration_outcome.pop(step_id, None)
+    try:
+        next_step = get_current_step_info(state)
+        next_step = _apply_policy_loop(state, next_step)
+    except MCPExecutionError as exc:
+        return {"status": "error", **exception_to_mcp_error(exc)}
+    if next_step is not None and next_step.get("status") == "complete":
+        delete_persisted_flow(flow_id)
+        return next_step
+    if next_step is None:
+        delete_persisted_flow(flow_id)
+        total_ms = int((time.monotonic() - state.flow_start) * 1000)
+        output = next(
+            (state.step_outputs[s.id] for s in reversed(state.ordered_steps)
+             if s.id in state.step_outputs and state.step_outputs[s.id] is not None),
+            None,
+        )
+        return {
+            "status": state.terminal_status or "complete",
+            "flow_id": state.flow_id,
+            "output": output,
+            "trace": [dataclasses.asdict(r) for r in state.records],
+            "total_duration_ms": total_ms,
+        }
+
+    persist_flow(state)
+    return next_step
+
+
+@mcp.tool(description=(
     "Return execution trace for a flow. "
     "Input: flow_id (str) from stratum_plan. "
     "Returns step-by-step trace with attempt counts and durations."

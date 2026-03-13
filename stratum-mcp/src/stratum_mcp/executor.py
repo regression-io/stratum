@@ -94,6 +94,65 @@ def _file_contains(path: str, substring: str) -> bool:
         return False
 
 
+def _no_file_conflicts(tasks: Any) -> bool:
+    """Validate that no two independent tasks share files_owned entries.
+
+    Two tasks are independent if neither depends (directly or transitively)
+    on the other.  Read-only overlap (files_read) is allowed; only write
+    overlap (files_owned) between independent tasks is a conflict.
+
+    ``tasks`` may be a list of dicts or SimpleNamespace objects.
+    """
+    # Normalise to dicts
+    def _as_dict(t: Any) -> dict:
+        if isinstance(t, dict):
+            return t
+        return vars(t)
+
+    task_list = [_as_dict(t) for t in tasks]
+
+    # Build transitive dependency sets (both directions)
+    dep_map: dict[str, set[str]] = {}
+    for t in task_list:
+        tid = t.get("id", "")
+        dep_map[tid] = set(t.get("depends_on", []))
+
+    # Expand transitively
+    def _all_deps(tid: str, visited: set[str] | None = None) -> set[str]:
+        if visited is None:
+            visited = set()
+        if tid in visited:
+            return set()
+        visited.add(tid)
+        direct = dep_map.get(tid, set())
+        result = set(direct)
+        for d in direct:
+            result |= _all_deps(d, visited)
+        return result
+
+    transitive: dict[str, set[str]] = {tid: _all_deps(tid) for tid in dep_map}
+
+    def _has_dependency(a: str, b: str) -> bool:
+        return b in transitive.get(a, set()) or a in transitive.get(b, set())
+
+    # Check pairwise file ownership conflicts
+    for i, t1 in enumerate(task_list):
+        for t2 in task_list[i + 1:]:
+            id1 = t1.get("id", f"task-{i}")
+            id2 = t2.get("id", f"task-{i+1}")
+            if _has_dependency(id1, id2):
+                continue
+            owned1 = set(t1.get("files_owned", []))
+            owned2 = set(t2.get("files_owned", []))
+            overlap = owned1 & owned2
+            if overlap:
+                raise ValueError(
+                    f"File ownership conflict between independent tasks "
+                    f"'{id1}' and '{id2}': {sorted(overlap)}"
+                )
+    return True
+
+
 _ENSURE_BUILTINS: dict[str, Any] = {
     "file_exists": lambda p: os.path.isfile(p),
     "file_contains": _file_contains,
@@ -101,6 +160,7 @@ _ENSURE_BUILTINS: dict[str, Any] = {
     "bool": bool,
     "int": int,
     "str": str,
+    "no_file_conflicts": _no_file_conflicts,
 }
 
 
@@ -311,7 +371,11 @@ def _topological_sort(flow_def: IRFlowDef) -> list[IRStepDef]:
 
 
 def _step_mode(step) -> str:
-    """Return 'function', 'inline', or 'flow'."""
+    """Return 'function', 'inline', 'flow', 'decompose', or 'parallel_dispatch'."""
+    if step.step_type == "decompose":
+        return "decompose"
+    if step.step_type == "parallel_dispatch":
+        return "parallel_dispatch"
     if step.function:
         return "function"
     if step.intent:
@@ -829,6 +893,49 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
             "model": step.step_model,
         }
 
+    elif mode == "decompose":
+        max_retries = step.step_retries or 2
+        contract = state.spec.contracts.get(step.output_contract or "")
+        output_fields = {k: v.get("type", "any") for k, v in contract.fields.items()} if contract else {}
+        return {
+            "status": "execute_step",
+            "flow_id": state.flow_id,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+            "step_id": step.id,
+            "step_mode": "decompose",
+            "intent": step.intent,
+            "agent": step.agent,
+            "inputs": resolved,
+            "output_contract": step.output_contract,
+            "output_fields": output_fields,
+            "ensure": step.step_ensure or [],
+            "retries_remaining": max_retries - attempts_so_far,
+        }
+
+    elif mode == "parallel_dispatch":
+        # Resolve the source reference to get the task graph
+        # source is guaranteed non-None by semantic validation for parallel_dispatch
+        assert step.source is not None, "parallel_dispatch step must have source"
+        source_tasks = resolve_ref(step.source, state.inputs, state.step_outputs)
+        return {
+            "status": "parallel_dispatch",
+            "flow_id": state.flow_id,
+            "step_number": state.current_idx + 1,
+            "total_steps": len(state.ordered_steps),
+            "step_id": step.id,
+            "step_mode": "parallel_dispatch",
+            "tasks": source_tasks,
+            "agent": step.agent,
+            "max_concurrent": step.max_concurrent or 3,
+            "isolation": step.isolation or "worktree",
+            "require": step.require or "all",
+            "merge": step.merge or "sequential_apply",
+            "intent_template": step.intent_template,
+            "ensure": step.step_ensure or [],
+            "retries_remaining": (step.step_retries or 2) - attempts_so_far,
+        }
+
     elif mode == "flow":
         child_state = None
 
@@ -848,7 +955,7 @@ def get_current_step_info(state: FlowState) -> dict[str, Any] | None:
         if child_state is None:
             child_state = create_flow_state(
                 spec=state.spec,
-                flow_name=step.flow_ref,
+                flow_name=step.flow_ref or "",
                 inputs=resolved,
                 raw_spec=state.raw_spec,
             )
@@ -905,9 +1012,9 @@ def process_step_result(
         output_schema = step.output_schema
         fn_name = fn_def.name
         guardrail_patterns = fn_def.guardrails
-    else:  # mode in ("inline", "flow")
+    else:  # mode in ("inline", "flow", "decompose", "parallel_dispatch")
         ensure_exprs = step.step_ensure or []
-        max_retries = step.step_retries or 1
+        max_retries = step.step_retries or (2 if mode in ("decompose", "parallel_dispatch") else 1)
         output_schema = None
         fn_name = ""
         guardrail_patterns = step.step_guardrails or []
