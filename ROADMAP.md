@@ -1,6 +1,6 @@
 # Stratum Roadmap
 
-**Last updated:** 2026-03-07
+**Last updated:** 2026-03-13
 
 ---
 
@@ -58,6 +58,17 @@
 | T2-24 | STRAT-ENG-4: Per-step iteration — `max_iterations`, `exit_criterion`, `start/report/abort_iteration`, `iteration_outcome` handoff, `archived_iterations`; 378 tests | COMPLETE |
 | T2-25 | STRAT-ENG-5: Routing and composition — `on_fail`/`next` step routing, `flow:` sub-execution with child FlowState lifecycle, child audit snapshots, result unwrapping; 414 tests | COMPLETE |
 
+### Parallel Execution (IR v0.3)
+
+Automatic task decomposition and concurrent dispatch. Bumps IR from v0.2 to v0.3 (backward-compatible superset). See `/Users/ruze/reg/my/forge/compose/docs/features/STRAT-PAR/design.md`.
+
+| ID | Feature | Status |
+|---|---|---|
+| T2-PAR-1 | IR v0.3 schema: `decompose` and `parallel_dispatch` step types, `TaskGraph` contract, `no_file_conflicts` built-in ensure | PLANNED |
+| T2-PAR-2 | Ready-set executor: replace `current_idx` with `completed_steps` + `active_steps` sets; compute ready steps from satisfied `depends_on` | PLANNED |
+| T2-PAR-3 | `stratum_parallel_done` MCP tool: batch result reporting for parallel dispatch with per-task status | PLANNED |
+| T2-PAR-4 | Semantic validation: `decompose` requires TaskGraph output, `parallel_dispatch` requires `source` ref, no nested parallelism | PLANNED |
+
 ### Compose Integration
 
 Enable the `compose` skill to use Stratum as its execution backbone. See `docs/plans/2026-02-24-compose-stratum-integration-plan.md`.
@@ -68,6 +79,7 @@ Enable the `compose` skill to use Stratum as its execution backbone. See `docs/p
 | T2-F2 | `ensure` file-aware builtins (→ T2-15) | COMPLETE |
 | T2-F3 | Step output contracts (→ T2-16) | COMPLETE |
 | T2-F4 | Compose skill emits `.stratum.yaml` | COMPLETE |
+| T2-F5 | Fold `agent_run` into `stratum-mcp` — Stratum dispatches to codex/claude directly via Python connectors (`opencode` subprocess + Anthropic SDK), eliminating the separate Node.js agent MCP server. Closes the enforcement gap where the agent can bypass review dispatch. | PLANNED |
 
 ### Skills
 
@@ -303,6 +315,7 @@ Must be resolved before publishing 0.2.0 to PyPI.
 - D-4 (MCP registry), D-5 (HN/r/ClaudeAI post)
 
 **Longer horizon:**
+- T2-PAR (Parallel task decomposition) — IR v0.3, `decompose` + `parallel_dispatch` step types, ready-set executor model. See `compose/docs/features/STRAT-PAR/design.md`.
 - T1-12 (TypeScript) — unlocks Cursor/Windsurf users; significant effort
 - E-0 → E-8 (Evaluation & Benchmarks) — difficulty taxonomy, task battery, comparison harness
 - T1-13/14/15 (DSPy, Temporal, Ray) — Phase 3 per original design
