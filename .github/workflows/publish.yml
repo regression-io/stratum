@@ -8,10 +8,11 @@ on:
       - "pyproject.toml"
 
 jobs:
-  publish:
+  publish-mcp:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -20,23 +21,34 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build
 
       - name: Build stratum-mcp
         run: python -m build
         working-directory: stratum-mcp
 
+      - name: Publish stratum-mcp
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: stratum-mcp/dist/
+
+  publish-py:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
       - name: Build stratum-py
         run: python -m build
 
-      - name: Publish stratum-mcp
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_MCP }}
-        run: twine upload stratum-mcp/dist/* --skip-existing
-
       - name: Publish stratum-py
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_PY }}
-        run: twine upload dist/* --skip-existing
+        uses: pypa/gh-action-pypi-publish@release/v1
